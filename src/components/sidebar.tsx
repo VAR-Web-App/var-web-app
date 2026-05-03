@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  RectangleStackIcon,
+  DocumentArrowUpIcon,
+  ScaleIcon,
   DocumentTextIcon,
+  ClipboardDocumentListIcon,
+  TruckIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 // Mirrors Avanchor's sidebar shape so the app feels familiar to anyone
-// using both. Single tenant for now — auth/account UI comes later.
+// using both. The full quote-to-cash flow is exposed here even though most
+// stages are still placeholders — the sidebar telegraphs the product
+// category (workflow tool) on first glance, not just "doc parser".
 
 interface NavItem {
   href: string;
@@ -18,7 +25,12 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: "/", label: "Documents", icon: DocumentTextIcon },
+  { href: "/pipeline", label: "Pipeline", icon: RectangleStackIcon, comingSoon: true },
+  { href: "/", label: "Documents", icon: DocumentArrowUpIcon },
+  { href: "/compare", label: "Compare", icon: ScaleIcon },
+  { href: "/quotes", label: "Quotes", icon: DocumentTextIcon, comingSoon: true },
+  { href: "/vendor-pos", label: "Vendor POs", icon: ClipboardDocumentListIcon, comingSoon: true },
+  { href: "/tracking", label: "Tracking", icon: TruckIcon, comingSoon: true },
 ];
 
 export default function Sidebar() {
