@@ -1,7 +1,10 @@
 // POST /api/parse — receives a PDF file, runs it through the parser,
-// returns the structured result as JSON.
+// streams progress events + the final result as Server-Sent Events.
 //
-// Single-tenant for now. Auth + per-tenant configuration come later.
+// SSE was chosen over WebSockets because the connection is one-shot
+// (per-parse), the data flow is server→client only, and EventSource-style
+// parsing is trivial to consume from fetch streams. Single-tenant for
+// now; auth + per-tenant configuration come later.
 
 import { NextRequest, NextResponse } from "next/server";
 import { parseDocument } from "@/lib/parsers/parse-document";
@@ -14,6 +17,14 @@ export const maxDuration = 300;
 // PDFs are big; bump the body limit. Default is 1MB which is barely a
 // scanned 5-pager.
 export const runtime = "nodejs";
+
+function sseEvent(event: string, data: unknown): Uint8Array {
+  // Standard SSE wire format: "event: NAME\ndata: JSON\n\n".
+  // Any newlines inside the JSON would break the framing — JSON.stringify
+  // never produces unescaped newlines so we're safe.
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  return new TextEncoder().encode(payload);
+}
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData().catch(() => null);
@@ -32,6 +43,32 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const result = await parseDocument(buffer);
-  return NextResponse.json(result, { status: result.ok ? 200 : 422 });
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        const result = await parseDocument(buffer, (progress) => {
+          controller.enqueue(sseEvent("progress", progress));
+        });
+        controller.enqueue(sseEvent("result", result));
+      } catch (e) {
+        controller.enqueue(
+          sseEvent("error", { message: e instanceof Error ? e.message : String(e) }),
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      // Disable buffering on Vercel/Nginx so events arrive in real-time
+      // rather than getting batched into one big flush at the end.
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

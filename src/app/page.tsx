@@ -43,12 +43,74 @@ interface ParseResult {
   };
 }
 
+interface ProgressEvent {
+  percent: number;
+  stage: string;
+  detail?: string;
+}
+
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/**
+ * Read an SSE stream from a fetch Response and dispatch events. The wire
+ * format is "event: NAME\ndata: JSON\n\n" — splitting on blank-line frames.
+ */
+async function readSseStream(
+  response: Response,
+  handlers: {
+    onProgress?: (p: ProgressEvent) => void;
+    onResult?: (r: ParseResult) => void;
+    onError?: (msg: string) => void;
+  },
+): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response stream");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Frames end at "\n\n". Anything after the last "\n\n" is partial.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      if (!frame.trim()) continue;
+      let eventName = "message";
+      let dataStr = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+        else if (line.startsWith("data: ")) dataStr = line.slice(6);
+      }
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr);
+        if (eventName === "progress") handlers.onProgress?.(data);
+        else if (eventName === "result") handlers.onResult?.(data);
+        else if (eventName === "error") handlers.onError?.(data.message ?? "Unknown error");
+      } catch {
+        // Malformed event — skip rather than fail the whole stream
+      }
+    }
+  }
+}
+
+const STAGE_LABELS: Record<string, string> = {
+  starting: "Initializing",
+  uploading: "Uploading PDF",
+  textract_starting: "Submitting to Textract",
+  textract_polling: "Reading document",
+  parsing_tables: "Detecting tables",
+  metadata: "Extracting metadata",
+  validating: "Cross-checking totals",
+  done: "Done",
+};
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,16 +119,22 @@ export default function Home() {
     setParsing(true);
     setError(null);
     setResult(null);
+    setProgress({ percent: 0, stage: "starting" });
     try {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/parse", { method: "POST", body: formData });
-      const json: ParseResult | { error: string } = await res.json();
-      if ("error" in json) {
-        setError(json.error);
-      } else {
-        setResult(json);
+      if (!res.ok && res.headers.get("Content-Type")?.includes("application/json")) {
+        // Plain JSON error (e.g. validation rejected the file before streaming starts)
+        const j = await res.json();
+        setError(j.error ?? "Parse failed");
+        return;
       }
+      await readSseStream(res, {
+        onProgress: (p) => setProgress(p),
+        onResult: (r) => setResult(r),
+        onError: (msg) => setError(msg),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -111,6 +179,7 @@ export default function Home() {
               {file.name} — {(file.size / 1024).toFixed(1)} KB
             </p>
           )}
+          {parsing && progress && <ProgressBar progress={progress} />}
           {error && (
             <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
               {error}
@@ -135,6 +204,27 @@ export default function Home() {
         )}
       </div>
     </main>
+  );
+}
+
+function ProgressBar({ progress }: { progress: ProgressEvent }) {
+  const label = STAGE_LABELS[progress.stage] ?? progress.stage;
+  return (
+    <div className="mt-4">
+      <div className="mb-1.5 flex items-baseline justify-between text-xs">
+        <span className="font-medium text-zinc-700">{label}</span>
+        <span className="tabular-nums text-zinc-500">{progress.percent}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
+        <div
+          className="h-full bg-blue-600 transition-all duration-300 ease-out"
+          style={{ width: `${progress.percent}%` }}
+        />
+      </div>
+      {progress.detail && (
+        <p className="mt-1.5 text-xs text-zinc-500">{progress.detail}</p>
+      )}
+    </div>
   );
 }
 
