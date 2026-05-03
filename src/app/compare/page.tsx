@@ -149,7 +149,11 @@ export default function ComparePage() {
     }
   }
 
-  const canCompare = !!quoteFile && !!awardFile && stage === "idle";
+  // Stage transitions: idle → parsing_quote → parsing_award → comparing → done.
+  // After "done" the button should be live again (so user can re-run with
+  // new files), not stuck on "Working…".
+  const inFlight = stage !== "idle" && stage !== "done";
+  const canCompare = !!quoteFile && !!awardFile && !inFlight;
 
   return (
     <AppShell>
@@ -192,7 +196,7 @@ export default function ComparePage() {
             disabled={!canCompare}
             className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {stage === "idle" ? "Compare" : "Working…"}
+            {inFlight ? "Working…" : stage === "done" ? "Compare again" : "Compare"}
           </button>
         </div>
 
@@ -415,55 +419,64 @@ function MatchedTable({ rows }: { rows: ReturnType<typeof compareBoms>["matched"
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
-        <h2 className="text-sm font-semibold text-slate-900">Matched lines</h2>
+        <h2 className="text-sm font-semibold text-slate-900">
+          Matched lines ({rows.length})
+        </h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Rows present in both. Differences highlighted in amber.
+          Lines present in both quote and award. Cells with differences highlighted in amber.
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Part #</th>
-              <th className="px-4 py-3 text-left">Description</th>
-              <th className="px-4 py-3 text-right">Qty (Q→A)</th>
-              <th className="px-4 py-3 text-right">Unit (Q→A)</th>
-              <th className="px-4 py-3 text-right">Ext (Q→A)</th>
-              <th className="px-4 py-3 text-left">Issue</th>
+              <th className="px-4 py-3 text-left">Part &amp; Description</th>
+              <th className="px-4 py-3 text-right">Quote</th>
+              <th className="px-4 py-3 text-right">Award</th>
+              <th className="px-4 py-3 text-left">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((row, i) => {
               const isMatch = row.diff === "match";
-              const cellClass = (changed: boolean) =>
-                `px-4 py-3 text-right tabular-nums ${
-                  changed ? "bg-amber-50 font-medium text-amber-900" : "text-slate-700"
-                }`;
               const qtyChanged = row.quote.qty !== row.award.qty;
               const priceChanged =
                 Math.abs(row.quote.unit_price - row.award.unit_price) > 0.005;
-              const extChanged =
-                Math.abs(row.quote.extended_price - row.award.extended_price) > 0.02;
+              const extDelta = row.award.extended_price - row.quote.extended_price;
+              const extDeltaSig = Math.abs(extDelta) > 0.01;
+
               return (
                 <tr key={i} className={isMatch ? "" : "bg-amber-50/30"}>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-700">
-                    {row.part_number}
+                  <td className="px-4 py-3 align-top">
+                    <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
+                    <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{row.award.description}</td>
-                  <td className={cellClass(qtyChanged)}>
-                    {row.quote.qty}
-                    {qtyChanged && <> → {row.award.qty}</>}
+                  <td className="px-4 py-3 text-right align-top tabular-nums">
+                    <SideCell
+                      qty={row.quote.qty}
+                      unit={row.quote.unit_price}
+                      ext={row.quote.extended_price}
+                      qtyHighlight={qtyChanged}
+                      unitHighlight={priceChanged}
+                    />
                   </td>
-                  <td className={cellClass(priceChanged)}>
-                    {fmtMoney(row.quote.unit_price)}
-                    {priceChanged && <> → {fmtMoney(row.award.unit_price)}</>}
+                  <td className="px-4 py-3 text-right align-top tabular-nums">
+                    <SideCell
+                      qty={row.award.qty}
+                      unit={row.award.unit_price}
+                      ext={row.award.extended_price}
+                      qtyHighlight={qtyChanged}
+                      unitHighlight={priceChanged}
+                    />
                   </td>
-                  <td className={cellClass(extChanged)}>
-                    {fmtMoney(row.quote.extended_price)}
-                    {extChanged && <> → {fmtMoney(row.award.extended_price)}</>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
-                    {isMatch ? <span className="text-emerald-700">✓ match</span> : row.issues.join("; ")}
+                  <td className="px-4 py-3 align-top">
+                    <StatusCell
+                      isMatch={isMatch}
+                      qtyChanged={qtyChanged}
+                      priceChanged={priceChanged}
+                      extDelta={extDelta}
+                      extDeltaSig={extDeltaSig}
+                    />
                   </td>
                 </tr>
               );
@@ -472,6 +485,71 @@ function MatchedTable({ rows }: { rows: ReturnType<typeof compareBoms>["matched"
         </table>
       </div>
     </section>
+  );
+}
+
+function SideCell({
+  qty,
+  unit,
+  ext,
+  qtyHighlight,
+  unitHighlight,
+}: {
+  qty: number;
+  unit: number;
+  ext: number;
+  qtyHighlight: boolean;
+  unitHighlight: boolean;
+}) {
+  const baseQty = "text-slate-900";
+  const baseUnit = "text-slate-700";
+  const hi = "rounded bg-amber-100 px-1.5 font-semibold text-amber-900";
+  return (
+    <div className="space-y-0.5">
+      <div>
+        <span className={qtyHighlight ? hi : baseQty}>{qty}</span>
+        <span className="text-slate-400"> × </span>
+        <span className={unitHighlight ? hi : baseUnit}>{fmtMoney(unit)}</span>
+      </div>
+      <div className="text-xs text-slate-500">= {fmtMoney(ext)}</div>
+    </div>
+  );
+}
+
+function StatusCell({
+  isMatch,
+  qtyChanged,
+  priceChanged,
+  extDelta,
+  extDeltaSig,
+}: {
+  isMatch: boolean;
+  qtyChanged: boolean;
+  priceChanged: boolean;
+  extDelta: number;
+  extDeltaSig: boolean;
+}) {
+  if (isMatch) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+        ✓ Match
+      </span>
+    );
+  }
+  const labels: string[] = [];
+  if (qtyChanged) labels.push("Qty Δ");
+  if (priceChanged) labels.push("Price Δ");
+  const deltaColor = extDelta > 0 ? "text-emerald-700" : "text-red-700";
+  return (
+    <div className="space-y-0.5 text-xs">
+      <div className="font-medium text-amber-900">{labels.join(" + ")}</div>
+      {extDeltaSig && (
+        <div className={`tabular-nums ${deltaColor}`}>
+          {extDelta > 0 ? "+" : "−"}
+          {fmtMoney(Math.abs(extDelta))} on this line
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,11 +1,11 @@
-// Generates a synthetic "original quote" PDF that pairs with synthetic-award.pdf
-// to demo the BOM-vs-Quote comparison. Designed to surface every comparison
-// state in a single demo:
-//   - Item 1: PRICE mismatch (quote $5300, award $5234.50)
-//   - Item 2: perfect match
-//   - Item 3: QTY mismatch (quote 10, award 12)
-//   - Item 4: only in quote (customer dropped it from the award)
-//   - (Award also has Smartcare 3yr, which isn't in this quote → added in award)
+// Generates synthetic-quote.pdf — a federal IT VAR's customer-facing quote.
+// Pairs with synthetic-award.pdf to demo the BOM-vs-Quote comparison; the
+// two are designed together so the comparison surfaces every state:
+//   - 4 lines that match perfectly
+//   - 1 line with a small price drift (negotiated down by the customer)
+//   - 1 line with a qty change (customer scoped up)
+//   - 2 lines only in this quote (customer cut from final award)
+//   - (Award has 2 lines not in this quote: install labor + service contract)
 //
 // Run: node scripts/generate-synthetic-quote.mjs
 
@@ -26,7 +26,6 @@ const pageWidth = 612;
 const pageHeight = 792;
 const black = rgb(0, 0, 0);
 
-const cover = doc.addPage([pageWidth, pageHeight]);
 const draw = (page, text, x, y, opts = {}) => {
   page.drawText(text, {
     x, y,
@@ -39,6 +38,20 @@ const line = (page, x1, y1, x2, y2) => {
   page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.5, color: black });
 };
 
+const lines = [
+  { item: "1", part: "FAKE-SW-9300",   desc: "Catalyst Sample Switch 24-port",      qty: 4,  unit: 5300.00, ext: 21200.00 }, // price will drift in award
+  { item: "2", part: "FAKE-SFP-10G",   desc: "10G SFP+ Optical Transceiver",         qty: 16, unit: 287.25,  ext: 4596.00  }, // perfect match
+  { item: "3", part: "FAKE-AP-9120",   desc: "Wi-Fi 6 Access Point Indoor",          qty: 10, unit: 1245.00, ext: 12450.00 }, // qty will rise in award (10 → 12)
+  { item: "4", part: "FAKE-CABLE-3M",  desc: "3m Patch Cable Cat6A Blue",            qty: 50, unit: 24.99,   ext: 1249.50  }, // perfect match
+  { item: "5", part: "FAKE-PWR-AC",    desc: "AC Power Supply 1100W",                qty: 4,  unit: 895.00,  ext: 3580.00  }, // perfect match
+  { item: "6", part: "FAKE-LIC-DNA",   desc: "DNA Subscription License (1yr)",       qty: 4,  unit: 2150.00, ext: 8600.00  }, // small price drift in award (2150 → 2100)
+  { item: "7", part: "FAKE-RACK-RU2",  desc: "2U Rackmount Kit (rail + cable mgmt)", qty: 2,  unit: 850.00,  ext: 1700.00  }, // ONLY IN QUOTE
+  { item: "8", part: "FAKE-PSU-RDND",  desc: "Redundant PSU Bracket Assembly",       qty: 4,  unit: 320.00,  ext: 1280.00  }, // ONLY IN QUOTE
+];
+const total = lines.reduce((s, l) => s + l.ext, 0);
+
+// Cover page
+const cover = doc.addPage([pageWidth, pageHeight]);
 draw(cover, "QUOTE", 270, 740, { size: 18, bold: true });
 draw(cover, "Acme Federal Solutions", 220, 720, { size: 11 });
 
@@ -51,7 +64,7 @@ draw(cover, "DSA-26-Q-0019", 200, 640);
 draw(cover, "Valid Through", 50, 620, { bold: true });
 draw(cover, "2026-05-12", 200, 620);
 draw(cover, "Quote Total", 50, 600, { bold: true });
-draw(cover, "$39,946.00", 200, 600);
+draw(cover, `$${total.toFixed(2)}`, 200, 600);
 
 draw(cover, "Customer:", 50, 560, { bold: true });
 draw(cover, "Department of Sample Administration", 50, 545);
@@ -66,12 +79,12 @@ const page2 = doc.addPage([pageWidth, pageHeight]);
 draw(page2, "QUOTE LINE ITEMS", 50, 750, { size: 12, bold: true });
 
 const cols = [
-  { x: 50,  w: 35,  header: "Item" },
-  { x: 85,  w: 80,  header: "Part #" },
-  { x: 165, w: 200, header: "Description" },
-  { x: 365, w: 35,  header: "Qty" },
-  { x: 400, w: 75,  header: "Unit Price" },
-  { x: 475, w: 80,  header: "Extended Price" },
+  { x: 50,  header: "Item" },
+  { x: 85,  header: "Part #" },
+  { x: 165, header: "Description" },
+  { x: 365, header: "Qty" },
+  { x: 400, header: "Unit Price" },
+  { x: 475, header: "Extended Price" },
 ];
 const rowHeight = 28;
 let y = 720;
@@ -81,18 +94,6 @@ for (const c of cols) {
 }
 line(page2, 50, y - rowHeight + 2, 555, y - rowHeight + 2);
 y -= rowHeight;
-
-// Lines designed to surface each comparison state:
-//   1: PRICE mismatch with award
-//   2: perfect match
-//   3: QTY mismatch with award (quote=10, award=12)
-//   4: only in this quote (customer cut from award)
-const lines = [
-  { item: "1", part: "FAKE-SW-9300",  desc: "Catalyst Sample Switch 24-port",      qty: 4,  unit: 5300.00, ext: 21200.00 },
-  { item: "2", part: "FAKE-SFP-10G",  desc: "10G SFP+ Optical Transceiver",         qty: 16, unit: 287.25,  ext: 4596.00  },
-  { item: "3", part: "FAKE-AP-9120",  desc: "Wi-Fi 6 Access Point Indoor",          qty: 10, unit: 1245.00, ext: 12450.00 },
-  { item: "4", part: "FAKE-RACK-RU2", desc: "2U Rackmount Kit (rail + cable mgmt)", qty: 2,  unit: 850.00,  ext: 1700.00  },
-];
 
 for (const l of lines) {
   draw(page2, l.item, cols[0].x + 2, y - 12, { size: 9 });
@@ -105,7 +106,6 @@ for (const l of lines) {
   y -= rowHeight;
 }
 
-const total = lines.reduce((s, l) => s + l.ext, 0);
 draw(page2, "TOTAL", cols[4].x + 2, y - 12, { bold: true, size: 10 });
 draw(page2, total.toFixed(2), cols[5].x + 2, y - 12, { bold: true, size: 10 });
 
