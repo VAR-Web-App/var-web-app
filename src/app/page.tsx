@@ -116,15 +116,15 @@ export default function Home() {
   const [result, setResult] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function onParse() {
-    if (!file) return;
+  async function parseFile(target: File) {
+    setFile(target);
     setParsing(true);
     setError(null);
     setResult(null);
     setProgress({ percent: 0, stage: "starting" });
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", target);
       const res = await fetch("/api/parse", { method: "POST", body: formData });
       if (!res.ok && res.headers.get("Content-Type")?.includes("application/json")) {
         // Plain JSON error (e.g. validation rejected the file before streaming starts)
@@ -144,50 +144,42 @@ export default function Home() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-zinc-50 p-8">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-            VAR Web App
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Federal IT VAR document parser — drop a PDF, get a structured BOM and metadata.
-          </p>
-        </header>
+  async function onParse() {
+    if (!file) return;
+    await parseFile(file);
+  }
 
-        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <label className="block text-sm font-medium text-zinc-700">PDF document</label>
-          <div className="mt-3 flex items-center gap-3">
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-zinc-700
-                file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2
-                file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
-            />
-            <button
-              onClick={onParse}
-              disabled={!file || parsing}
-              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white
-                hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
-            >
-              {parsing ? "Parsing..." : "Parse"}
-            </button>
-          </div>
-          {file && (
-            <p className="mt-2 text-xs text-zinc-500">
-              {file.name} — {(file.size / 1024).toFixed(1)} KB
-            </p>
-          )}
-          {parsing && progress && <ProgressBar progress={progress} />}
-          {error && (
-            <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-        </section>
+  async function onTrySample() {
+    setError(null);
+    try {
+      const res = await fetch("/samples/synthetic-award.pdf");
+      if (!res.ok) throw new Error(`Could not load sample (HTTP ${res.status})`);
+      const blob = await res.blob();
+      const sample = new File([blob], "synthetic-award.pdf", { type: "application/pdf" });
+      await parseFile(sample);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="mx-auto max-w-5xl px-6 py-12">
+        <Header />
+
+        <Hero />
+
+        <UploadCard
+          file={file}
+          parsing={parsing}
+          progress={progress}
+          error={error}
+          onSelectFile={(f) => setFile(f)}
+          onParse={onParse}
+          onTrySample={onTrySample}
+        />
+
+        {!result && !parsing && <HowItWorks />}
 
         {result && (
           <>
@@ -204,8 +196,175 @@ export default function Home() {
             <BomTable bom={result.bom} />
           </>
         )}
+
+        <Footer />
       </div>
     </main>
+  );
+}
+
+function Header() {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+          V
+        </div>
+        <span className="text-base font-semibold tracking-tight text-zinc-900">VAR Web App</span>
+      </div>
+      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+        Early access
+      </span>
+    </div>
+  );
+}
+
+function Hero() {
+  return (
+    <div className="mt-12 text-center sm:mt-16">
+      <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
+        From PDF to structured BOM —{" "}
+        <span className="text-blue-600">in under a minute</span>
+      </h1>
+      <p className="mx-auto mt-5 max-w-2xl text-lg leading-7 text-zinc-600">
+        Built for small federal IT VARs. Drop in a distributor quote, an award PDF, or a vendor PO —
+        get back line items, contract numbers, ship-to, period of performance, and total
+        cross-checks. No re-keying.
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-zinc-500">
+        <Pill>Section B awards</Pill>
+        <Pill>ScanSource quotes</Pill>
+        <Pill>Vendor POs</Pill>
+        <Pill>Cisco CCW data</Pill>
+        <Pill>Tracking sheets</Pill>
+      </div>
+    </div>
+  );
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
+function UploadCard({
+  file,
+  parsing,
+  progress,
+  error,
+  onSelectFile,
+  onParse,
+  onTrySample,
+}: {
+  file: File | null;
+  parsing: boolean;
+  progress: ProgressEvent | null;
+  error: string | null;
+  onSelectFile: (f: File | null) => void;
+  onParse: () => void;
+  onTrySample: () => void;
+}) {
+  return (
+    <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <label className="block text-sm font-semibold text-zinc-900">Upload a PDF</label>
+        <button
+          onClick={onTrySample}
+          disabled={parsing}
+          className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50"
+        >
+          Or try with our sample doc →
+        </button>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
+          className="block w-full flex-1 text-sm text-zinc-700
+            file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2
+            file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
+        />
+        <button
+          onClick={onParse}
+          disabled={!file || parsing}
+          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm
+            transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
+        >
+          {parsing ? "Parsing…" : "Parse"}
+        </button>
+      </div>
+      {file && (
+        <p className="mt-2 text-xs text-zinc-500">
+          {file.name} — {(file.size / 1024).toFixed(1)} KB
+        </p>
+      )}
+      {parsing && progress && <ProgressBar progress={progress} />}
+      {error && (
+        <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      )}
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const steps: Array<{ n: string; title: string; body: string }> = [
+    {
+      n: "1",
+      title: "Drop a PDF",
+      body: "Distributor quote, award document, vendor PO, or shipment notice. Up to 25 MB.",
+    },
+    {
+      n: "2",
+      title: "We parse + cross-check",
+      body: "Tables, totals, ship-to, contract numbers, dates. Anything that doesn't add up gets flagged.",
+    },
+    {
+      n: "3",
+      title: "Review + export",
+      body: "Edit any field that the parser missed. Export to CSV, Excel, or your ERP — coming soon.",
+    },
+  ];
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">How it works</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        {steps.map((s) => (
+          <div
+            key={s.n}
+            className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+              {s.n}
+            </div>
+            <h3 className="mt-3 text-sm font-semibold text-zinc-900">{s.title}</h3>
+            <p className="mt-1 text-sm leading-6 text-zinc-600">{s.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="mt-16 border-t border-zinc-200 pt-8 text-center text-xs text-zinc-500">
+      <p>
+        VAR Web App — early access. Document parsing for small federal IT VARs.
+      </p>
+      <p className="mt-1">
+        Have feedback or want to try it on your real docs?{" "}
+        <a
+          href="mailto:collinjmaddox@gmail.com"
+          className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          collinjmaddox@gmail.com
+        </a>
+      </p>
+    </footer>
   );
 }
 
