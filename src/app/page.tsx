@@ -1,6 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import {
+  ArrowUpTrayIcon,
+  DocumentTextIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
+import AppShell from "@/components/app-shell";
 
 interface BomLine {
   item_number: string;
@@ -21,6 +29,9 @@ interface DocumentMetadata {
   ship_to_email?: string;
   agency?: string;
   contracting_officer_name?: string;
+  contracting_officer_email?: string;
+  period_of_performance_start?: string;
+  period_of_performance_end?: string;
 }
 
 interface ParseError { message: string; field?: string; row_index?: number }
@@ -34,10 +45,7 @@ interface ParseResult {
   metadata: DocumentMetadata;
   warnings: ParseWarning[];
   errors: ParseError[];
-  totals: {
-    parsed_extended_total: number;
-    metadata_total?: number;
-  };
+  totals: { parsed_extended_total: number; metadata_total?: number };
   meta: {
     page_count: number;
     bom_line_count: number;
@@ -54,10 +62,17 @@ interface ProgressEvent {
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/**
- * Read an SSE stream from a fetch Response and dispatch events. The wire
- * format is "event: NAME\ndata: JSON\n\n" — splitting on blank-line frames.
- */
+const STAGE_LABELS: Record<string, string> = {
+  starting: "Initializing",
+  uploading: "Uploading PDF",
+  textract_starting: "Submitting to Textract",
+  textract_polling: "Reading document",
+  parsing_tables: "Detecting tables",
+  metadata: "Extracting metadata",
+  validating: "Cross-checking totals",
+  done: "Done",
+};
+
 async function readSseStream(
   response: Response,
   handlers: {
@@ -74,7 +89,6 @@ async function readSseStream(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    // Frames end at "\n\n". Anything after the last "\n\n" is partial.
     const frames = buffer.split("\n\n");
     buffer = frames.pop() ?? "";
     for (const frame of frames) {
@@ -92,22 +106,11 @@ async function readSseStream(
         else if (eventName === "result") handlers.onResult?.(data);
         else if (eventName === "error") handlers.onError?.(data.message ?? "Unknown error");
       } catch {
-        // Malformed event — skip rather than fail the whole stream
+        // skip malformed
       }
     }
   }
 }
-
-const STAGE_LABELS: Record<string, string> = {
-  starting: "Initializing",
-  uploading: "Uploading PDF",
-  textract_starting: "Submitting to Textract",
-  textract_polling: "Reading document",
-  parsing_tables: "Detecting tables",
-  metadata: "Extracting metadata",
-  validating: "Cross-checking totals",
-  done: "Done",
-};
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -127,7 +130,6 @@ export default function Home() {
       formData.append("file", target);
       const res = await fetch("/api/parse", { method: "POST", body: formData });
       if (!res.ok && res.headers.get("Content-Type")?.includes("application/json")) {
-        // Plain JSON error (e.g. validation rejected the file before streaming starts)
         const j = await res.json();
         setError(j.error ?? "Parse failed");
         return;
@@ -144,11 +146,6 @@ export default function Home() {
     }
   }
 
-  async function onParse() {
-    if (!file) return;
-    await parseFile(file);
-  }
-
   async function onTrySample() {
     setError(null);
     try {
@@ -163,90 +160,52 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <Header />
-
-        <Hero />
+    <AppShell>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <PageHeader />
 
         <UploadCard
           file={file}
           parsing={parsing}
           progress={progress}
           error={error}
-          onSelectFile={(f) => setFile(f)}
-          onParse={onParse}
+          onSelectFile={(f) => {
+            setFile(f);
+            setError(null);
+          }}
+          onParse={async () => file && parseFile(file)}
           onTrySample={onTrySample}
         />
-
-        {!result && !parsing && <HowItWorks />}
 
         {result && (
           <>
             <ResultBanner result={result} />
-
             {result.errors.length > 0 && (
               <Issues title="Errors" tone="error" items={result.errors} />
             )}
             {result.warnings.length > 0 && (
               <Issues title="Warnings" tone="warning" items={result.warnings} />
             )}
-
             <Metadata metadata={result.metadata} />
             <BomTable bom={result.bom} />
           </>
         )}
-
-        <Footer />
       </div>
-    </main>
+    </AppShell>
   );
 }
 
-function Header() {
+function PageHeader() {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-          V
-        </div>
-        <span className="text-base font-semibold tracking-tight text-zinc-900">VAR Web App</span>
-      </div>
-      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-        Early access
-      </span>
-    </div>
-  );
-}
-
-function Hero() {
-  return (
-    <div className="mt-12 text-center sm:mt-16">
-      <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
-        From PDF to structured BOM —{" "}
-        <span className="text-blue-600">in under a minute</span>
-      </h1>
-      <p className="mx-auto mt-5 max-w-2xl text-lg leading-7 text-zinc-600">
-        Built for small federal IT VARs. Drop in a distributor quote, an award PDF, or a vendor PO —
-        get back line items, contract numbers, ship-to, period of performance, and total
-        cross-checks. No re-keying.
-      </p>
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-zinc-500">
-        <Pill>Section B awards</Pill>
-        <Pill>ScanSource quotes</Pill>
-        <Pill>Vendor POs</Pill>
-        <Pill>Cisco CCW data</Pill>
-        <Pill>Tracking sheets</Pill>
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Documents</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Upload a PDF — distributor quote, award, vendor PO — get back a structured BOM and
+          metadata.
+        </p>
       </div>
     </div>
-  );
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 shadow-sm">
-      {children}
-    </span>
   );
 }
 
@@ -267,123 +226,121 @@ function UploadCard({
   onParse: () => void;
   onTrySample: () => void;
 }) {
+  const [dragActive, setDragActive] = useState(false);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragActive(false);
+      const f = e.dataTransfer.files?.[0];
+      if (!f) return;
+      if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
+        return;
+      }
+      onSelectFile(f);
+    },
+    [onSelectFile],
+  );
+
   return (
-    <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <label className="block text-sm font-semibold text-zinc-900">Upload a PDF</label>
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <h2 className="text-sm font-semibold text-slate-900">Upload</h2>
         <button
           onClick={onTrySample}
           disabled={parsing}
           className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50"
         >
-          Or try with our sample doc →
+          Try with a sample doc →
         </button>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
-          className="block w-full flex-1 text-sm text-zinc-700
-            file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2
-            file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
-        />
-        <button
-          onClick={onParse}
-          disabled={!file || parsing}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm
-            transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
-        >
-          {parsing ? "Parsing…" : "Parse"}
-        </button>
-      </div>
-      {file && (
-        <p className="mt-2 text-xs text-zinc-500">
-          {file.name} — {(file.size / 1024).toFixed(1)} KB
-        </p>
-      )}
-      {parsing && progress && <ProgressBar progress={progress} />}
-      {error && (
-        <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      )}
-    </section>
-  );
-}
 
-function HowItWorks() {
-  const steps: Array<{ n: string; title: string; body: string }> = [
-    {
-      n: "1",
-      title: "Drop a PDF",
-      body: "Distributor quote, award document, vendor PO, or shipment notice. Up to 25 MB.",
-    },
-    {
-      n: "2",
-      title: "We parse + cross-check",
-      body: "Tables, totals, ship-to, contract numbers, dates. Anything that doesn't add up gets flagged.",
-    },
-    {
-      n: "3",
-      title: "Review + export",
-      body: "Edit any field that the parser missed. Export to CSV, Excel, or your ERP — coming soon.",
-    },
-  ];
-  return (
-    <section className="mt-10">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">How it works</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        {steps.map((s) => (
-          <div
-            key={s.n}
-            className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-              {s.n}
+      <div className="p-6">
+        <div
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={onDrop}
+          className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 transition-colors ${
+            dragActive
+              ? "border-blue-500 bg-blue-50"
+              : "border-slate-300 bg-slate-50 hover:border-slate-400"
+          }`}
+        >
+          <ArrowUpTrayIcon className="mb-3 h-10 w-10 text-slate-400" />
+          <p className="text-sm font-medium text-slate-900">
+            {dragActive ? "Drop the PDF here" : "Drag a PDF here, or click to choose"}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">PDF up to 25 MB</p>
+
+          <label className="mt-4 cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            Choose file
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {file && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <DocumentTextIcon className="h-5 w-5 flex-shrink-0 text-slate-400" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-900">{file.name}</p>
+                <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+              </div>
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-zinc-900">{s.title}</h3>
-            <p className="mt-1 text-sm leading-6 text-zinc-600">{s.body}</p>
+            <button
+              onClick={onParse}
+              disabled={parsing}
+              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {parsing ? "Parsing…" : "Parse"}
+            </button>
           </div>
-        ))}
+        )}
+
+        {parsing && progress && <ProgressBar progress={progress} />}
+
+        {error && (
+          <div className="mt-4 flex items-start gap-3 rounded-md bg-red-50 p-4">
+            <XCircleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-red-900">Couldn&apos;t parse this document</p>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="mt-16 border-t border-zinc-200 pt-8 text-center text-xs text-zinc-500">
-      <p>
-        VAR Web App — early access. Document parsing for small federal IT VARs.
-      </p>
-      <p className="mt-1">
-        Have feedback or want to try it on your real docs?{" "}
-        <a
-          href="mailto:collinjmaddox@gmail.com"
-          className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
-        >
-          collinjmaddox@gmail.com
-        </a>
-      </p>
-    </footer>
   );
 }
 
 function ProgressBar({ progress }: { progress: ProgressEvent }) {
   const label = STAGE_LABELS[progress.stage] ?? progress.stage;
   return (
-    <div className="mt-4">
+    <div className="mt-5">
       <div className="mb-1.5 flex items-baseline justify-between text-xs">
-        <span className="font-medium text-zinc-700">{label}</span>
-        <span className="tabular-nums text-zinc-500">{progress.percent}%</span>
+        <span className="font-medium text-slate-700">{label}</span>
+        <span className="tabular-nums text-slate-500">{progress.percent}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full bg-blue-600 transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out"
           style={{ width: `${progress.percent}%` }}
         />
       </div>
       {progress.detail && (
-        <p className="mt-1.5 text-xs text-zinc-500">{progress.detail}</p>
+        <p className="mt-1.5 text-xs text-slate-500">{progress.detail}</p>
       )}
     </div>
   );
@@ -396,33 +353,41 @@ function ResultBanner({ result }: { result: ParseResult }) {
 
   return (
     <section
-      className={`mt-6 rounded-xl border p-6 ${
-        result.ok ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"
+      className={`rounded-xl border p-6 ${
+        result.ok ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">
-            {result.ok ? "Parsed successfully" : "Parsed with issues"}
-          </h2>
-          <p className="text-sm text-zinc-600">
-            {result.template_name && (
-              <>
-                <span className="font-medium text-zinc-700">{result.template_name}</span>
-                {" · "}
-              </>
-            )}
-            {result.meta.page_count} page{result.meta.page_count === 1 ? "" : "s"} ·{" "}
-            {result.meta.bom_line_count} line item{result.meta.bom_line_count === 1 ? "" : "s"}
-          </p>
+        <div className="flex items-center gap-3">
+          {result.ok ? (
+            <CheckCircleIcon className="h-7 w-7 flex-shrink-0 text-emerald-600" />
+          ) : (
+            <ExclamationTriangleIcon className="h-7 w-7 flex-shrink-0 text-amber-600" />
+          )}
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              {result.ok ? "Parsed successfully" : "Parsed with issues"}
+            </h2>
+            <p className="text-sm text-slate-600">
+              {result.template_name && (
+                <>
+                  <span className="font-medium text-slate-700">{result.template_name}</span>
+                  {" · "}
+                </>
+              )}
+              {result.meta.page_count} page{result.meta.page_count === 1 ? "" : "s"} ·{" "}
+              {result.meta.bom_line_count} line
+              {result.meta.bom_line_count === 1 ? "" : "s"}
+            </p>
+          </div>
         </div>
         <div className="text-right">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">Line total</div>
-          <div className="text-xl font-semibold tabular-nums text-zinc-900">
+          <div className="text-xs uppercase tracking-wide text-slate-500">Line total</div>
+          <div className="text-xl font-semibold tabular-nums text-slate-900">
             {fmtMoney(result.totals.parsed_extended_total)}
           </div>
           {result.totals.metadata_total != null && (
-            <div className={`text-xs ${matches ? "text-green-700" : "text-red-700"}`}>
+            <div className={`text-xs ${matches ? "text-emerald-700" : "text-red-700"}`}>
               doc says {fmtMoney(result.totals.metadata_total)}
             </div>
           )}
@@ -445,16 +410,22 @@ function Issues({
     tone === "error"
       ? "border-red-200 bg-red-50 text-red-900"
       : "border-amber-200 bg-amber-50 text-amber-900";
+  const Icon = tone === "error" ? XCircleIcon : ExclamationTriangleIcon;
   return (
-    <section className={`mt-4 rounded-xl border p-4 ${palette}`}>
-      <h3 className="text-sm font-semibold">
-        {title} ({items.length})
-      </h3>
-      <ul className="mt-2 space-y-1 text-sm">
-        {items.map((it, i) => (
-          <li key={i}>• {it.message}</li>
-        ))}
-      </ul>
+    <section className={`rounded-xl border p-4 ${palette}`}>
+      <div className="flex items-start gap-3">
+        <Icon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold">
+            {title} ({items.length})
+          </h3>
+          <ul className="mt-2 space-y-1 text-sm">
+            {items.map((it, i) => (
+              <li key={i}>• {it.message}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
   );
 }
@@ -468,18 +439,27 @@ function Metadata({ metadata }: { metadata: DocumentMetadata }) {
     ["Ship-to", metadata.ship_to_address],
     ["Ship-to Contact", metadata.ship_to_contact],
     ["Ship-to Email", metadata.ship_to_email],
+    [
+      "Period of Performance",
+      metadata.period_of_performance_start && metadata.period_of_performance_end
+        ? `${metadata.period_of_performance_start} → ${metadata.period_of_performance_end}`
+        : undefined,
+    ],
     ["Contracting Officer", metadata.contracting_officer_name],
+    ["CO Email", metadata.contracting_officer_email],
   ];
   const present = rows.filter(([, v]) => v != null && v !== "");
   if (present.length === 0) return null;
   return (
-    <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-3 text-lg font-semibold text-zinc-900">Metadata</h2>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-6 py-4">
+        <h2 className="text-sm font-semibold text-slate-900">Metadata</h2>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 p-6 sm:grid-cols-2">
         {present.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-xs uppercase tracking-wide text-zinc-500">{label}</dt>
-            <dd className="text-sm whitespace-pre-line text-zinc-900">{value}</dd>
+            <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
+            <dd className="mt-0.5 whitespace-pre-line text-sm text-slate-900">{value}</dd>
           </div>
         ))}
       </dl>
@@ -490,13 +470,13 @@ function Metadata({ metadata }: { metadata: DocumentMetadata }) {
 function BomTable({ bom }: { bom: BomLine[] }) {
   if (bom.length === 0) return null;
   return (
-    <section className="mt-6 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
-      <h2 className="border-b border-zinc-200 px-6 py-4 text-lg font-semibold text-zinc-900">
-        Bill of Materials
-      </h2>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-6 py-4">
+        <h2 className="text-sm font-semibold text-slate-900">Bill of Materials</h2>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 text-left">Item</th>
               <th className="px-4 py-3 text-left">Part #</th>
@@ -506,15 +486,19 @@ function BomTable({ bom }: { bom: BomLine[] }) {
               <th className="px-4 py-3 text-right">Extended</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-slate-100">
             {bom.map((line, i) => (
-              <tr key={i}>
-                <td className="px-4 py-3">{line.item_number}</td>
-                <td className="px-4 py-3 font-mono text-xs">{line.part_number}</td>
-                <td className="px-4 py-3">{line.description}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{line.qty}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(line.unit_price)}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(line.extended_price)}</td>
+              <tr key={i} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-slate-900">{line.item_number}</td>
+                <td className="px-4 py-3 font-mono text-xs text-slate-700">{line.part_number}</td>
+                <td className="px-4 py-3 text-slate-700">{line.description}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-slate-900">{line.qty}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                  {fmtMoney(line.unit_price)}
+                </td>
+                <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-900">
+                  {fmtMoney(line.extended_price)}
+                </td>
               </tr>
             ))}
           </tbody>

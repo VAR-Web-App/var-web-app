@@ -1,26 +1,25 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+body {
+  background-color: #f8fafc; /* slate-50, matches Avanchor */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Indeterminate slide for textract-polling progress fills, copied from
+   Avanchor's globals so visual identity stays consistent. */
+@keyframes parser-loading-slide {
+  0% {
+    left: -40%;
+    width: 30%;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    left: 100%;
+    width: 30%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.parser-loading-bar {
+  animation: parser-loading-slide 1.6s ease-in-out infinite;
 }
