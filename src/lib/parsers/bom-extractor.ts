@@ -14,6 +14,7 @@ import {
   type ParseError,
   type ParseWarning,
 } from "./validation";
+import type { BomConfig, BomFieldName } from "./templates/types";
 
 export interface BomLine {
   item_number: string;
@@ -27,51 +28,24 @@ export interface BomLine {
   extra_fields: Record<string, string>;
 }
 
-/** Logical fields the extractor recognizes by header keyword. */
-type FieldName =
-  | "item_number"
-  | "description"
-  | "part_number"
-  | "qty"
-  | "unit_price"
-  | "extended_price"
-  | "list_price"
-  | "discount"
-  | "ignore";
+interface CompiledRule {
+  pattern: RegExp;
+  field: BomFieldName;
+}
 
-/** Default header keyword → field mapping. Tunable per format. */
-const DEFAULT_HEADER_RULES: Array<{ pattern: RegExp; field: FieldName }> = [
-  { pattern: /^item\b|item ?#|line ?#|line ?item/i, field: "item_number" },
-  { pattern: /^description\b|^desc\b/i, field: "description" },
-  { pattern: /^part\b|part ?#|product ?(code|id|number)|sku|pid/i, field: "part_number" },
-  { pattern: /^qty\b|quantity/i, field: "qty" },
-  { pattern: /list ?price|msrp/i, field: "list_price" },
-  { pattern: /discount/i, field: "discount" },
-  { pattern: /unit ?price|net ?price|price ?ea|each/i, field: "unit_price" },
-  { pattern: /extended ?(price|amount|total)|ext\.?\s*price|line ?total/i, field: "extended_price" },
-];
+function compileRules(config: BomConfig): CompiledRule[] {
+  return config.columnRules.map((r) => ({
+    pattern: new RegExp(r.pattern, "i"),
+    field: r.field,
+  }));
+}
 
-function classifyHeader(
-  text: string,
-  rules = DEFAULT_HEADER_RULES,
-): FieldName {
+function classifyHeader(text: string, rules: CompiledRule[]): BomFieldName {
   const t = text.trim();
   for (const { pattern, field } of rules) {
     if (pattern.test(t)) return field;
   }
   return "ignore";
-}
-
-/** Default keywords for finding a BOM-style table among many tables in a doc. */
-export const DEFAULT_BOM_KEYWORDS = ["item", "description", "part", "qty", "extended"];
-
-export interface ExtractBomOptions {
-  /** Override the keywords used to find the BOM table. */
-  headerKeywords?: string[];
-  /** Override the column-classification rules. */
-  headerRules?: Array<{ pattern: RegExp; field: FieldName }>;
-  /** Minimum number of header keywords that must match to consider a table a BOM. */
-  minHeaderMatches?: number;
 }
 
 export interface ExtractBomResult {
@@ -85,31 +59,31 @@ export interface ExtractBomResult {
 export function extractBom(
   blocks: Block[],
   byId: Map<string, Block>,
-  options: ExtractBomOptions = {},
+  config: BomConfig,
 ): ExtractBomResult {
   const errors: ParseError[] = [];
   const warnings: ParseWarning[] = [];
+  const rules = compileRules(config);
 
   const matched = findTableByHeader(
     blocks,
     byId,
-    options.headerKeywords ?? DEFAULT_BOM_KEYWORDS,
-    options.minHeaderMatches ?? 4,
+    config.headerKeywords,
+    config.minHeaderMatches,
   );
 
   if (!matched) {
     errors.push({
-      message:
-        "Could not find a BOM table. Expected a table with item/description/part/qty/extended-style headers.",
+      message: `Could not find a BOM table. Expected a table with headers matching at least ${config.minHeaderMatches} of: ${config.headerKeywords.join(", ")}.`,
     });
     return { lines: [], errors, warnings, matched: null };
   }
 
   // Build column → field map from the header row
-  const colToField = new Map<number, FieldName>();
+  const colToField = new Map<number, BomFieldName>();
   const colToHeader = new Map<number, string>();
   for (const h of matched.headerCells) {
-    colToField.set(h.col, classifyHeader(h.text, options.headerRules));
+    colToField.set(h.col, classifyHeader(h.text, rules));
     colToHeader.set(h.col, h.text);
   }
 
@@ -125,7 +99,7 @@ export function extractBom(
     const populated = [...row.values()].filter((v) => v.trim()).length;
     if (populated < 3) continue;
 
-    const get = (field: FieldName): string => {
+    const get = (field: BomFieldName): string => {
       for (const [col, f] of colToField) {
         if (f === field) return row.get(col) ?? "";
       }
@@ -157,6 +131,7 @@ export function extractBom(
       extended_price: extendedPrice,
       row_index: lines.length,
       row_label: `Item ${itemNumber}`,
+      tolerance: config.arithmeticToleranceCents,
     });
     if (arithmetic) warnings.push(arithmetic);
 

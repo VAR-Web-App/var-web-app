@@ -28,6 +28,8 @@ interface ParseWarning { message: string; field?: string; row_index?: number }
 
 interface ParseResult {
   ok: boolean;
+  template_id: string;
+  template_name: string;
   bom: BomLine[];
   metadata: DocumentMetadata;
   warnings: ParseWarning[];
@@ -245,9 +247,14 @@ function ResultBanner({ result }: { result: ParseResult }) {
             {result.ok ? "Parsed successfully" : "Parsed with issues"}
           </h2>
           <p className="text-sm text-zinc-600">
+            {result.template_name && (
+              <>
+                <span className="font-medium text-zinc-700">{result.template_name}</span>
+                {" · "}
+              </>
+            )}
             {result.meta.page_count} page{result.meta.page_count === 1 ? "" : "s"} ·{" "}
-            {result.meta.bom_line_count} line item{result.meta.bom_line_count === 1 ? "" : "s"} ·{" "}
-            extraction: {result.meta.extraction_method}
+            {result.meta.bom_line_count} line item{result.meta.bom_line_count === 1 ? "" : "s"}
           </p>
         </div>
         <div className="text-right">

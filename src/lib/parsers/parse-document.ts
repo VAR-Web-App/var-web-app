@@ -1,9 +1,14 @@
 // End-to-end orchestrator: PDF buffer in, structured result out.
 //
-// This is the v1 generic parser — finds a BOM-style table, extracts rows,
-// pulls metadata via LLM, validates totals. No customer- or format-specific
-// branching. Per-tenant extractors compose the underlying primitives
-// directly when they need different behavior.
+// Behavior is driven by an ExtractorTemplate config. The default flow:
+//   1. Run PDF through Textract
+//   2. Reconstruct page text from LINE blocks
+//   3. Auto-detect template from page text (or use a caller-supplied one)
+//   4. Extract BOM table per the template's bom config (skip if not configured)
+//   5. Extract metadata via Claude per the template's metadata fields
+//   6. Cross-check sum-of-lines against document total
+//
+// Adding a new document type = adding a template config. No code changes.
 
 import {
   makeClients,
@@ -20,25 +25,16 @@ import {
   type ParseError,
   type ParseWarning,
 } from "./validation";
+import type { ExtractorTemplate } from "./templates/types";
+import { detectTemplate, BUILTIN_TEMPLATES } from "./templates";
 
-export interface DocumentMetadata {
-  document_number?: string;
-  document_date?: string;
-  total_amount?: number;
-  buyer_name?: string;
-  buyer_address?: string;
-  ship_to_address?: string;
-  ship_to_contact?: string;
-  ship_to_email?: string;
-  period_of_performance_start?: string;
-  period_of_performance_end?: string;
-  contracting_officer_name?: string;
-  contracting_officer_email?: string;
-  agency?: string;
-}
+export type DocumentMetadata = Record<string, string | number | undefined>;
 
 export interface ParseDocumentResult {
   ok: boolean;
+  /** ID of the template used. Useful for client-side rendering decisions. */
+  template_id: string;
+  template_name: string;
   bom: BomLine[];
   metadata: DocumentMetadata;
   warnings: ParseWarning[];
@@ -54,26 +50,27 @@ export interface ParseDocumentResult {
   };
 }
 
-const DEFAULT_METADATA_FIELDS = `- document_number: The PO number, contract number, or award identifier from the document header
-- document_date: ISO date the document was issued
-- total_amount: The total dollar amount (number, not string)
-- buyer_name: The buying entity / customer name
-- buyer_address: The buyer's billing address (single string with newlines preserved)
-- ship_to_address: The delivery / ship-to address (single string with newlines preserved)
-- ship_to_contact: Full name of the receiving point of contact
-- ship_to_email: Email of the receiving point of contact
-- period_of_performance_start: ISO date the performance period begins
-- period_of_performance_end: ISO date the performance period ends
-- contracting_officer_name: Full name of the contracting officer if listed
-- contracting_officer_email: Email of the contracting officer if listed
-- agency: The federal agency or buying entity (if government)`;
+export interface ParseDocumentOptions {
+  /** If supplied, skip auto-detection and use this template. */
+  templateId?: string;
+  /** Override the registry. Defaults to BUILTIN_TEMPLATES. */
+  templates?: ExtractorTemplate[];
+}
+
+function buildFieldsPrompt(template: ExtractorTemplate): string {
+  return template.metadata.fields
+    .map((f) => `- ${f.name}: ${f.prompt}`)
+    .join("\n");
+}
 
 export async function parseDocument(
   pdfBuffer: Buffer,
   onProgress?: ProgressCallback,
+  options: ParseDocumentOptions = {},
 ): Promise<ParseDocumentResult> {
   const errors: ParseError[] = [];
   const warnings: ParseWarning[] = [];
+  const templates = options.templates ?? BUILTIN_TEMPLATES;
 
   onProgress?.({ percent: 2, stage: "starting", detail: "Initializing AWS clients" });
 
@@ -81,15 +78,7 @@ export async function parseDocument(
   try {
     clients = makeClients();
   } catch (e) {
-    return {
-      ok: false,
-      bom: [],
-      metadata: {},
-      warnings: [],
-      errors: [{ message: e instanceof Error ? e.message : String(e) }],
-      totals: { parsed_extended_total: 0 },
-      meta: { page_count: 0, bom_line_count: 0, extraction_method: "textract+llm" },
-    };
+    return errorResult(e, errors, warnings);
   }
 
   const s3Key = `parse/${Date.now()}-${Math.random().toString(36).substring(2, 10)}.pdf`;
@@ -97,12 +86,39 @@ export async function parseDocument(
   try {
     const blocks = await analyzePdf(clients, pdfBuffer, s3Key, onProgress);
 
-    onProgress?.({ percent: 78, stage: "parsing_tables", detail: "Indexing blocks + finding BOM" });
+    onProgress?.({ percent: 76, stage: "parsing_tables", detail: "Detecting template" });
     const { byId, pageCount } = indexBlocks(blocks);
 
-    const bomResult = extractBom(blocks, byId);
-    errors.push(...bomResult.errors);
-    warnings.push(...bomResult.warnings);
+    // Pull page text once — used for both template detection and LLM
+    // metadata extraction. Both want the first few pages of natural text.
+    // We pre-fetch with a generous cap (8); each template's metadata config
+    // then trims to its own maxPages when sent to the LLM.
+    const detectionText = getPageText(blocks, 8);
+
+    let template: ExtractorTemplate;
+    if (options.templateId) {
+      const explicit = templates.find((t) => t.id === options.templateId);
+      if (!explicit) {
+        return errorResult(new Error(`Unknown template: ${options.templateId}`), errors, warnings);
+      }
+      template = explicit;
+    } else {
+      template = detectTemplate(detectionText, templates);
+    }
+
+    onProgress?.({
+      percent: 80,
+      stage: "parsing_tables",
+      detail: `Template: ${template.name}`,
+    });
+
+    let bom: BomLine[] = [];
+    if (template.bom) {
+      const bomResult = extractBom(blocks, byId, template.bom);
+      bom = bomResult.lines;
+      errors.push(...bomResult.errors);
+      warnings.push(...bomResult.warnings);
+    }
 
     onProgress?.({
       percent: 88,
@@ -112,10 +128,11 @@ export async function parseDocument(
 
     let metadata: DocumentMetadata = {};
     try {
-      const pageText = getPageText(blocks, 6);
+      const llmText = getPageText(blocks, template.metadata.maxPages ?? 6);
       metadata = await extractMetadataWithLlm<DocumentMetadata>({
-        documentText: pageText,
-        fieldsPrompt: DEFAULT_METADATA_FIELDS,
+        documentText: llmText,
+        fieldsPrompt: buildFieldsPrompt(template),
+        systemPrompt: template.metadata.systemPrompt,
       });
     } catch (e) {
       warnings.push({
@@ -124,9 +141,11 @@ export async function parseDocument(
     }
 
     onProgress?.({ percent: 96, stage: "validating", detail: "Cross-checking totals" });
-    const parsedTotal = r2(bomResult.lines.reduce((s, l) => s + (l.extended_price || 0), 0));
-    const totalCheck = checkTotalCrossCheck(parsedTotal, metadata.total_amount);
-    if (totalCheck && "field" in totalCheck === false && totalCheck.message.startsWith("Total mismatch")) {
+    const parsedTotal = r2(bom.reduce((s, l) => s + (l.extended_price || 0), 0));
+    const metaTotal =
+      typeof metadata.total_amount === "number" ? metadata.total_amount : undefined;
+    const totalCheck = checkTotalCrossCheck(parsedTotal, metaTotal);
+    if (totalCheck && totalCheck.message.startsWith("Total mismatch")) {
       errors.push(totalCheck as ParseError);
     } else if (totalCheck) {
       warnings.push(totalCheck as ParseWarning);
@@ -136,31 +155,43 @@ export async function parseDocument(
 
     return {
       ok: errors.length === 0,
-      bom: bomResult.lines,
+      template_id: template.id,
+      template_name: template.name,
+      bom,
       metadata,
       warnings,
       errors,
       totals: {
         parsed_extended_total: parsedTotal,
-        metadata_total: metadata.total_amount,
+        metadata_total: metaTotal,
       },
       meta: {
         page_count: pageCount,
-        bom_line_count: bomResult.lines.length,
+        bom_line_count: bom.length,
         extraction_method: "textract+llm",
       },
     };
   } catch (e) {
-    return {
-      ok: false,
-      bom: [],
-      metadata: {},
-      warnings,
-      errors: [...errors, { message: e instanceof Error ? e.message : String(e) }],
-      totals: { parsed_extended_total: 0 },
-      meta: { page_count: 0, bom_line_count: 0, extraction_method: "textract+llm" },
-    };
+    return errorResult(e, errors, warnings);
   } finally {
     await deleteFromS3(clients.s3, clients.bucket, s3Key);
   }
+}
+
+function errorResult(
+  e: unknown,
+  errors: ParseError[],
+  warnings: ParseWarning[],
+): ParseDocumentResult {
+  return {
+    ok: false,
+    template_id: "",
+    template_name: "",
+    bom: [],
+    metadata: {},
+    warnings,
+    errors: [...errors, { message: e instanceof Error ? e.message : String(e) }],
+    totals: { parsed_extended_total: 0 },
+    meta: { page_count: 0, bom_line_count: 0, extraction_method: "textract+llm" },
+  };
 }

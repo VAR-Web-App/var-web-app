@@ -22,10 +22,27 @@ export { findTableByHeader, extractTableRows } from "./tables";
 
 export type {
   BomLine,
-  ExtractBomOptions,
   ExtractBomResult,
 } from "./bom-extractor";
-export { extractBom, DEFAULT_BOM_KEYWORDS } from "./bom-extractor";
+export { extractBom } from "./bom-extractor";
+
+export type {
+  ExtractorTemplate,
+  BomConfig,
+  MetadataConfig,
+  MetadataField,
+  BomFieldName,
+  BomColumnRule,
+  DetectionConfig,
+} from "./templates/types";
+export { BUILTIN_TEMPLATES, detectTemplate } from "./templates";
+
+export type {
+  DocumentMetadata,
+  ParseDocumentResult,
+  ParseDocumentOptions,
+} from "./parse-document";
+export { parseDocument } from "./parse-document";
 
 export type { ParseError, ParseWarning } from "./validation";
 export {
