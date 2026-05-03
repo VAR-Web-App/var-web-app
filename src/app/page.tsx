@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ArrowUpTrayIcon,
   DocumentTextIcon,
@@ -159,43 +159,66 @@ export default function Home() {
     }
   }
 
+  // Once parsing has produced a result, switch to a wider, side-by-side
+  // layout: source PDF on the left, extracted data on the right. While the
+  // user is still picking a file or parsing, keep the narrower single-column
+  // layout so the dropzone is the focal point.
+  const showSplit = !!result && !!file;
+
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl space-y-6">
-        <PageHeader />
+      <div className={`mx-auto space-y-6 ${showSplit ? "max-w-7xl" : "max-w-5xl"}`}>
+        <PageHeader showResetLink={showSplit} onReset={() => {
+          setResult(null);
+          setFile(null);
+          setError(null);
+        }} />
 
-        <UploadCard
-          file={file}
-          parsing={parsing}
-          progress={progress}
-          error={error}
-          onSelectFile={(f) => {
-            setFile(f);
-            setError(null);
-          }}
-          onParse={async () => file && parseFile(file)}
-          onTrySample={onTrySample}
-        />
+        {!showSplit && (
+          <UploadCard
+            file={file}
+            parsing={parsing}
+            progress={progress}
+            error={error}
+            onSelectFile={(f) => {
+              setFile(f);
+              setError(null);
+            }}
+            onParse={async () => file && parseFile(file)}
+            onTrySample={onTrySample}
+          />
+        )}
 
-        {result && (
-          <>
-            <ResultBanner result={result} />
-            {result.errors.length > 0 && (
-              <Issues title="Errors" tone="error" items={result.errors} />
-            )}
-            {result.warnings.length > 0 && (
-              <Issues title="Warnings" tone="warning" items={result.warnings} />
-            )}
-            <Metadata metadata={result.metadata} />
-            <BomTable bom={result.bom} />
-          </>
+        {showSplit && result && file && (
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <aside className="lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
+              <PdfPreview file={file} />
+            </aside>
+            <div className="min-w-0 space-y-6">
+              <ResultBanner result={result} />
+              {result.errors.length > 0 && (
+                <Issues title="Errors" tone="error" items={result.errors} />
+              )}
+              {result.warnings.length > 0 && (
+                <Issues title="Warnings" tone="warning" items={result.warnings} />
+              )}
+              <Metadata metadata={result.metadata} />
+              <BomTable bom={result.bom} />
+            </div>
+          </div>
         )}
       </div>
     </AppShell>
   );
 }
 
-function PageHeader() {
+function PageHeader({
+  showResetLink,
+  onReset,
+}: {
+  showResetLink?: boolean;
+  onReset?: () => void;
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
       <div>
@@ -205,6 +228,35 @@ function PageHeader() {
           metadata.
         </p>
       </div>
+      {showResetLink && (
+        <button
+          onClick={onReset}
+          className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          ← Parse another document
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PdfPreview({ file }: { file: File }) {
+  // Browser's native PDF viewer via blob URL. Cheaper, faster, and more
+  // familiar than re-rendering through pdf.js — the user sees exactly the
+  // doc they uploaded with the Chrome/Edge/Firefox/Safari built-in viewer.
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+
+  return (
+    <div className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="truncate text-xs font-medium text-slate-700">{file.name}</span>
+        </div>
+        <span className="text-[11px] uppercase tracking-wide text-slate-400">Source</span>
+      </div>
+      <iframe src={url} title="Source PDF" className="h-full w-full flex-1 bg-slate-50" />
     </div>
   );
 }
