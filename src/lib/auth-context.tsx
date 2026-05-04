@@ -84,7 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(email: string, password: string, companyName: string) {
     // Create the auth user first — this throws on duplicate email or weak
     // password before we touch Firestore, so we don't end up with an org
-    // record without a backing user.
+    // record without a backing user. Note: createUserWithEmailAndPassword
+    // immediately fires onAuthStateChanged with the new user. Our listener
+    // tries to read users/{uid}, which doesn't exist yet — it sets profile
+    // to null. We compensate by setting the profile state explicitly after
+    // the docs are written below, so callers see a populated profile by
+    // the time signUp resolves.
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
     // Use the new uid as the org id for personal/single-user orgs. When we
@@ -97,14 +102,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       owner_uid: uid,
       created_at: serverTimestamp(),
     });
-    await setDoc(doc(db, "users", uid), {
+    const profileDoc: UserProfile = {
       uid,
       email,
       display_name: companyName,
       org_ref: orgRef,
       role: "owner",
+    };
+    await setDoc(doc(db, "users", uid), {
+      ...profileDoc,
       created_at: serverTimestamp(),
     });
+    // Set profile state synchronously so pages don't get stuck on Loading…
+    // waiting for the listener to re-fetch.
+    setProfile(profileDoc);
   }
 
   async function logout() {
