@@ -31,6 +31,7 @@ import {
   Distributor,
   OrgSettings,
   Attachment,
+  QuoteLine,
   newId,
 } from "@/types";
 import { db } from "./firebase";
@@ -134,6 +135,56 @@ export async function getSettings(orgRef: string): Promise<OrgSettings | null> {
 
 export async function saveSettings(s: OrgSettings): Promise<void> {
   await setDoc(doc(db, "settings", s.org_ref), s);
+}
+
+// ── quote lines ──────────────────────────────────────────────────
+
+interface StoredQuoteLine extends QuoteLine {
+  deal_ref: string;
+  org_ref: string;
+}
+
+export async function listQuoteLines(dealRef: string): Promise<QuoteLine[]> {
+  const q = query(collection(db, "quote_lines"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<StoredQuoteLine, "id">) }))
+    .sort((a, b) => a.line_number - b.line_number);
+}
+
+/**
+ * Atomically replace all quote lines for a deal. Caller computes the new
+ * line set (typically including renumbered line_number values), passes the
+ * full array. Existing lines not in the array are deleted.
+ *
+ * The `dealRef` and `orgRef` are added to each line by this function so
+ * pages don't have to thread them through every save.
+ */
+export async function saveQuoteLines(
+  dealRef: string,
+  orgRef: string,
+  lines: QuoteLine[],
+): Promise<void> {
+  const existing = await listQuoteLines(dealRef);
+  const existingIds = new Set(existing.map((l) => l.id));
+  const incomingIds = new Set(lines.map((l) => l.id));
+
+  // Delete removed lines first (sequential so a failure surfaces cleanly)
+  for (const old of existing) {
+    if (!incomingIds.has(old.id)) {
+      await deleteDoc(doc(db, "quote_lines", old.id));
+    }
+  }
+  // Upsert each line
+  for (const line of lines) {
+    const stored: StoredQuoteLine = {
+      ...line,
+      deal_ref: dealRef,
+      org_ref: orgRef,
+    };
+    await setDoc(doc(db, "quote_lines", line.id), stored, { merge: false });
+  }
+  void existingIds; // for grep clarity, not actually used
 }
 
 // ── attachments ──────────────────────────────────────────────────

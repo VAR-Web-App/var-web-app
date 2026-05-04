@@ -22,11 +22,13 @@ import {
   deleteDeal,
   getDeal,
   listAttachments,
+  listQuoteLines,
   saveAttachment,
   saveDeal,
   newId,
   deleteAttachment,
 } from "@/lib/store";
+import type { QuoteLine } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { compareBoms, type CompareResult } from "@/lib/compare";
 import type { BomLine } from "@/lib/parsers";
@@ -53,6 +55,7 @@ export default function DealDetailPage({
   const [parsingId, setParsingId] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
 
   useEffect(() => {
     if (!profile) return;
@@ -65,7 +68,9 @@ export default function DealDetailPage({
         return;
       }
       setDeal(d);
-      setAttachments(await listAttachments(id));
+      const [atts, lines] = await Promise.all([listAttachments(id), listQuoteLines(id)]);
+      setAttachments(atts);
+      setQuoteLines(lines);
       setLoaded(true);
       try {
         const cached = sessionStorage.getItem(`parsed:${id}`);
@@ -266,6 +271,8 @@ export default function DealDetailPage({
               onDeleteAttachment={onDeleteAttachment}
               onClearError={() => setParseError(null)}
             />
+
+            <QuoteCard dealId={deal.id} lines={quoteLines} />
 
             {comparison && <ComparisonCard comparison={comparison} />}
 
@@ -725,6 +732,80 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
           matched perfectly — nothing to review there.
         </div>
       )}
+    </section>
+  );
+}
+
+function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
+  const fmtMoney = (n: number) =>
+    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const customerTotal = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+  const costTotal = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
+  const margin = customerTotal > 0 ? ((customerTotal - costTotal) / customerTotal) * 100 : 0;
+
+  if (lines.length === 0) {
+    return (
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Customer Quote</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Build the priced quote you&apos;ll send to your customer.
+            </p>
+          </div>
+          <Link
+            href={`/deals/${dealId}/quote`}
+            className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+          >
+            Build customer quote →
+          </Link>
+        </div>
+        <div className="px-6 py-6 text-center text-sm text-slate-500">
+          <p>No quote lines yet. If you&apos;ve uploaded a parsed distributor quote above, you can
+          import its lines into a new quote in one click.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-6 py-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Customer Quote</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {lines.length} line{lines.length === 1 ? "" : "s"} · saved
+          </p>
+        </div>
+        <Link
+          href={`/deals/${dealId}/quote`}
+          className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Edit quote →
+        </Link>
+      </div>
+      <div className="grid grid-cols-3 divide-x divide-slate-200">
+        <div className="px-6 py-4">
+          <div className="text-xs uppercase tracking-wide text-slate-500">Cost</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{fmtMoney(costTotal)}</div>
+        </div>
+        <div className="px-6 py-4">
+          <div className="text-xs uppercase tracking-wide text-slate-500">Customer Total</div>
+          <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-700">
+            {fmtMoney(customerTotal)}
+          </div>
+        </div>
+        <div className="px-6 py-4">
+          <div className="text-xs uppercase tracking-wide text-slate-500">Margin</div>
+          <div
+            className={`mt-1 text-lg font-semibold tabular-nums ${
+              margin >= 15 ? "text-emerald-700" : margin >= 5 ? "text-amber-700" : "text-red-700"
+            }`}
+          >
+            {margin.toFixed(1)}%
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

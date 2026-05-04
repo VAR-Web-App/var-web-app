@@ -82,5 +82,20 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
+
+    // Quote lines: same shape as attachments — gate on the parent deal's
+    // org_ref. Each line stores org_ref redundantly so it shows up in
+    // org-scoped queries without a parent fetch, but the rules check the
+    // parent deal as the source of truth.
+    match /quote_lines/{lineId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
   }
 }
