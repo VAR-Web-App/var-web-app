@@ -157,20 +157,12 @@ function EmptyPipeline({ onNew }: { onNew: () => void }) {
         Create your first deal to start tracking the workflow. You can drop in a customer
         RFQ, distributor quote, or award PDF and the parser will extract structured data.
       </p>
-      <div className="mt-4 flex items-center justify-center gap-3">
-        <button
-          onClick={onNew}
-          className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          Create your first deal
-        </button>
-        <Link
-          href="/demo"
-          className="text-sm font-medium text-blue-600 hover:underline"
-        >
-          See the demo first →
-        </Link>
-      </div>
+      <button
+        onClick={onNew}
+        className="mt-4 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      >
+        Create your first deal
+      </button>
     </div>
   );
 }

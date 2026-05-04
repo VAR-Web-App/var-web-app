@@ -71,7 +71,8 @@ export default function DemoPage() {
         <div className="mb-5">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Deal Pipeline</h1>
           <p className="mt-1 text-sm text-slate-500">
-            8 sample deals across all stages. Drag a card between columns to see the workflow.
+            8 sample deals across all stages. Drag a card between columns, or click one to see
+            the parsed BOM + award comparison inside.
           </p>
         </div>
 
@@ -97,11 +98,12 @@ export default function DemoPage() {
 
                 <div className="space-y-2">
                   {stageDeals.map((deal) => (
-                    <div
+                    <Link
                       key={deal.id}
+                      href="/demo/sample"
                       draggable
                       onDragStart={() => setDraggedDeal(deal.id)}
-                      className={`cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-blue-300 hover:shadow active:cursor-grabbing ${
+                      className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-blue-300 hover:shadow active:cursor-grabbing ${
                         draggedDeal === deal.id ? "opacity-50" : ""
                       }`}
                     >
@@ -117,7 +119,7 @@ export default function DemoPage() {
                           {deal.solicitation_number}
                         </p>
                       )}
-                    </div>
+                    </Link>
                   ))}
                   {stageDeals.length === 0 && (
                     <p className="py-8 text-center text-xs text-slate-400">No deals</p>
@@ -129,16 +131,16 @@ export default function DemoPage() {
         </div>
 
         <div className="mt-12 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Ready to run your own pipeline?</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Run this on your real docs</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-            Sign up to start parsing real award PDFs, comparing them against quotes, and generating
-            vendor POs from awarded BOMs.
+            Sign up takes 30 seconds. Drop in your own award PDF and a distributor quote — the
+            parser pulls the line items, the comparison flags discrepancies.
           </p>
           <Link
             href="/login"
             className="mt-4 inline-flex items-center gap-1 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            Create an account
+            Get started — try with your docs
             <ArrowRightIcon className="h-4 w-4" />
           </Link>
         </div>
