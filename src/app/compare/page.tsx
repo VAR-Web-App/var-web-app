@@ -221,7 +221,7 @@ export default function ComparePage() {
             {comparison.only_in_quote.length > 0 && (
               <SidedTable
                 title="Only in Quote"
-                subtitle="In your quote but not in the award (the customer dropped these lines)"
+                subtitle="In your quote but not in the award (customer dropped these lines)"
                 rows={comparison.only_in_quote}
                 tone="warning"
               />
@@ -229,11 +229,12 @@ export default function ComparePage() {
             {comparison.only_in_award.length > 0 && (
               <SidedTable
                 title="Only in Award"
-                subtitle="In the award but not in your quote (the customer added these — often a modification)"
+                subtitle="In the award but not in your quote (customer added these — often a modification)"
                 rows={comparison.only_in_award}
                 tone="info"
               />
             )}
+            <CleanFooter comparison={comparison} />
           </>
         )}
       </div>
@@ -415,76 +416,146 @@ function ComparisonSummary({ comparison }: { comparison: CompareResult }) {
 }
 
 function MatchedTable({ rows }: { rows: ReturnType<typeof compareBoms>["matched"] }) {
+  // Diff-style by default: only show the lines that need attention. Perfect
+  // matches are summarized in the footer, with a toggle for users who want
+  // to verify everything (auditors, "trust but verify" types). Scales — at
+  // 100 line items the table is still a manageable list of issue rows.
+  const [showAll, setShowAll] = useState(false);
+  const issueRows = rows.filter((r) => r.diff !== "match");
+  const matchCount = rows.length - issueRows.length;
+  const visibleRows = showAll ? rows : issueRows;
+
   if (rows.length === 0) return null;
+
+  // All-perfect case — render a clean "all good" card instead of an empty
+  // discrepancies table.
+  if (issueRows.length === 0) {
+    return (
+      <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+        <h2 className="text-sm font-semibold text-emerald-900">
+          ✓ All {rows.length} matched lines align perfectly
+        </h2>
+        <p className="mt-1 text-xs text-emerald-800">
+          Quote and award agree on qty, unit price, and extended on every shared line.
+        </p>
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-3 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
+        >
+          {showAll ? "Hide details" : "Show all matched lines"}
+        </button>
+        {showAll && <MatchedRows rows={rows} />}
+      </section>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
         <h2 className="text-sm font-semibold text-slate-900">
-          Matched lines ({rows.length})
+          Discrepancies ({issueRows.length})
         </h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Lines present in both quote and award. Cells with differences highlighted in amber.
+          Lines where quote and award disagree on qty or price. Differing values highlighted.
         </p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3 text-left">Part &amp; Description</th>
-              <th className="px-4 py-3 text-right">Quote</th>
-              <th className="px-4 py-3 text-right">Award</th>
-              <th className="px-4 py-3 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((row, i) => {
-              const isMatch = row.diff === "match";
-              const qtyChanged = row.quote.qty !== row.award.qty;
-              const priceChanged =
-                Math.abs(row.quote.unit_price - row.award.unit_price) > 0.005;
-              const extDelta = row.award.extended_price - row.quote.extended_price;
-              const extDeltaSig = Math.abs(extDelta) > 0.01;
-
-              return (
-                <tr key={i} className={isMatch ? "" : "bg-amber-50/30"}>
-                  <td className="px-4 py-3 align-top">
-                    <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
-                    <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
-                  </td>
-                  <td className="px-4 py-3 text-right align-top tabular-nums">
-                    <SideCell
-                      qty={row.quote.qty}
-                      unit={row.quote.unit_price}
-                      ext={row.quote.extended_price}
-                      qtyHighlight={qtyChanged}
-                      unitHighlight={priceChanged}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-right align-top tabular-nums">
-                    <SideCell
-                      qty={row.award.qty}
-                      unit={row.award.unit_price}
-                      ext={row.award.extended_price}
-                      qtyHighlight={qtyChanged}
-                      unitHighlight={priceChanged}
-                    />
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <StatusCell
-                      isMatch={isMatch}
-                      qtyChanged={qtyChanged}
-                      priceChanged={priceChanged}
-                      extDelta={extDelta}
-                      extDeltaSig={extDeltaSig}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <MatchedRows rows={visibleRows} />
+      {matchCount > 0 && (
+        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3 text-xs">
+          <span className="text-slate-600">
+            <span className="text-emerald-700">✓ {matchCount} more line{matchCount === 1 ? "" : "s"}</span>{" "}
+            matched perfectly {showAll ? "(shown above)" : "(hidden)"}
+          </span>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            {showAll ? "Hide perfect matches" : "Show all"}
+          </button>
+        </div>
+      )}
     </section>
+  );
+}
+
+function MatchedRows({ rows }: { rows: ReturnType<typeof compareBoms>["matched"] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-left">Part &amp; Description</th>
+            <th className="px-4 py-3 text-right">Quote</th>
+            <th className="px-4 py-3 text-right">Award</th>
+            <th className="px-4 py-3 text-left">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row, i) => {
+            const isMatch = row.diff === "match";
+            const qtyChanged = row.quote.qty !== row.award.qty;
+            const priceChanged =
+              Math.abs(row.quote.unit_price - row.award.unit_price) > 0.005;
+            const extDelta = row.award.extended_price - row.quote.extended_price;
+            const extDeltaSig = Math.abs(extDelta) > 0.01;
+            return (
+              <tr key={i} className={isMatch ? "" : "bg-amber-50/30"}>
+                <td className="px-4 py-3 align-top">
+                  <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
+                  <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
+                </td>
+                <td className="px-4 py-3 text-right align-top tabular-nums">
+                  <SideCell
+                    qty={row.quote.qty}
+                    unit={row.quote.unit_price}
+                    ext={row.quote.extended_price}
+                    qtyHighlight={qtyChanged}
+                    unitHighlight={priceChanged}
+                  />
+                </td>
+                <td className="px-4 py-3 text-right align-top tabular-nums">
+                  <SideCell
+                    qty={row.award.qty}
+                    unit={row.award.unit_price}
+                    ext={row.award.extended_price}
+                    qtyHighlight={qtyChanged}
+                    unitHighlight={priceChanged}
+                  />
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <StatusCell
+                    isMatch={isMatch}
+                    qtyChanged={qtyChanged}
+                    priceChanged={priceChanged}
+                    extDelta={extDelta}
+                    extDeltaSig={extDeltaSig}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CleanFooter({ comparison }: { comparison: ReturnType<typeof compareBoms> }) {
+  // A "everything else is fine" reassurance line at the very bottom — only
+  // shown when there's at least one issue category. Keeps the user oriented
+  // on what they actually have to act on.
+  const totalIssues =
+    comparison.counts.price_mismatch +
+    comparison.counts.qty_mismatch +
+    comparison.counts.qty_and_price +
+    comparison.counts.only_in_quote +
+    comparison.counts.only_in_award;
+  if (totalIssues === 0 || comparison.counts.match === 0) return null;
+  return (
+    <p className="text-center text-xs text-slate-500">
+      ✓ {comparison.counts.match} other line{comparison.counts.match === 1 ? "" : "s"} agree on
+      qty + price + extended — nothing to review there.
+    </p>
   );
 }
 
