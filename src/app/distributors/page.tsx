@@ -4,16 +4,22 @@ import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { Distributor } from "@/types";
-import { listDistributors, saveDistributor, deleteDistributor, newId, ORG } from "@/lib/store";
+import { listDistributors, saveDistributor, deleteDistributor, newId } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
 
 export default function DistributorsPage() {
+  const { profile } = useAuth();
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [editing, setEditing] = useState<Distributor | null>(null);
 
-  useEffect(() => setDistributors(listDistributors()), []);
+  useEffect(() => {
+    if (!profile) return;
+    listDistributors(profile.org_ref).then(setDistributors);
+  }, [profile]);
 
   function startNew() {
+    if (!profile) return;
     setEditing({
       id: newId("dist"),
       name: "",
@@ -21,21 +27,21 @@ export default function DistributorsPage() {
       address: "",
       order_poc_name: "",
       notes: "",
-      org_ref: ORG,
+      org_ref: profile.org_ref,
     });
   }
 
-  function onSave() {
-    if (!editing || !editing.name.trim()) return;
-    saveDistributor(editing);
+  async function onSave() {
+    if (!editing || !editing.name.trim() || !profile) return;
+    await saveDistributor(editing);
     setEditing(null);
-    setDistributors(listDistributors());
+    setDistributors(await listDistributors(profile.org_ref));
   }
 
-  function onDelete(id: string) {
-    if (!confirm("Delete this distributor?")) return;
-    deleteDistributor(id);
-    setDistributors(listDistributors());
+  async function onDelete(id: string) {
+    if (!confirm("Delete this distributor?") || !profile) return;
+    await deleteDistributor(id);
+    setDistributors(await listDistributors(profile.org_ref));
   }
 
   return (

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Deal, Account } from "@/types";
-import { listAccounts, saveDeal, newId, ORG, getSettings } from "@/lib/store";
+import { listAccounts, saveDeal, newId, getSettings } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 export default function NewDealModal({
   onClose,
@@ -12,6 +13,7 @@ export default function NewDealModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { profile } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [name, setName] = useState("");
   const [accountRef, setAccountRef] = useState("");
@@ -19,46 +21,54 @@ export default function NewDealModal({
   const [manufacturer, setManufacturer] = useState("Cisco");
   const [dealType, setDealType] = useState<"budgetary" | "quotation">("quotation");
   const [dueDate, setDueDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setAccounts(listAccounts());
-    const s = getSettings();
-    if (s.default_manufacturer) setManufacturer(s.default_manufacturer);
-  }, []);
+    if (!profile) return;
+    listAccounts(profile.org_ref).then(setAccounts);
+    getSettings(profile.org_ref).then((s) => {
+      if (s?.default_manufacturer) setManufacturer(s.default_manufacturer);
+    });
+  }, [profile]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    const account = accounts.find((a) => a.id === accountRef);
-    const now = new Date().toISOString();
-    const deal: Deal = {
-      id: newId("deal"),
-      name: name.trim(),
-      stage: "rfq",
-      deal_type: dealType,
-      manufacturer,
-      account_ref: accountRef || undefined,
-      account_name: account?.name ?? "",
-      distributor_ref: undefined,
-      distributor_name: undefined,
-      solicitation_number: solicitation.trim(),
-      customer_po: "",
-      ship_to_address: account?.ship_to_addresses?.[0] ?? "",
-      ship_to_poc_name: "",
-      ship_to_poc_email: "",
-      lead_time: "",
-      due_date: dueDate || undefined,
-      award_total: 0,
-      total_quote_value: 0,
-      total_cost: 0,
-      margin_percent: 0,
-      notes: "",
-      org_ref: ORG,
-      created_at: now,
-      updated_at: now,
-    };
-    saveDeal(deal);
-    onCreated();
+    if (!name.trim() || !profile) return;
+    setSubmitting(true);
+    try {
+      const account = accounts.find((a) => a.id === accountRef);
+      const now = new Date().toISOString();
+      const deal: Deal = {
+        id: newId("deal"),
+        name: name.trim(),
+        stage: "rfq",
+        deal_type: dealType,
+        manufacturer,
+        account_ref: accountRef || undefined,
+        account_name: account?.name ?? "",
+        distributor_ref: undefined,
+        distributor_name: undefined,
+        solicitation_number: solicitation.trim(),
+        customer_po: "",
+        ship_to_address: account?.ship_to_addresses?.[0] ?? "",
+        ship_to_poc_name: "",
+        ship_to_poc_email: "",
+        lead_time: "",
+        due_date: dueDate || undefined,
+        award_total: 0,
+        total_quote_value: 0,
+        total_cost: 0,
+        margin_percent: 0,
+        notes: "",
+        org_ref: profile.org_ref,
+        created_at: now,
+        updated_at: now,
+      };
+      await saveDeal(deal);
+      onCreated();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -155,9 +165,10 @@ export default function NewDealModal({
             </button>
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              disabled={submitting}
+              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              Create deal
+              {submitting ? "Creating…" : "Create deal"}
             </button>
           </div>
         </form>

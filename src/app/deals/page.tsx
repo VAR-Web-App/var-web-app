@@ -7,6 +7,7 @@ import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
 import { Deal, DealStage, DEAL_STAGES } from "@/types";
 import { listDeals, saveDeal } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; headerColor: string }> = {
   rfq: { columnBg: "bg-blue-50", topBorder: "border-t-4 border-t-blue-400", headerColor: "text-blue-800" },
@@ -20,25 +21,37 @@ const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; hea
 };
 
 export default function DealsPage() {
+  const { profile } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
 
   useEffect(() => {
-    setDeals(listDeals());
-  }, []);
+    if (!profile) return;
+    let active = true;
+    listDeals(profile.org_ref).then((d) => {
+      if (active) {
+        setDeals(d);
+        setLoaded(true);
+      }
+    });
+    return () => { active = false; };
+  }, [profile]);
 
-  function refresh() {
-    setDeals(listDeals());
+  async function refresh() {
+    if (!profile) return;
+    setDeals(await listDeals(profile.org_ref));
   }
 
-  function handleDrop(stage: DealStage) {
+  async function handleDrop(stage: DealStage) {
     if (!draggedDeal) return;
     const deal = deals.find((d) => d.id === draggedDeal);
     if (deal && deal.stage !== stage) {
       const updated = { ...deal, stage, updated_at: new Date().toISOString() };
-      saveDeal(updated);
-      refresh();
+      // Optimistic update so the card moves immediately.
+      setDeals((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      await saveDeal(updated);
     }
     setDraggedDeal(null);
   }
@@ -51,7 +64,9 @@ export default function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Deal Pipeline</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {deals.length} deal{deals.length === 1 ? "" : "s"} · drag cards between columns to update stage
+            {loaded
+              ? `${deals.length} deal${deals.length === 1 ? "" : "s"} · drag cards between columns to update stage`
+              : "Loading…"}
           </p>
         </div>
         <button
@@ -62,6 +77,10 @@ export default function DealsPage() {
           New Deal
         </button>
       </div>
+
+      {loaded && deals.length === 0 && (
+        <EmptyPipeline onNew={() => setShowNewDeal(true)} />
+      )}
 
       <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: "calc(100vh - 180px)" }}>
         {DEAL_STAGES.map((stage) => {
@@ -108,7 +127,7 @@ export default function DealsPage() {
                     )}
                   </Link>
                 ))}
-                {stageDeals.length === 0 && (
+                {stageDeals.length === 0 && loaded && (
                   <p className="py-8 text-center text-xs text-slate-400">No deals</p>
                 )}
               </div>
@@ -122,10 +141,36 @@ export default function DealsPage() {
           onClose={() => setShowNewDeal(false)}
           onCreated={() => {
             setShowNewDeal(false);
-            refresh();
+            void refresh();
           }}
         />
       )}
     </AppShell>
+  );
+}
+
+function EmptyPipeline({ onNew }: { onNew: () => void }) {
+  return (
+    <div className="mb-6 rounded-xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
+      <h2 className="text-base font-semibold text-slate-900">No deals yet</h2>
+      <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+        Create your first deal to start tracking the workflow. You can drop in a customer
+        RFQ, distributor quote, or award PDF and the parser will extract structured data.
+      </p>
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <button
+          onClick={onNew}
+          className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          Create your first deal
+        </button>
+        <Link
+          href="/demo"
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          See the demo first →
+        </Link>
+      </div>
+    </div>
   );
 }

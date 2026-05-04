@@ -4,13 +4,36 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/app-shell";
 import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { Input, TextArea } from "../accounts/page";
 
+const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
+  org_ref: orgRef,
+  company_name: "",
+  company_address: "",
+  company_phone: "",
+  company_email: "",
+  cage_code: "",
+  duns: "",
+  sam_id: "",
+  default_blanket_discount_percent: 50,
+  default_markup_percent: 10,
+  default_manufacturer: "Cisco",
+  prepared_by_name: "",
+  prepared_by_phone: "",
+});
+
 export default function SettingsPage() {
+  const { profile } = useAuth();
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  useEffect(() => setSettings(getSettings()), []);
+  useEffect(() => {
+    if (!profile) return;
+    getSettings(profile.org_ref).then((s) =>
+      setSettings(s ?? DEFAULT_SETTINGS(profile.org_ref)),
+    );
+  }, [profile]);
 
   if (!settings) {
     return (
@@ -20,9 +43,9 @@ export default function SettingsPage() {
     );
   }
 
-  function onSave() {
+  async function onSave() {
     if (!settings) return;
-    saveSettings(settings);
+    await saveSettings(settings);
     setSavedAt(Date.now());
     window.setTimeout(() => setSavedAt(null), 2000);
   }

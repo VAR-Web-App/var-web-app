@@ -4,19 +4,26 @@ import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { Account } from "@/types";
-import { listAccounts, saveAccount, deleteAccount, newId, ORG } from "@/lib/store";
+import { listAccounts, saveAccount, deleteAccount, newId } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 export default function AccountsPage() {
+  const { profile } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [editing, setEditing] = useState<Account | null>(null);
 
-  useEffect(() => setAccounts(listAccounts()), []);
+  useEffect(() => {
+    if (!profile) return;
+    listAccounts(profile.org_ref).then(setAccounts);
+  }, [profile]);
 
-  function refresh() {
-    setAccounts(listAccounts());
+  async function refresh() {
+    if (!profile) return;
+    setAccounts(await listAccounts(profile.org_ref));
   }
 
   function startNew() {
+    if (!profile) return;
     setEditing({
       id: newId("acc"),
       name: "",
@@ -25,21 +32,21 @@ export default function AccountsPage() {
       ship_to_addresses: [],
       payment_terms: "Net 30",
       notes: "",
-      org_ref: ORG,
+      org_ref: profile.org_ref,
     });
   }
 
-  function onSave() {
+  async function onSave() {
     if (!editing || !editing.name.trim()) return;
-    saveAccount(editing);
+    await saveAccount(editing);
     setEditing(null);
-    refresh();
+    await refresh();
   }
 
-  function onDelete(id: string) {
+  async function onDelete(id: string) {
     if (!confirm("Delete this account?")) return;
-    deleteAccount(id);
-    refresh();
+    await deleteAccount(id);
+    await refresh();
   }
 
   return (

@@ -10,7 +10,10 @@ import {
   UserGroupIcon,
   TruckIcon,
   Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   href: string;
@@ -29,6 +32,13 @@ const NAV: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { profile, logout } = useAuth();
+  const router = useRouter();
+
+  async function onLogout() {
+    await logout();
+    router.replace("/login");
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-full w-56 flex-col bg-slate-900 text-white">
@@ -39,7 +49,9 @@ export default function Sidebar() {
           </div>
           <h1 className="text-lg font-bold tracking-tight">VAR Web App</h1>
         </div>
-        <p className="mt-1 text-xs text-slate-400">Federal IT VAR — Early access</p>
+        <p className="mt-1 truncate text-xs text-slate-400">
+          {profile?.display_name ?? "Federal IT VAR — Early access"}
+        </p>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -80,6 +92,18 @@ export default function Sidebar() {
           <Cog6ToothIcon className="h-5 w-5" />
           Settings
         </Link>
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+        >
+          <ArrowRightOnRectangleIcon className="h-5 w-5" />
+          Sign Out
+        </button>
+        {profile?.email && (
+          <p className="truncate px-3 py-1 text-[11px] text-slate-500">
+            {profile.email}
+          </p>
+        )}
       </div>
     </aside>
   );

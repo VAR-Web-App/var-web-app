@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VAR Web App — Document parsing for federal IT VARs",
+  title: "VAR Web App — Quote-to-cash for federal IT VARs",
   description:
-    "Drop in distributor quotes, award PDFs, and vendor POs. Get structured BOMs and metadata — line items, contract numbers, ship-to, period of performance — in seconds.",
+    "Pipeline, parsed distributor quotes, award reconciliation, vendor POs — the federal IT VAR workflow in one app.",
 };
 
 export default function RootLayout({
@@ -28,7 +29,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

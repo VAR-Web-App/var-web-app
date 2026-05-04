@@ -27,6 +27,7 @@ import {
   newId,
   deleteAttachment,
 } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { compareBoms, type CompareResult } from "@/lib/compare";
 import type { BomLine } from "@/lib/parsers";
 
@@ -45,32 +46,40 @@ export default function DealDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { profile } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [parsed, setParsed] = useState<Record<string, ParsedDoc>>({});
   const [parsingId, setParsingId] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const d = getDeal(id);
-    if (!d) {
-      router.replace("/deals");
-      return;
+    if (!profile) return;
+    let active = true;
+    async function load() {
+      const d = await getDeal(id);
+      if (!active) return;
+      if (!d || d.org_ref !== profile!.org_ref) {
+        router.replace("/deals");
+        return;
+      }
+      setDeal(d);
+      setAttachments(await listAttachments(id));
+      setLoaded(true);
+      try {
+        const cached = sessionStorage.getItem(`parsed:${id}`);
+        if (cached && active) setParsed(JSON.parse(cached));
+      } catch {
+        // ignore
+      }
     }
-    setDeal(d);
-    setAttachments(listAttachments(id));
-    // Restore parsed-doc cache from sessionStorage so comparing across page
-    // reloads still works during a demo (object URLs do reset though).
-    try {
-      const cached = sessionStorage.getItem(`parsed:${id}`);
-      if (cached) setParsed(JSON.parse(cached));
-    } catch {
-      // ignore
-    }
-  }, [id, router]);
+    void load();
+    return () => { active = false; };
+  }, [id, router, profile]);
 
-  function refresh() {
-    setAttachments(listAttachments(id));
+  async function refresh() {
+    setAttachments(await listAttachments(id));
   }
 
   function persistParsed(next: Record<string, ParsedDoc>) {
@@ -82,14 +91,14 @@ export default function DealDetailPage({
     }
   }
 
-  function updateDeal(patch: Partial<Deal>) {
+  async function updateDeal(patch: Partial<Deal>) {
     if (!deal) return;
     const next = { ...deal, ...patch, updated_at: new Date().toISOString() };
-    saveDeal(next);
-    setDeal(next);
+    setDeal(next); // optimistic
+    await saveDeal(next);
   }
 
-  function onUploadFile(category: Attachment["category"], file: File) {
+  async function onUploadFile(category: Attachment["category"], file: File) {
     if (!deal) return;
     const att: Attachment = {
       id: newId("att"),
@@ -97,13 +106,13 @@ export default function DealDetailPage({
       category,
       name: file.name,
       // Object URL — survives this session only. For real persistence we'd
-      // upload to S3 / Firebase Storage; not needed for the demo.
+      // upload to Firebase Storage; not needed for the demo.
       url: URL.createObjectURL(file),
       size: file.size,
       uploaded_at: new Date().toISOString(),
     };
-    saveAttachment(att);
-    refresh();
+    await saveAttachment(att);
+    await refresh();
     // Auto-parse PDFs.
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
       void runParse(att, file);
@@ -183,25 +192,25 @@ export default function DealDetailPage({
         if (!res.ok) throw new Error(`Could not load ${s.name} (HTTP ${res.status})`);
         const blob = await res.blob();
         const file = new File([blob], s.name, { type: "application/pdf" });
-        onUploadFile(s.category, file);
+        await onUploadFile(s.category, file);
       } catch (e) {
         setParseError(e instanceof Error ? e.message : String(e));
       }
     }
   }
 
-  function onDeleteAttachment(att: Attachment) {
-    deleteAttachment(att.id);
+  async function onDeleteAttachment(att: Attachment) {
+    await deleteAttachment(att.id);
     const { [att.id]: _, ...rest } = parsed;
     void _;
     persistParsed(rest);
-    refresh();
+    await refresh();
   }
 
-  function onDelete() {
+  async function onDelete() {
     if (!deal) return;
     if (!confirm(`Delete deal "${deal.name}"? This cannot be undone.`)) return;
-    deleteDeal(deal.id);
+    await deleteDeal(deal.id);
     router.push("/deals");
   }
 
@@ -215,7 +224,7 @@ export default function DealDetailPage({
     return compareBoms(parsed[quoteAtt.id].bom, parsed[awardAtt.id].bom);
   }, [attachments, parsed, deal]);
 
-  if (!deal) {
+  if (!deal || !loaded) {
     return (
       <AppShell>
         <div className="text-sm text-slate-500">Loading…</div>

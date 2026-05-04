@@ -1,0 +1,86 @@
+rules_version = '2';
+
+// Multi-tenant isolation enforced at the rules layer. Reads + writes only
+// succeed if the requesting user's profile.org_ref matches the record's
+// org_ref. The user profile itself lives at users/{uid} and is read once
+// to resolve the caller's org_ref — see helper below.
+//
+// Deploy: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── helpers ─────────────────────────────────────────────────
+
+    // Read the caller's org_ref from their user profile. Cached per-rule-
+    // evaluation; safe to call multiple times. Returns null if missing.
+    function callerOrgRef() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.org_ref;
+    }
+
+    // True when the record's org_ref matches the caller's.
+    function ownsByOrg() {
+      return request.auth != null
+        && resource != null
+        && resource.data.org_ref == callerOrgRef();
+    }
+
+    // True for create operations — checks the *new* doc's org_ref instead
+    // of resource.data (which doesn't exist yet on create).
+    function creatingForOwnOrg() {
+      return request.auth != null
+        && request.resource.data.org_ref == callerOrgRef();
+    }
+
+    // ── per-collection rules ────────────────────────────────────
+
+    // Org doc: only the owner can read/write. Members read happens via
+    // their own user profile, not via reading the org doc directly.
+    match /orgs/{orgId} {
+      allow read: if request.auth != null
+                  && (request.auth.uid == orgId
+                      || (resource != null && resource.data.owner_uid == request.auth.uid));
+      allow create: if request.auth != null
+                    && request.auth.uid == orgId
+                    && request.resource.data.owner_uid == request.auth.uid;
+      allow update, delete: if request.auth != null
+                            && resource.data.owner_uid == request.auth.uid;
+    }
+
+    // User profile: each user can read/write their own. Used by all the
+    // org-scoped rules below to look up the caller's org_ref.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Deals: org-scoped.
+    match /deals/{dealId} {
+      allow read, update, delete: if ownsByOrg();
+      allow create: if creatingForOwnOrg();
+    }
+
+    // Accounts, contacts, distributors: same shape.
+    match /accounts/{id}    { allow read, update, delete: if ownsByOrg(); allow create: if creatingForOwnOrg(); }
+    match /contacts/{id}    { allow read, update, delete: if ownsByOrg(); allow create: if creatingForOwnOrg(); }
+    match /distributors/{id}{ allow read, update, delete: if ownsByOrg(); allow create: if creatingForOwnOrg(); }
+
+    // Settings: keyed by org_ref directly. Each user can only access their
+    // own org's settings doc.
+    match /settings/{orgRef} {
+      allow read, write: if request.auth != null && orgRef == callerOrgRef();
+    }
+
+    // Attachments are tied to a deal, not an org directly. We check the
+    // caller's org against the parent deal's org.
+    match /attachments/{attId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+  }
+}

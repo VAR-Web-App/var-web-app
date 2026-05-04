@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
-import { Contact } from "@/types";
+import { Account, Contact, Distributor } from "@/types";
 import {
   listContacts,
   saveContact,
@@ -11,19 +11,26 @@ import {
   listAccounts,
   listDistributors,
   newId,
-  ORG,
 } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, SelectField } from "../accounts/page";
 
 export default function ContactsPage() {
+  const { profile } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [editing, setEditing] = useState<Contact | null>(null);
-  const accounts = listAccounts();
-  const distributors = listDistributors();
 
-  useEffect(() => setContacts(listContacts()), []);
+  useEffect(() => {
+    if (!profile) return;
+    listContacts(profile.org_ref).then(setContacts);
+    listAccounts(profile.org_ref).then(setAccounts);
+    listDistributors(profile.org_ref).then(setDistributors);
+  }, [profile]);
 
   function startNew() {
+    if (!profile) return;
     setEditing({
       id: newId("ct"),
       name: "",
@@ -34,26 +41,25 @@ export default function ContactsPage() {
       linked_ref: accounts[0]?.id ?? "",
       linked_name: accounts[0]?.name ?? "",
       is_primary: false,
-      org_ref: ORG,
+      org_ref: profile.org_ref,
     });
   }
 
-  function onSave() {
-    if (!editing || !editing.name.trim()) return;
-    // Resolve linked_name from the selected ref
+  async function onSave() {
+    if (!editing || !editing.name.trim() || !profile) return;
     const linked =
       editing.linked_type === "account"
         ? accounts.find((a) => a.id === editing.linked_ref)
         : distributors.find((d) => d.id === editing.linked_ref);
-    saveContact({ ...editing, linked_name: linked?.name ?? "" });
+    await saveContact({ ...editing, linked_name: linked?.name ?? editing.linked_name });
     setEditing(null);
-    setContacts(listContacts());
+    setContacts(await listContacts(profile.org_ref));
   }
 
-  function onDelete(id: string) {
-    if (!confirm("Delete this contact?")) return;
-    deleteContact(id);
-    setContacts(listContacts());
+  async function onDelete(id: string) {
+    if (!confirm("Delete this contact?") || !profile) return;
+    await deleteContact(id);
+    setContacts(await listContacts(profile.org_ref));
   }
 
   const linkedOptions =
