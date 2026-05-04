@@ -1,0 +1,294 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import AppShell from "@/components/app-shell";
+import { Account } from "@/types";
+import { listAccounts, saveAccount, deleteAccount, newId, ORG } from "@/lib/store";
+
+export default function AccountsPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [editing, setEditing] = useState<Account | null>(null);
+
+  useEffect(() => setAccounts(listAccounts()), []);
+
+  function refresh() {
+    setAccounts(listAccounts());
+  }
+
+  function startNew() {
+    setEditing({
+      id: newId("acc"),
+      name: "",
+      type: "federal",
+      contract_vehicles: [],
+      ship_to_addresses: [],
+      payment_terms: "Net 30",
+      notes: "",
+      org_ref: ORG,
+    });
+  }
+
+  function onSave() {
+    if (!editing || !editing.name.trim()) return;
+    saveAccount(editing);
+    setEditing(null);
+    refresh();
+  }
+
+  function onDelete(id: string) {
+    if (!confirm("Delete this account?")) return;
+    deleteAccount(id);
+    refresh();
+  }
+
+  return (
+    <AppShell>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Accounts</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Federal agencies, state agencies, and commercial buyers — the customers your deals are tied to.
+          </p>
+        </div>
+        <button
+          onClick={startNew}
+          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <PlusIcon className="h-4 w-4" />
+          New Account
+        </button>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-full text-sm">
+          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-3 text-left">Name</th>
+              <th className="px-4 py-3 text-left">Type</th>
+              <th className="px-4 py-3 text-left">Contract Vehicles</th>
+              <th className="px-4 py-3 text-left">Payment Terms</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {accounts.map((a) => (
+              <tr key={a.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-medium text-slate-900">{a.name}</td>
+                <td className="px-4 py-3 text-xs text-slate-700">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 capitalize">{a.type}</span>
+                </td>
+                <td className="px-4 py-3 text-xs text-slate-700">
+                  {a.contract_vehicles.length > 0 ? a.contract_vehicles.join(", ") : "—"}
+                </td>
+                <td className="px-4 py-3 text-xs text-slate-700">{a.payment_terms}</td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end gap-1">
+                    <button
+                      onClick={() => setEditing(a)}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(a.id)}
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {accounts.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
+                  No accounts yet. Click <span className="text-blue-600">New Account</span> above.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      {editing && (
+        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Account" : "New Account"}>
+          <div className="space-y-4">
+            <Input
+              label="Name"
+              required
+              value={editing.name}
+              onChange={(v) => setEditing({ ...editing, name: v })}
+              placeholder="e.g. Department of Sample Administration"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <SelectField
+                label="Type"
+                value={editing.type}
+                onChange={(v) => setEditing({ ...editing, type: v as Account["type"] })}
+                options={[
+                  { value: "federal", label: "Federal" },
+                  { value: "state", label: "State" },
+                  { value: "commercial", label: "Commercial" },
+                ]}
+              />
+              <Input
+                label="Payment terms"
+                value={editing.payment_terms}
+                onChange={(v) => setEditing({ ...editing, payment_terms: v })}
+                placeholder="Net 30"
+              />
+            </div>
+            <Input
+              label="Contract vehicles (comma-separated)"
+              value={editing.contract_vehicles.join(", ")}
+              onChange={(v) => setEditing({ ...editing, contract_vehicles: v.split(",").map((x) => x.trim()).filter(Boolean) })}
+              placeholder="GSA Schedule 70, MAS IT"
+            />
+            <TextArea
+              label="Ship-to addresses (one per line)"
+              value={editing.ship_to_addresses.join("\n\n")}
+              onChange={(v) => setEditing({ ...editing, ship_to_addresses: v.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean) })}
+            />
+            <TextArea
+              label="Notes"
+              value={editing.notes}
+              onChange={(v) => setEditing({ ...editing, notes: v })}
+            />
+          </div>
+          <ModalFooter onCancel={() => setEditing(null)} onSave={onSave} />
+        </Modal>
+      )}
+    </AppShell>
+  );
+}
+
+// ── shared form components ────────────────────────────────────────
+
+export function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-slate-200 px-6 py-4">
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        </div>
+        <div className="px-6 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export function ModalFooter({ onCancel, onSave }: { onCancel: () => void; onSave: () => void }) {
+  return (
+    <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
+      <button
+        onClick={onCancel}
+        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onSave}
+        className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      >
+        Save
+      </button>
+    </div>
+  );
+}
+
+export function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-700">
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
+
+export function TextArea({
+  label,
+  value,
+  onChange,
+  rows = 3,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-700">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
+
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-700">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
