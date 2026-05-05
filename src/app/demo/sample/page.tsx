@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { compareBoms } from "@/lib/compare";
 import type { BomLine } from "@/lib/parsers";
+import { DemoNav } from "../documents/page";
 
 // Public read-only deal detail. Mirrors the shape of the authenticated
 // /deals/[id] page but with hardcoded parsed BOM data so cold-email
@@ -74,16 +75,11 @@ export default function DemoSampleDealPage() {
       </div>
 
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">
-            V
-          </div>
-          <span className="text-base font-bold tracking-tight text-slate-900">VAR Web App</span>
-        </div>
+        <DemoNav active="deal" />
 
         <Link
           href="/demo"
-          className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
+          className="mt-6 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
         >
           <ChevronLeftIcon className="h-4 w-4" />
           Pipeline

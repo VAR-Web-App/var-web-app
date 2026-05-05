@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Deal, DealStage, DEAL_STAGES } from "@/types";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import { DemoNav } from "./documents/page";
 
 // Public, auth-free demo of the kanban with realistic seed deals. No CRUD,
 // no Firestore — read-only walkthrough for cold-email recipients who
@@ -61,14 +62,9 @@ export default function DemoPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-            V
-          </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">VAR Web App</span>
-        </div>
+        <DemoNav active="pipeline" />
 
-        <div className="mb-5">
+        <div className="mb-5 mt-6">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Deal Pipeline</h1>
           <p className="mt-1 text-sm text-slate-500">
             8 sample deals across all stages. Drag a card between columns, or click one to see
