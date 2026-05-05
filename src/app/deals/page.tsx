@@ -6,7 +6,7 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
 import { Deal, DealStage, DEAL_STAGES } from "@/types";
-import { listDeals, saveDeal } from "@/lib/store";
+import { listDeals, saveDeal, seedDemoData } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
 const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; headerColor: string }> = {
@@ -26,6 +26,7 @@ export default function DealsPage() {
   const [loaded, setLoaded] = useState(false);
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -42,6 +43,27 @@ export default function DealsPage() {
   async function refresh() {
     if (!profile) return;
     setDeals(await listDeals(profile.org_ref));
+  }
+
+  async function onSeedDemo() {
+    if (!profile || seeding) return;
+    setSeeding(true);
+    try {
+      const { parsedCacheByDeal } = await seedDemoData(profile.org_ref);
+      // Pre-populate sessionStorage so the deal detail page shows the
+      // parsed BOM + comparison instantly (no 30-60s parser wait during
+      // the live demo).
+      try {
+        for (const [dealId, cache] of Object.entries(parsedCacheByDeal)) {
+          sessionStorage.setItem(`parsed:${dealId}`, JSON.stringify(cache));
+        }
+      } catch {
+        // ignore quota errors
+      }
+      await refresh();
+    } finally {
+      setSeeding(false);
+    }
   }
 
   async function handleDrop(stage: DealStage) {
@@ -79,7 +101,11 @@ export default function DealsPage() {
       </div>
 
       {loaded && deals.length === 0 && (
-        <EmptyPipeline onNew={() => setShowNewDeal(true)} />
+        <EmptyPipeline
+          onNew={() => setShowNewDeal(true)}
+          onSeedDemo={onSeedDemo}
+          seeding={seeding}
+        />
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: "calc(100vh - 180px)" }}>
@@ -149,20 +175,40 @@ export default function DealsPage() {
   );
 }
 
-function EmptyPipeline({ onNew }: { onNew: () => void }) {
+function EmptyPipeline({
+  onNew,
+  onSeedDemo,
+  seeding,
+}: {
+  onNew: () => void;
+  onSeedDemo: () => void;
+  seeding: boolean;
+}) {
   return (
     <div className="mb-6 rounded-xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
       <h2 className="text-base font-semibold text-slate-900">No deals yet</h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-        Create your first deal to start tracking the workflow. You can drop in a customer
-        RFQ, distributor quote, or award PDF and the parser will extract structured data.
+        Create your first deal manually, or load sample data to walk through what
+        the workflow looks like populated.
       </p>
-      <button
-        onClick={onNew}
-        className="mt-4 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-      >
-        Create your first deal
-      </button>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <button
+          onClick={onNew}
+          className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          Create your first deal
+        </button>
+        <button
+          onClick={onSeedDemo}
+          disabled={seeding}
+          className="rounded-md border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {seeding ? "Loading sample data…" : "Try with sample docs"}
+        </button>
+      </div>
+      <p className="mt-3 text-[11px] text-slate-400">
+        Sample data adds 8 deals, 3 accounts, 2 distributors, and a parsed quote/award pair.
+      </p>
     </div>
   );
 }
