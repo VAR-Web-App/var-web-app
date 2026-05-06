@@ -12,6 +12,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import FloorPlanExtractor from "@/components/floor-plan-extractor";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -260,6 +261,8 @@ export default function DealDetailPage({
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
+            <FloorPlanExtractor dealId={deal.id} orgRef={deal.org_ref} />
+
             <AttachmentsCard
               deal={deal}
               attachments={attachments}
