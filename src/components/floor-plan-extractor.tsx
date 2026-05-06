@@ -9,7 +9,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { QuoteLine } from "@/types";
-import { saveQuoteLines, listQuoteLines, newId } from "@/lib/store";
+import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, newId } from "@/lib/store";
 
 // Shape returned by /api/floorplan-extract. Mirrors the schema in the
 // route's system prompt; null-allowed for fields Claude couldn't read.
@@ -106,6 +106,23 @@ export default function FloorPlanExtractor({
         ...newLines.map((l, i) => ({ ...l, line_number: existing.length + i + 1 })),
       ];
       await saveQuoteLines(dealId, orgRef, renumbered);
+
+      // Roll up totals onto the deal record — the milestone generator
+      // and pipeline cards read these. Mirrors the quote page onSave.
+      const customer = renumbered.reduce((s, l) => s + (l.customer_extended || 0), 0);
+      const cost = renumbered.reduce((s, l) => s + (l.cost_extended || 0), 0);
+      const margin = customer > 0 ? ((customer - cost) / customer) * 100 : 0;
+      const deal = await getDeal(dealId);
+      if (deal) {
+        await saveDeal({
+          ...deal,
+          total_quote_value: customer,
+          total_cost: cost,
+          margin_percent: margin,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
       router.push(`/deals/${dealId}/quote`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

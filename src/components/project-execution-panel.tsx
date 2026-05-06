@@ -26,6 +26,8 @@ import {
   saveMilestone,
   saveMilestones,
   deleteMilestone,
+  listQuoteLines,
+  saveDeal,
 } from "@/lib/store";
 
 const fmtMoney = (n: number) =>
@@ -33,19 +35,41 @@ const fmtMoney = (n: number) =>
 
 export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     let active = true;
-    listMilestones(deal.id).then((m) => {
-      if (active) {
+    Promise.all([listMilestones(deal.id), listQuoteLines(deal.id)]).then(
+      ([m, lines]) => {
+        if (!active) return;
         setMilestones(m);
+        // Compute estimate total live from saved lines so we don't depend
+        // on deal.total_quote_value being kept in sync (some flows like
+        // floor-plan apply-to-estimate save lines but not the deal record).
+        const live = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+        setLiveEstimateTotal(live);
+
+        // Self-heal: if the cached deal.total_quote_value drifted from the
+        // line total, persist the correction so other surfaces (pipeline
+        // cards, etc.) read the right number.
+        if (live > 0 && Math.abs(deal.total_quote_value - live) > 0.01) {
+          const cost = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
+          const margin = live > 0 ? ((live - cost) / live) * 100 : 0;
+          void saveDeal({
+            ...deal,
+            total_quote_value: live,
+            total_cost: cost,
+            margin_percent: margin,
+            updated_at: new Date().toISOString(),
+          });
+        }
         setLoaded(true);
       }
-    });
+    );
     return () => { active = false; };
-  }, [deal.id]);
+  }, [deal]);
 
   const totals = useMemo(() => {
     const totalAmount = milestones.reduce((s, m) => s + (m.amount || 0), 0);
@@ -61,10 +85,10 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     return { totalAmount, released, approved, completedCount };
   }, [milestones]);
 
-  // Contract value = award_total when signed, else estimate. Drives the $
-  // amounts on milestone generation.
+  // Contract value = award_total when signed, else live estimate from
+  // saved quote lines (not deal.total_quote_value, which can lag).
   const contractValue =
-    deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+    deal.award_total > 0 ? deal.award_total : liveEstimateTotal;
 
   async function generateDefaults() {
     if (milestones.length > 0) {
