@@ -130,32 +130,45 @@ export default function DealsPage() {
               </div>
 
               <div className="space-y-2">
-                {stageDeals.map((deal) => (
-                  <Link
-                    key={deal.id}
-                    href={`/deals/${deal.id}`}
-                    draggable
-                    onDragStart={() => setDraggedDeal(deal.id)}
-                    className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-blue-300 hover:shadow active:cursor-grabbing ${
-                      draggedDeal === deal.id ? "opacity-50" : ""
-                    }`}
-                  >
-                    <p className="truncate text-sm font-medium text-slate-900">{deal.name}</p>
-                    <p className="mt-1 truncate text-xs text-slate-500">{deal.account_name}</p>
-                    {deal.total_quote_value > 0 && (
-                      <p className="mt-1.5 text-xs font-semibold text-emerald-700">
-                        ${deal.total_quote_value.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                      </p>
-                    )}
-                    {deal.solicitation_number && (
-                      <p className="mt-1 font-mono text-[10px] text-slate-400">
-                        {deal.solicitation_number}
-                      </p>
-                    )}
-                  </Link>
-                ))}
+                {stageDeals.map((deal) => {
+                  // Stage drives label: pre-contract = "estimate", post-contract = "contract"
+                  const isPostContract = ["awarded", "po_sent", "partially_shipped", "closed_won"].includes(deal.stage);
+                  const valueShown = isPostContract && deal.award_total > 0
+                    ? deal.award_total
+                    : deal.total_quote_value;
+                  const valueLabel = isPostContract ? "Contract" : "Estimate";
+                  return (
+                    <Link
+                      key={deal.id}
+                      href={`/deals/${deal.id}`}
+                      draggable
+                      onDragStart={() => setDraggedDeal(deal.id)}
+                      className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-amber-300 hover:shadow active:cursor-grabbing ${
+                        draggedDeal === deal.id ? "opacity-50" : ""
+                      }`}
+                    >
+                      <p className="truncate text-sm font-medium text-slate-900">{deal.name}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{deal.account_name}</p>
+                      {valueShown > 0 && (
+                        <p className="mt-1.5 text-xs font-semibold text-emerald-700">
+                          {valueLabel}: ${valueShown.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                        </p>
+                      )}
+                      {deal.manufacturer && deal.manufacturer !== "Cisco" && (
+                        <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+                          {deal.manufacturer}
+                        </p>
+                      )}
+                      {deal.solicitation_number && (
+                        <p className="mt-1 font-mono text-[10px] text-slate-400">
+                          Job #{deal.solicitation_number}
+                        </p>
+                      )}
+                    </Link>
+                  );
+                })}
                 {stageDeals.length === 0 && loaded && (
-                  <p className="py-8 text-center text-xs text-slate-400">No deals</p>
+                  <p className="py-8 text-center text-xs text-slate-400">No projects</p>
                 )}
               </div>
             </div>

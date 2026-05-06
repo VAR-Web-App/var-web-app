@@ -21,7 +21,7 @@ export default function DistributorsPage() {
   function startNew() {
     if (!profile) return;
     setEditing({
-      id: newId("dist"),
+      id: newId("sub"),
       name: "",
       account_number: "",
       address: "",
@@ -39,7 +39,7 @@ export default function DistributorsPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this distributor?") || !profile) return;
+    if (!confirm("Delete this sub/supplier?") || !profile) return;
     await deleteDistributor(id);
     setDistributors(await listDistributors(profile.org_ref));
   }
@@ -48,17 +48,17 @@ export default function DistributorsPage() {
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Distributors</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subs & Suppliers</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Where you source product. ScanSource, Tech Data, Synnex, etc.
+            Subcontractors and material suppliers — your trade partners and vendor list for RFQs.
           </p>
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
         >
           <PlusIcon className="h-4 w-4" />
-          New Distributor
+          New Sub / Supplier
         </button>
       </div>
 
@@ -67,8 +67,8 @@ export default function DistributorsPage() {
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Account #</th>
-              <th className="px-4 py-3 text-left">Order POC</th>
+              <th className="px-4 py-3 text-left">Trade / Account #</th>
+              <th className="px-4 py-3 text-left">Primary Contact</th>
               <th className="px-4 py-3 text-left">Address</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -82,7 +82,7 @@ export default function DistributorsPage() {
                 <td className="px-4 py-3 whitespace-pre-line text-xs text-slate-700">{d.address || "—"}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
-                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-amber-700 hover:text-amber-800">
                       Edit
                     </button>
                     <button onClick={() => onDelete(d.id)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">
@@ -95,7 +95,7 @@ export default function DistributorsPage() {
             {distributors.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                  No distributors yet.
+                  No subs or suppliers yet.
                 </td>
               </tr>
             )}
@@ -104,12 +104,12 @@ export default function DistributorsPage() {
       </section>
 
       {editing && (
-        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Distributor" : "New Distributor"}>
+        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Sub / Supplier" : "New Sub / Supplier"}>
           <div className="space-y-4">
             <Input label="Name" required value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Account #" value={editing.account_number} onChange={(v) => setEditing({ ...editing, account_number: v })} />
-              <Input label="Order POC name" value={editing.order_poc_name ?? ""} onChange={(v) => setEditing({ ...editing, order_poc_name: v })} />
+              <Input label="Trade or Account #" value={editing.account_number} onChange={(v) => setEditing({ ...editing, account_number: v })} placeholder="Plumber, Electrician, Lumber yard…" />
+              <Input label="Primary contact" value={editing.order_poc_name ?? ""} onChange={(v) => setEditing({ ...editing, order_poc_name: v })} />
             </div>
             <TextArea label="Address" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} />
             <TextArea label="Notes" value={editing.notes} onChange={(v) => setEditing({ ...editing, notes: v })} />

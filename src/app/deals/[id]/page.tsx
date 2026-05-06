@@ -16,8 +16,8 @@ import {
   ATTACHMENT_CATEGORIES,
   Attachment,
   Deal,
-  DEAL_STAGES,
 } from "@/types";
+import { BUILDER_STAGES } from "@/types/builder";
 import {
   deleteDeal,
   getDeal,
@@ -214,7 +214,7 @@ export default function DealDetailPage({
 
   async function onDelete() {
     if (!deal) return;
-    if (!confirm(`Delete deal "${deal.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete project "${deal.name}"? This cannot be undone.`)) return;
     await deleteDeal(deal.id);
     router.push("/deals");
   }
@@ -237,7 +237,7 @@ export default function DealDetailPage({
     );
   }
 
-  const stage = DEAL_STAGES.find((s) => s.key === deal.stage);
+  const stage = BUILDER_STAGES.find((s) => s.key === deal.stage);
 
   return (
     <AppShell>
@@ -317,17 +317,17 @@ function DealHeader({
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">{deal.name}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {deal.account_name || "No account"} · {deal.manufacturer || "—"} ·{" "}
-          {deal.deal_type === "quotation" ? "Quotation" : "Budgetary"}
+          {deal.account_name || "No client"} · {deal.manufacturer || "—"} ·{" "}
+          {deal.deal_type === "quotation" ? "Detailed Estimate" : "Ballpark / Budget"}
         </p>
       </div>
       <div className="flex items-center gap-2">
         <select
           value={deal.stage}
           onChange={(e) => onChangeStage(e.target.value as Deal["stage"])}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         >
-          {DEAL_STAGES.map((s) => (
+          {BUILDER_STAGES.map((s) => (
             <option key={s.key} value={s.key}>
               {s.label}
             </option>
@@ -335,7 +335,7 @@ function DealHeader({
         </select>
         <button
           onClick={onDelete}
-          title="Delete deal"
+          title="Delete project"
           className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
         >
           <TrashIcon className="h-5 w-5" />
@@ -349,27 +349,27 @@ function DealMetadataCard({ deal, stageColor }: { deal: Deal; stageColor: string
   const fmtMoney = (n: number) =>
     `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const fmtDate = (s?: string) => (s ? new Date(s).toLocaleDateString() : "—");
-  const stage = DEAL_STAGES.find((x) => x.key === deal.stage);
+  const stage = BUILDER_STAGES.find((x) => x.key === deal.stage);
 
   const items: Array<[string, React.ReactNode]> = [
     ["Stage", <span key="s" className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stageColor}`}>{stage?.label}</span>],
-    ["Account", deal.account_name || "—"],
-    ["Manufacturer", deal.manufacturer || "—"],
-    ["Distributor", deal.distributor_name || "—"],
-    ["Solicitation #", deal.solicitation_number || "—"],
-    ["Customer PO #", deal.customer_po || "—"],
-    ["Lead Time", deal.lead_time || "—"],
-    ["Due", fmtDate(deal.due_date)],
-    ["Awarded", fmtDate(deal.award_date)],
-    ["Quote Total", deal.total_quote_value ? fmtMoney(deal.total_quote_value) : "—"],
-    ["Award Total", deal.award_total ? fmtMoney(deal.award_total) : "—"],
+    ["Client", deal.account_name || "—"],
+    ["Project Type", deal.manufacturer || "—"],
+    ["Primary Sub", deal.distributor_name || "—"],
+    ["Job #", deal.solicitation_number || "—"],
+    ["Contract / PO #", deal.customer_po || "—"],
+    ["Schedule", deal.lead_time || "—"],
+    ["Target Start", fmtDate(deal.due_date)],
+    ["Contract Signed", fmtDate(deal.award_date)],
+    ["Estimate Total", deal.total_quote_value ? fmtMoney(deal.total_quote_value) : "—"],
+    ["Contract Total", deal.award_total ? fmtMoney(deal.award_total) : "—"],
     ["Margin", deal.margin_percent ? `${deal.margin_percent.toFixed(1)}%` : "—"],
   ];
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
-        <h2 className="text-sm font-semibold text-slate-900">Deal Details</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Project Details</h2>
       </div>
       <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-6 text-sm">
         {items.map(([label, value]) => (
@@ -380,7 +380,7 @@ function DealMetadataCard({ deal, stageColor }: { deal: Deal; stageColor: string
         ))}
         {deal.ship_to_address && (
           <div className="grid grid-cols-[120px_1fr] items-baseline gap-3">
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Ship-To</dt>
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Project Address</dt>
             <dd className="whitespace-pre-line text-slate-900">{deal.ship_to_address}</dd>
           </div>
         )}

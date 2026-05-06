@@ -25,12 +25,12 @@ export default function AccountsPage() {
   function startNew() {
     if (!profile) return;
     setEditing({
-      id: newId("acc"),
+      id: newId("client"),
       name: "",
-      type: "federal",
+      type: "commercial",   // builders default to private clients
       contract_vehicles: [],
       ship_to_addresses: [],
-      payment_terms: "Net 30",
+      payment_terms: "Per draw schedule",
       notes: "",
       org_ref: profile.org_ref,
     });
@@ -44,7 +44,7 @@ export default function AccountsPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this account?")) return;
+    if (!confirm("Delete this client?")) return;
     await deleteAccount(id);
     await refresh();
   }
@@ -53,17 +53,17 @@ export default function AccountsPage() {
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Accounts</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Clients</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Federal agencies, state agencies, and commercial buyers — the customers your deals are tied to.
+            Homeowners, developers, and other clients tied to your projects.
           </p>
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
         >
           <PlusIcon className="h-4 w-4" />
-          New Account
+          New Client
         </button>
       </div>
 
@@ -73,7 +73,7 @@ export default function AccountsPage() {
             <tr>
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Type</th>
-              <th className="px-4 py-3 text-left">Contract Vehicles</th>
+              <th className="px-4 py-3 text-left">Notes</th>
               <th className="px-4 py-3 text-left">Payment Terms</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -83,7 +83,7 @@ export default function AccountsPage() {
               <tr key={a.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-900">{a.name}</td>
                 <td className="px-4 py-3 text-xs text-slate-700">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 capitalize">{a.type}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 capitalize">{clientTypeLabel(a.type)}</span>
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-700">
                   {a.contract_vehicles.length > 0 ? a.contract_vehicles.join(", ") : "—"}
@@ -93,7 +93,7 @@ export default function AccountsPage() {
                   <div className="flex justify-end gap-1">
                     <button
                       onClick={() => setEditing(a)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                      className="text-xs font-medium text-amber-700 hover:text-amber-800"
                     >
                       Edit
                     </button>
@@ -110,7 +110,7 @@ export default function AccountsPage() {
             {accounts.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                  No accounts yet. Click <span className="text-blue-600">New Account</span> above.
+                  No clients yet. Click <span className="text-amber-700">New Client</span> above.
                 </td>
               </tr>
             )}
@@ -119,41 +119,41 @@ export default function AccountsPage() {
       </section>
 
       {editing && (
-        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Account" : "New Account"}>
+        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Client" : "New Client"}>
           <div className="space-y-4">
             <Input
-              label="Name"
+              label="Client name"
               required
               value={editing.name}
               onChange={(v) => setEditing({ ...editing, name: v })}
-              placeholder="e.g. Department of Sample Administration"
+              placeholder="e.g. Maddox Family"
             />
             <div className="grid grid-cols-2 gap-4">
               <SelectField
-                label="Type"
+                label="Client type"
                 value={editing.type}
                 onChange={(v) => setEditing({ ...editing, type: v as Account["type"] })}
                 options={[
-                  { value: "federal", label: "Federal" },
-                  { value: "state", label: "State" },
-                  { value: "commercial", label: "Commercial" },
+                  { value: "commercial", label: "Homeowner" },
+                  { value: "federal", label: "Developer / Investor" },
+                  { value: "state", label: "Builder / GC (sub work)" },
                 ]}
               />
               <Input
                 label="Payment terms"
                 value={editing.payment_terms}
                 onChange={(v) => setEditing({ ...editing, payment_terms: v })}
-                placeholder="Net 30"
+                placeholder="Per draw schedule"
               />
             </div>
             <Input
-              label="Contract vehicles (comma-separated)"
+              label="Notes / referrals (comma-separated)"
               value={editing.contract_vehicles.join(", ")}
               onChange={(v) => setEditing({ ...editing, contract_vehicles: v.split(",").map((x) => x.trim()).filter(Boolean) })}
-              placeholder="GSA Schedule 70, MAS IT"
+              placeholder="Architect referral — Smith Designs"
             />
             <TextArea
-              label="Ship-to addresses (one per line)"
+              label="Project addresses (one per line, blank line between)"
               value={editing.ship_to_addresses.join("\n\n")}
               onChange={(v) => setEditing({ ...editing, ship_to_addresses: v.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean) })}
             />
@@ -168,6 +168,13 @@ export default function AccountsPage() {
       )}
     </AppShell>
   );
+}
+
+// Builder rebrand: federal/state/commercial keys are reused as
+// homeowner/developer/builder labels until we change the underlying
+// type union (kept stable so store + parsers don't break).
+function clientTypeLabel(t: Account["type"]): string {
+  return t === "commercial" ? "Homeowner" : t === "federal" ? "Developer" : "Builder/GC";
 }
 
 // ── shared form components ────────────────────────────────────────
@@ -207,7 +214,7 @@ export function ModalFooter({ onCancel, onSave }: { onCancel: () => void; onSave
       </button>
       <button
         onClick={onSave}
-        className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
       >
         Save
       </button>
@@ -241,7 +248,7 @@ export function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
       />
     </div>
   );
@@ -265,7 +272,7 @@ export function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
       />
     </div>
   );
@@ -288,7 +295,7 @@ export function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
