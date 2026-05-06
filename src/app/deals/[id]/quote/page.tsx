@@ -8,6 +8,7 @@ import {
   PlusIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { useAuth } from "@/lib/auth-context";
@@ -50,7 +51,6 @@ export default function DealQuotePage({
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [savedLinesSnapshot, setSavedLinesSnapshot] = useState<string>("");
-  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
@@ -220,8 +220,8 @@ export default function DealQuotePage({
       setDeal(updatedDeal);
       setLines(renumbered);
       setSavedLinesSnapshot(JSON.stringify(renumbered));
-      setSavedAt(Date.now());
-      window.setTimeout(() => setSavedAt(null), 2000);
+      // Once saved, dirty becomes false → resting state shows the green
+      // "Saved" pill automatically. No need for a transient flash.
     } finally {
       setSaving(false);
     }
@@ -257,15 +257,23 @@ export default function DealQuotePage({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {savedAt && <span className="text-xs text-emerald-600">✓ Saved</span>}
-            {dirty && !savedAt && <span className="text-xs text-amber-600">Unsaved changes</span>}
-            <button
-              onClick={onSave}
-              disabled={saving || !dirty}
-              className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {saving ? "Saving…" : "Save estimate"}
-            </button>
+            {!dirty && !saving ? (
+              // Resting state: button area shows a green "Saved" pill so the
+              // user knows their work is persisted (rather than seeing a
+              // disabled grey button).
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                <CheckIcon className="h-4 w-4" />
+                Saved
+              </span>
+            ) : (
+              <button
+                onClick={onSave}
+                disabled={saving}
+                className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-400"
+              >
+                {saving ? "Saving…" : "Save estimate"}
+              </button>
+            )}
           </div>
         </div>
 

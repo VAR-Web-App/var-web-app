@@ -143,9 +143,7 @@ export default function FloorPlanExtractor({
         {!extraction && (
           <>
             <p className="text-sm text-slate-700">
-              Drop a floor plan PDF — AI reads room dimensions, sqft, beds/baths, and pre-fills
-              your estimate. <span className="text-slate-500">Verify before quoting; treat
-              this as a smart starting point, not a takeoff.</span>
+              Drop a floor plan PDF. Verify before quoting.
             </p>
 
             <div
@@ -179,18 +177,35 @@ export default function FloorPlanExtractor({
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => pickFile(null)}
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  disabled={extracting}
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={runExtraction}
-                  disabled={extracting}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-400"
-                >
-                  <SparklesIcon className="h-4 w-4" />
-                  {extracting ? "Reading plan…" : "Extract"}
-                </button>
+                {extracting ? (
+                  // Progress-bar button — indeterminate slide while Claude reads.
+                  // Reuses the .parser-loading-bar keyframe from globals.css.
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label="Reading plan"
+                    className="relative w-44 overflow-hidden rounded-md bg-amber-200 px-5 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-300"
+                  >
+                    <div className="parser-loading-bar absolute inset-y-0 bg-amber-500/70" />
+                    <div className="relative flex items-center justify-center gap-1.5">
+                      <SparklesIcon className="h-4 w-4" />
+                      Reading plan…
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={runExtraction}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+                  >
+                    <SparklesIcon className="h-4 w-4" />
+                    Extract
+                  </button>
+                )}
               </div>
             )}
           </>
@@ -404,7 +419,6 @@ function generateEstimateLines(extraction: FloorPlanExtraction): QuoteLine[] {
   const firstFloor = extraction.first_floor_sqft || totalSqft;
   const garageSqft = extraction.garage_sqft || 0;
   const porchSqft = extraction.porch_sqft || 0;
-  const bedrooms = extraction.bedrooms || 0;
   const fullBaths = extraction.full_baths || 0;
   const halfBaths = extraction.half_baths || 0;
   const stories = extraction.stories || 1;
