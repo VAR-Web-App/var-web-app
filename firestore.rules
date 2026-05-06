@@ -97,5 +97,30 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
+
+    // Project milestones (Builder vertical): one milestone per draw.
+    // Same gate-on-parent-deal pattern as quote_lines / attachments.
+    match /project_milestones/{msId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
+    // Project photos (Builder vertical): phase-tagged build photos.
+    match /project_photos/{photoId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
   }
 }
