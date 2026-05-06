@@ -18,7 +18,8 @@ export default function NewDealModal({
   const [name, setName] = useState("");
   const [accountRef, setAccountRef] = useState("");
   const [solicitation, setSolicitation] = useState("");
-  const [manufacturer, setManufacturer] = useState("Cisco");
+  // Manufacturer field reused as builder type (Custom Home / Remodel / Addition / Spec Build)
+  const [manufacturer, setManufacturer] = useState("Custom Home");
   const [dealType, setDealType] = useState<"budgetary" | "quotation">("quotation");
   const [dueDate, setDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +79,7 @@ export default function NewDealModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">New Deal</h2>
+          <h2 className="text-base font-semibold text-slate-900">New Project</h2>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
@@ -87,24 +88,24 @@ export default function NewDealModal({
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4 p-6">
-          <Field label="Deal name" required>
+          <Field label="Project name" required>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. DSA — Switch Refresh (Q3)"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g. Maddox — Country Dream House"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               required
               autoFocus
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Customer / Account">
+            <Field label="Client">
               <select
                 value={accountRef}
                 onChange={(e) => setAccountRef(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
                 <option value="">— select —</option>
                 {accounts.map((a) => (
@@ -114,43 +115,48 @@ export default function NewDealModal({
                 ))}
               </select>
             </Field>
-            <Field label="Manufacturer">
-              <input
-                type="text"
+            <Field label="Project type">
+              <select
                 value={manufacturer}
                 onChange={(e) => setManufacturer(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="Custom Home">Custom Home</option>
+                <option value="Remodel">Remodel</option>
+                <option value="Addition">Addition</option>
+                <option value="Spec Build">Spec Build</option>
+                <option value="Other">Other</option>
+              </select>
             </Field>
           </div>
 
-          <Field label="Solicitation / RFQ Number">
+          <Field label="Job number">
             <input
               type="text"
               value={solicitation}
               onChange={(e) => setSolicitation(e.target.value)}
-              placeholder="e.g. DSA-26-Q-0019"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Optional — your internal job # or lot reference"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Deal type">
+            <Field label="Estimate type">
               <select
                 value={dealType}
                 onChange={(e) => setDealType(e.target.value as "budgetary" | "quotation")}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
-                <option value="quotation">Quotation</option>
-                <option value="budgetary">Budgetary</option>
+                <option value="quotation">Detailed Estimate</option>
+                <option value="budgetary">Ballpark / Budget</option>
               </select>
             </Field>
-            <Field label="Due date">
+            <Field label="Target start">
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               />
             </Field>
           </div>
@@ -166,9 +172,9 @@ export default function NewDealModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {submitting ? "Creating…" : "Create deal"}
+              {submitting ? "Creating…" : "Create project"}
             </button>
           </div>
         </form>

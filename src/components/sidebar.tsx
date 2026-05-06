@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   RectangleStackIcon,
   DocumentArrowUpIcon,
-  ScaleIcon,
-  BuildingOfficeIcon,
+  HomeIcon,
   UserGroupIcon,
-  TruckIcon,
+  WrenchScrewdriverIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
@@ -21,13 +20,16 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+// Builder app navigation — same routes as the VAR app underneath
+// (so existing pages keep working unchanged) with builder-friendly
+// labels and icons. Routes will be aliased once /projects + /clients
+// land. For now Pipeline still routes to /deals.
 const NAV: NavItem[] = [
-  { href: "/deals", label: "Pipeline", icon: RectangleStackIcon },
-  { href: "/accounts", label: "Accounts", icon: BuildingOfficeIcon },
+  { href: "/deals", label: "Projects", icon: RectangleStackIcon },
+  { href: "/accounts", label: "Clients", icon: HomeIcon },
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
-  { href: "/distributors", label: "Distributors", icon: TruckIcon },
+  { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
   { href: "/documents", label: "Documents", icon: DocumentArrowUpIcon },
-  { href: "/compare", label: "Compare", icon: ScaleIcon },
 ];
 
 export default function Sidebar() {
@@ -44,13 +46,13 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 z-50 flex h-full w-56 flex-col bg-slate-900 text-white">
       <div className="border-b border-slate-700 px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-sm font-bold">
-            V
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-600 text-sm font-bold">
+            B
           </div>
-          <h1 className="text-lg font-bold tracking-tight">VAR Web App</h1>
+          <h1 className="text-lg font-bold tracking-tight">Builder</h1>
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">
-          {profile?.display_name ?? "Federal IT VAR — Early access"}
+          {profile?.display_name ?? "Custom home builder — Beta"}
         </p>
       </div>
 
