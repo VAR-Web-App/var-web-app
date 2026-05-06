@@ -122,27 +122,30 @@ export const BUILDER_LINE_CATEGORY_LABELS: Record<BuilderLineCategory, string> =
   other: "Other",
 };
 
-// ── Builder phase milestones (for draw schedule) ─────────────────
+// ── Builder phase milestones (for draw schedule + Gantt) ─────────
 // Default % splits roughly mirror AIA G702-style residential draws.
-// Customizable per project; these are the template starting point.
+// Default durations are mid-range residential custom-home rules of thumb
+// (USA 2026, mid-grade finishes). Customizable per project; these are
+// the template starting point.
 
 export interface PhaseMilestoneTemplate {
   key: string;
   label: string;
   default_percent: number;
+  default_duration_days: number;
   description: string;
 }
 
 export const DEFAULT_BUILDER_MILESTONES: PhaseMilestoneTemplate[] = [
-  { key: "deposit", label: "Deposit / Mobilization", default_percent: 5, description: "Contract signing + permits + site prep" },
-  { key: "foundation", label: "Foundation Complete", default_percent: 10, description: "Excavation, footings, foundation walls poured" },
-  { key: "framing", label: "Framing Complete", default_percent: 20, description: "Frame up, sheathing, roof structure" },
-  { key: "dried_in", label: "Dried-In", default_percent: 10, description: "Roof, windows, exterior doors installed" },
-  { key: "mep_rough", label: "MEP Rough-In", default_percent: 15, description: "Plumbing, electrical, HVAC rough complete + inspected" },
-  { key: "drywall", label: "Drywall & Insulation", default_percent: 10, description: "Insulation, drywall hung + finished" },
-  { key: "finishes", label: "Finishes", default_percent: 20, description: "Trim, paint, flooring, cabinets, fixtures" },
-  { key: "punch", label: "Punch List", default_percent: 5, description: "Final inspections, punch list complete, CO issued" },
-  { key: "warranty", label: "Warranty Period", default_percent: 5, description: "30-day post-occupancy walkthrough" },
+  { key: "deposit", label: "Deposit / Mobilization", default_percent: 5, default_duration_days: 7, description: "Contract signing + permits + site prep" },
+  { key: "foundation", label: "Foundation Complete", default_percent: 10, default_duration_days: 21, description: "Excavation, footings, foundation walls poured" },
+  { key: "framing", label: "Framing Complete", default_percent: 20, default_duration_days: 42, description: "Frame up, sheathing, roof structure" },
+  { key: "dried_in", label: "Dried-In", default_percent: 10, default_duration_days: 14, description: "Roof, windows, exterior doors installed" },
+  { key: "mep_rough", label: "MEP Rough-In", default_percent: 15, default_duration_days: 21, description: "Plumbing, electrical, HVAC rough complete + inspected" },
+  { key: "drywall", label: "Drywall & Insulation", default_percent: 10, default_duration_days: 21, description: "Insulation, drywall hung + finished" },
+  { key: "finishes", label: "Finishes", default_percent: 20, default_duration_days: 56, description: "Trim, paint, flooring, cabinets, fixtures" },
+  { key: "punch", label: "Punch List", default_percent: 5, default_duration_days: 14, description: "Final inspections, punch list complete, CO issued" },
+  { key: "warranty", label: "Warranty Period", default_percent: 5, default_duration_days: 30, description: "30-day post-occupancy walkthrough" },
 ];
 
 // ── Project execution: milestones + photos ───────────────────────
@@ -173,6 +176,10 @@ export interface ProjectMilestone {
   /** Dollar amount derived from percentage × contract value at creation. */
   amount: number;
   status: MilestoneStatus;
+  /** Planned start date (ISO date string YYYY-MM-DD). Drives the Gantt. */
+  planned_start_date?: string;
+  /** Planned end date (ISO date string YYYY-MM-DD). Drives the Gantt. */
+  planned_end_date?: string;
   /** When work on this phase began (in_progress flip). */
   started_at?: string;
   /** When the GC marked the phase complete (awaiting client approval). */

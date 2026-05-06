@@ -99,25 +99,52 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     setSeeding(true);
     try {
       const now = new Date().toISOString();
-      const generated: ProjectMilestone[] = DEFAULT_BUILDER_MILESTONES.map((t, i) => ({
-        id: newId("ms"),
-        deal_ref: deal.id,
-        org_ref: deal.org_ref,
-        name: t.label,
-        description: t.description,
-        order: i,
-        percentage: t.default_percent,
-        amount: Math.round((contractValue * t.default_percent) / 100),
-        status: "pending" as MilestoneStatus,
-        notes: "",
-        created_at: now,
-        updated_at: now,
-      }));
+      // Date generation: start from deal.due_date (target start) if set,
+      // else today. Each phase runs for its default duration immediately
+      // after the previous one finishes (no gaps, no overlaps — simple
+      // sequential build schedule the GC can later edit).
+      const startSeed = deal.due_date ? new Date(deal.due_date) : new Date();
+      let cursor = new Date(startSeed);
+      const generated: ProjectMilestone[] = DEFAULT_BUILDER_MILESTONES.map((t, i) => {
+        const phaseStart = new Date(cursor);
+        const phaseEnd = new Date(cursor);
+        phaseEnd.setDate(phaseEnd.getDate() + t.default_duration_days);
+        cursor = new Date(phaseEnd); // next phase begins where this ends
+        return {
+          id: newId("ms"),
+          deal_ref: deal.id,
+          org_ref: deal.org_ref,
+          name: t.label,
+          description: t.description,
+          order: i,
+          percentage: t.default_percent,
+          amount: Math.round((contractValue * t.default_percent) / 100),
+          status: "pending" as MilestoneStatus,
+          planned_start_date: toIsoDate(phaseStart),
+          planned_end_date: toIsoDate(phaseEnd),
+          notes: "",
+          created_at: now,
+          updated_at: now,
+        };
+      });
       await saveMilestones(generated);
       setMilestones(generated);
     } finally {
       setSeeding(false);
     }
+  }
+
+  async function updateMilestoneDates(
+    m: ProjectMilestone,
+    patch: { planned_start_date?: string; planned_end_date?: string }
+  ) {
+    const updated: ProjectMilestone = {
+      ...m,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+    setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
+    await saveMilestone(updated);
   }
 
   async function transition(m: ProjectMilestone, next: MilestoneStatus) {
@@ -193,6 +220,11 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       </div>
 
       <ScheduleTimeline milestones={milestones} />
+
+      <GanttChart
+        milestones={milestones}
+        onChangeDates={updateMilestoneDates}
+      />
 
       <ul className="divide-y divide-slate-100">
         {milestones.map((m) => (
@@ -375,4 +407,206 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
       <div className={`mt-1 text-lg font-semibold tabular-nums ${color}`}>{value}</div>
     </div>
   );
+}
+
+// ── Gantt chart ──────────────────────────────────────────────────
+// Time-based horizontal bars. Each row = one phase, position + width
+// computed from planned_start/end dates relative to the project window
+// (earliest start → latest end). A vertical "today" line is drawn if
+// today falls inside the window. Click a bar to edit its date range.
+
+function GanttChart({
+  milestones,
+  onChangeDates,
+}: {
+  milestones: ProjectMilestone[];
+  onChangeDates: (m: ProjectMilestone, patch: { planned_start_date?: string; planned_end_date?: string }) => void;
+}) {
+  // Today is captured once on mount via useEffect — calling Date.now()
+  // during render violates React's purity rules and triggers a lint
+  // error in Next 16. The "Today" line stays put for the session.
+  const [todayMs, setTodayMs] = useState<number | null>(null);
+  useEffect(() => {
+    setTodayMs(Date.now());
+  }, []);
+
+  const dated = milestones.filter((m) => m.planned_start_date && m.planned_end_date);
+  if (dated.length === 0) {
+    return (
+      <div className="border-b border-slate-200 px-6 py-4 text-xs text-slate-500">
+        Phase dates not set yet — regenerate the schedule to populate, or click a milestone below to edit dates.
+      </div>
+    );
+  }
+
+  // Project window
+  const startMs = Math.min(...dated.map((m) => Date.parse(m.planned_start_date!)));
+  const endMs = Math.max(...dated.map((m) => Date.parse(m.planned_end_date!)));
+  const totalMs = Math.max(1, endMs - startMs);
+  const todayInRange = todayMs !== null && todayMs >= startMs && todayMs <= endMs;
+  const todayPercent = todayMs !== null ? ((todayMs - startMs) / totalMs) * 100 : 0;
+
+  // Month tick marks for the date axis
+  const ticks: { ms: number; label: string }[] = [];
+  const cursor = new Date(startMs);
+  cursor.setDate(1);
+  while (cursor.getTime() <= endMs) {
+    ticks.push({
+      ms: cursor.getTime(),
+      label: cursor.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return (
+    <div className="border-b border-slate-200 bg-slate-50/40">
+      <div className="flex items-center justify-between px-6 pt-4 pb-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Schedule (Gantt)
+        </div>
+        <div className="text-[10px] text-slate-400">
+          {new Date(startMs).toLocaleDateString()} → {new Date(endMs).toLocaleDateString()}
+          {" · "}
+          {Math.ceil(totalMs / (1000 * 60 * 60 * 24 * 7))} weeks
+        </div>
+      </div>
+
+      <div className="px-6 pb-4">
+        {/* Date axis (month ticks) */}
+        <div className="relative mb-1 h-4 border-b border-slate-200">
+          {ticks.map((t) => {
+            const left = ((t.ms - startMs) / totalMs) * 100;
+            if (left < 0 || left > 100) return null;
+            return (
+              <div
+                key={t.ms}
+                className="absolute top-0 -translate-x-1/2 text-[9px] uppercase tracking-wider text-slate-400"
+                style={{ left: `${left}%` }}
+              >
+                {t.label}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bars */}
+        <div className="relative space-y-1.5">
+          {todayInRange && (
+            <div
+              className="pointer-events-none absolute inset-y-0 z-10 w-px bg-red-400"
+              style={{ left: `${todayPercent}%` }}
+              aria-hidden
+            >
+              <div className="absolute -top-3 -translate-x-1/2 whitespace-nowrap rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                Today
+              </div>
+            </div>
+          )}
+          {dated.map((m) => {
+            const ms = Date.parse(m.planned_start_date!);
+            const me = Date.parse(m.planned_end_date!);
+            const left = ((ms - startMs) / totalMs) * 100;
+            const width = Math.max(0.5, ((me - ms) / totalMs) * 100);
+            return (
+              <GanttBar
+                key={m.id}
+                milestone={m}
+                left={left}
+                width={width}
+                onChangeDates={(patch) => onChangeDates(m, patch)}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GanttBar({
+  milestone: m,
+  left,
+  width,
+  onChangeDates,
+}: {
+  milestone: ProjectMilestone;
+  left: number;
+  width: number;
+  onChangeDates: (patch: { planned_start_date?: string; planned_end_date?: string }) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const color = ganttBarColor(m.status);
+
+  return (
+    <div className="relative h-7">
+      <div className="absolute inset-y-0 left-0 right-0 rounded bg-slate-100" />
+      <button
+        onClick={() => setEditing((v) => !v)}
+        className={`absolute inset-y-0 flex items-center overflow-hidden rounded text-[10px] font-medium text-white shadow-sm transition-opacity hover:opacity-90 ${color}`}
+        style={{ left: `${left}%`, width: `${width}%` }}
+        title={`${m.name} · ${m.planned_start_date} → ${m.planned_end_date}`}
+      >
+        <span className="truncate px-2">{m.name}</span>
+      </button>
+
+      {editing && (
+        <div className="absolute right-0 top-8 z-20 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg">
+          <div className="mb-2 font-semibold text-slate-700">{m.name}</div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-slate-500">Start</span>
+              <input
+                type="date"
+                value={m.planned_start_date || ""}
+                onChange={(e) => onChangeDates({ planned_start_date: e.target.value })}
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-slate-500">End</span>
+              <input
+                type="date"
+                value={m.planned_end_date || ""}
+                onChange={(e) => onChangeDates({ planned_end_date: e.target.value })}
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+            </label>
+          </div>
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={() => setEditing(false)}
+              className="rounded bg-slate-800 px-3 py-1 text-[11px] font-medium text-white hover:bg-slate-900"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ganttBarColor(status: MilestoneStatus): string {
+  switch (status) {
+    case "pending":
+      return "bg-slate-400";
+    case "in_progress":
+      return "bg-amber-500";
+    case "awaiting_approval":
+      return "bg-blue-500";
+    case "approved":
+      return "bg-emerald-500";
+    case "released":
+      return "bg-emerald-700";
+    case "disputed":
+      return "bg-red-500";
+  }
+}
+
+function toIsoDate(d: Date): string {
+  // YYYY-MM-DD in local timezone (HTML date inputs expect this format).
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
