@@ -10,6 +10,7 @@ import {
   DocumentTextIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
@@ -331,6 +332,14 @@ function DealHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <Link
+          href={`/deals/${deal.id}/portal`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          title="See what your client sees"
+        >
+          <EyeIcon className="h-4 w-4" />
+          View as client
+        </Link>
         <select
           value={deal.stage}
           onChange={(e) => onChangeStage(e.target.value as Deal["stage"])}
