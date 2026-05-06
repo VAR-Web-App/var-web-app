@@ -250,10 +250,10 @@ export default function DealQuotePage({
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Customer Quote</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Project Estimate</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Build the quote you&apos;ll send to your customer. Line totals roll up to the
-              deal&apos;s totals on save.
+              Build the estimate you&apos;ll send your client. Cost + markup feeds the
+              project totals on save.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -262,9 +262,9 @@ export default function DealQuotePage({
             <button
               onClick={onSave}
               disabled={saving || !dirty}
-              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {saving ? "Saving…" : "Save quote"}
+              {saving ? "Saving…" : "Save estimate"}
             </button>
           </div>
         </div>
@@ -318,12 +318,12 @@ function ImportBanner({
   onImport: (bom: ParsedAttCache) => void;
 }) {
   return (
-    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div className="text-sm text-blue-900">
-          <span className="font-semibold">Import from a parsed quote.</span>{" "}
-          Pull line items in from a parsed distributor quote attached to this deal. Default
-          discount + markup from your org settings will be applied — edit per line.
+        <div className="text-sm text-amber-900">
+          <span className="font-semibold">Import from a parsed bid or material list.</span>{" "}
+          Pull line items in from an attached PDF. Default markup from your settings is
+          applied — edit per line.
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -331,7 +331,7 @@ function ImportBanner({
           <button
             key={b.attachment_id}
             onClick={() => onImport(b)}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+            className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
           >
             Import {b.bom.length} line{b.bom.length === 1 ? "" : "s"} from {b.attachment_name}
           </button>
@@ -350,11 +350,11 @@ function TotalsBar({
 }) {
   return (
     <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      <Stat label="Lines" value={String(lineCount)} />
-      <Stat label="Cost" value={fmtMoney(totals.cost)} />
-      <Stat label="Customer Total" value={fmtMoney(totals.customer)} accent="emerald" />
+      <Stat label="Line Items" value={String(lineCount)} />
+      <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
+      <Stat label="Estimate to Client" value={fmtMoney(totals.customer)} accent="emerald" />
       <Stat
-        label="Margin"
+        label="Profit Margin"
         value={`${totals.margin.toFixed(1)}%`}
         accent={totals.margin >= 15 ? "emerald" : totals.margin >= 5 ? "amber" : "red"}
       />
@@ -390,17 +390,17 @@ function EmptyState({
 }) {
   return (
     <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
-      <h2 className="text-base font-semibold text-slate-900">No quote lines yet</h2>
+      <h2 className="text-base font-semibold text-slate-900">No line items yet</h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
         {hasParsedBoms
-          ? "Import lines from a parsed distributor quote (banner above), or add a line manually."
-          : "Add lines manually here. Or upload a distributor quote PDF on the deal detail page — the parser will extract the line items and you can import them with one click."}
+          ? "Import lines from a parsed sub bid or material list (banner above), or add a line manually."
+          : "Add line items here — materials, labor, and sub trades. Or upload a floor plan on the project page and AI will pre-fill the structure (coming soon)."}
       </p>
       <button
         onClick={onAddBlank}
-        className="mt-4 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        className="mt-4 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
       >
-        Add the first line
+        Add first line item
       </button>
     </div>
   );
@@ -422,14 +422,13 @@ function LineEditor({
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-3 text-left">#</th>
-              <th className="px-3 py-3 text-left">Part #</th>
+              <th className="px-3 py-3 text-left">Item / Code</th>
               <th className="px-3 py-3 text-left">Description</th>
               <th className="px-3 py-3 text-right">Qty</th>
-              <th className="px-3 py-3 text-right">List $</th>
-              <th className="px-3 py-3 text-right">Disc %</th>
+              <th className="px-3 py-3 text-right">Unit Cost</th>
               <th className="px-3 py-3 text-right">Markup %</th>
-              <th className="px-3 py-3 text-right">Cust. Unit</th>
-              <th className="px-3 py-3 text-right">Cust. Ext.</th>
+              <th className="px-3 py-3 text-right">Unit Price</th>
+              <th className="px-3 py-3 text-right">Line Total</th>
               <th className="px-3 py-3 text-right">Margin</th>
               <th className="px-3 py-3"></th>
             </tr>
@@ -464,14 +463,6 @@ function LineEditor({
                     value={line.list_price}
                     onChange={(v) => onUpdate(i, { list_price: v })}
                     width="w-24"
-                    decimals
-                  />
-                </td>
-                <td className="px-2 py-1.5 text-right">
-                  <NumInput
-                    value={line.discount_percent}
-                    onChange={(v) => onUpdate(i, { discount_percent: v })}
-                    width="w-16"
                     decimals
                   />
                 </td>
@@ -536,7 +527,7 @@ function CellInput({
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${className}`}
+      className={`rounded border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
     />
   );
 }
@@ -568,7 +559,7 @@ function NumInput({
         if (Number.isFinite(n)) onChange(n);
       }}
       onBlur={() => setRaw(decimals ? value.toFixed(2) : String(value))}
-      className={`rounded border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${width}`}
+      className={`rounded border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-slate-200 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 ${width}`}
     />
   );
 }
