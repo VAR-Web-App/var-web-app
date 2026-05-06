@@ -14,6 +14,7 @@ import {
 import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
 import ProjectExecutionPanel from "@/components/project-execution-panel";
+import PhotoGallery from "@/components/photo-gallery";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -279,6 +280,8 @@ export default function DealDetailPage({
             <QuoteCard dealId={deal.id} lines={quoteLines} />
 
             <ProjectExecutionPanel deal={deal} />
+
+            <PhotoGallery dealId={deal.id} orgRef={deal.org_ref} />
 
             {comparison && <ComparisonCard comparison={comparison} />}
 
