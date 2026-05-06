@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
+import ProjectExecutionPanel from "@/components/project-execution-panel";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -276,6 +277,8 @@ export default function DealDetailPage({
             />
 
             <QuoteCard dealId={deal.id} lines={quoteLines} />
+
+            <ProjectExecutionPanel deal={deal} />
 
             {comparison && <ComparisonCard comparison={comparison} />}
 

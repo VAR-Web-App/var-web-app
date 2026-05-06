@@ -144,3 +144,96 @@ export const DEFAULT_BUILDER_MILESTONES: PhaseMilestoneTemplate[] = [
   { key: "punch", label: "Punch List", default_percent: 5, description: "Final inspections, punch list complete, CO issued" },
   { key: "warranty", label: "Warranty Period", default_percent: 5, description: "30-day post-occupancy walkthrough" },
 ];
+
+// ── Project execution: milestones + photos ───────────────────────
+// Translated from ProjectPulse's MilestoneRecord schema. Status flow
+// matches PP exactly so the same draw-release semantics apply:
+//   pending → in_progress → awaiting_approval → approved → released
+// Disputed branches off awaiting_approval if the client rejects the
+// completion claim. The amount/percentage drive draw schedule billing.
+
+export type MilestoneStatus =
+  | "pending"
+  | "in_progress"
+  | "awaiting_approval"
+  | "approved"
+  | "released"
+  | "disputed";
+
+export interface ProjectMilestone {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  name: string;
+  description: string;
+  /** Order in the schedule (smaller = earlier). */
+  order: number;
+  /** Percent of contract value this draw represents (0–100). */
+  percentage: number;
+  /** Dollar amount derived from percentage × contract value at creation. */
+  amount: number;
+  status: MilestoneStatus;
+  /** When work on this phase began (in_progress flip). */
+  started_at?: string;
+  /** When the GC marked the phase complete (awaiting client approval). */
+  marked_complete_at?: string;
+  /** When the client approved the completion (releases payment). */
+  approved_at?: string;
+  /** When the payment cleared. */
+  released_at?: string;
+  released_amount?: number;
+  dispute_reason?: string;
+  notes: string;
+  /** ISO string. */
+  created_at: string;
+  updated_at: string;
+}
+
+export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
+  pending: "Pending",
+  in_progress: "In Progress",
+  awaiting_approval: "Awaiting Approval",
+  approved: "Approved",
+  released: "Paid",
+  disputed: "Disputed",
+};
+
+export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
+  pending: "bg-slate-100 text-slate-700 ring-slate-200",
+  in_progress: "bg-amber-100 text-amber-800 ring-amber-200",
+  awaiting_approval: "bg-blue-100 text-blue-800 ring-blue-200",
+  approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  released: "bg-emerald-600 text-white ring-emerald-700",
+  disputed: "bg-red-100 text-red-800 ring-red-200",
+};
+
+export interface ProjectPhoto {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  /** Object URL or persistent URL — demo uses object URLs. */
+  url: string;
+  /** Phase the photo documents (e.g. "Foundation", "Framing"). */
+  phase: string;
+  caption: string;
+  /** Upload size in bytes (for display only). */
+  size: number;
+  uploaded_at: string;
+}
+
+/** The phases used to organize photos + schedule blocks. Mirrors the
+ *  default milestone phases above so the timeline / gallery / draw
+ *  schedule all share the same vocabulary. */
+export const PROJECT_PHASES = [
+  "Site Work",
+  "Foundation",
+  "Framing",
+  "Dried-In",
+  "MEP Rough-In",
+  "Drywall & Insulation",
+  "Finishes",
+  "Punch List",
+  "Warranty",
+] as const;
+
+export type ProjectPhase = (typeof PROJECT_PHASES)[number];

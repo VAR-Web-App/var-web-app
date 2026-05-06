@@ -203,6 +203,50 @@ export async function deleteAttachment(id: string): Promise<void> {
   await removeFromCollection("attachments", id);
 }
 
+// ── project milestones (Builder vertical) ────────────────────────
+// One milestone == one draw. Schema in src/types/builder.ts mirrors
+// ProjectPulse's MilestoneRecord so behaviors transfer.
+
+import type { ProjectMilestone, ProjectPhoto } from "@/types/builder";
+
+export async function listMilestones(dealRef: string): Promise<ProjectMilestone[]> {
+  const q = query(collection(db, "project_milestones"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectMilestone, "id">) }));
+  return items.sort((a, b) => a.order - b.order);
+}
+
+export async function saveMilestone(m: ProjectMilestone): Promise<void> {
+  await setDoc(doc(db, "project_milestones", m.id), m, { merge: false });
+}
+
+export async function saveMilestones(items: ProjectMilestone[]): Promise<void> {
+  // Sequential rather than batched — same Firestore approach as
+  // saveQuoteLines; keeps the failure mode obvious. Demo volumes are tiny.
+  for (const m of items) await saveMilestone(m);
+}
+
+export async function deleteMilestone(id: string): Promise<void> {
+  await removeFromCollection("project_milestones", id);
+}
+
+// ── project photos (Builder vertical) ────────────────────────────
+
+export async function listPhotos(dealRef: string): Promise<ProjectPhoto[]> {
+  const q = query(collection(db, "project_photos"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectPhoto, "id">) }));
+  return items.sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
+}
+
+export async function savePhoto(p: ProjectPhoto): Promise<void> {
+  await setDoc(doc(db, "project_photos", p.id), p, { merge: false });
+}
+
+export async function deletePhoto(id: string): Promise<void> {
+  await removeFromCollection("project_photos", id);
+}
+
 // ── seeding (called once per new org on first deal page load) ────
 
 export async function seedOrgIfEmpty(orgRef: string): Promise<void> {
