@@ -247,6 +247,25 @@ export async function deletePhoto(id: string): Promise<void> {
   await removeFromCollection("project_photos", id);
 }
 
+// ── project RFQs (Builder vertical) ──────────────────────────────
+
+import type { ProjectRFQ } from "@/types/builder";
+
+export async function listRFQs(dealRef: string): Promise<ProjectRFQ[]> {
+  const q = query(collection(db, "project_rfqs"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectRFQ, "id">) }));
+  return items.sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+export async function saveRFQ(r: ProjectRFQ): Promise<void> {
+  await setDoc(doc(db, "project_rfqs", r.id), r, { merge: false });
+}
+
+export async function deleteRFQ(id: string): Promise<void> {
+  await removeFromCollection("project_rfqs", id);
+}
+
 // ── seeding (called once per new org on first deal page load) ────
 
 export async function seedOrgIfEmpty(orgRef: string): Promise<void> {

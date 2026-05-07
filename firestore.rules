@@ -122,5 +122,17 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
+
+    // Project RFQs (Builder vertical): subcontractor bid requests.
+    match /project_rfqs/{rfqId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
   }
 }

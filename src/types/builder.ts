@@ -244,3 +244,60 @@ export const PROJECT_PHASES = [
 ] as const;
 
 export type ProjectPhase = (typeof PROJECT_PHASES)[number];
+
+// ── Sub RFQs (request for quote) ─────────────────────────────────
+// One RFQ = one scope of work sent to N subs. Each invitee tracks
+// independently (sent → opened → responded → selected/passed). For
+// the demo we mock the email send; in production this is a Resend
+// or SendGrid call with reply-tracking.
+
+export type RFQStatus = "draft" | "sent" | "comparing" | "awarded" | "closed";
+
+export type RFQInviteeStatus = "sent" | "responded" | "selected" | "passed";
+
+export interface RFQInvitee {
+  /** Sub/Supplier ID (from the distributors collection — repurposed). */
+  sub_ref: string;
+  sub_name: string;
+  email?: string;
+  status: RFQInviteeStatus;
+  bid_amount?: number;
+  bid_notes?: string;
+  responded_at?: string;
+}
+
+export interface ProjectRFQ {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  /** Short title for the RFQ list ("Plumbing rough-in", "Roofing"). */
+  scope_title: string;
+  /** Full scope description sent to subs. */
+  scope_description: string;
+  /** Phase this RFQ is for (used for grouping). */
+  phase: ProjectPhase;
+  status: RFQStatus;
+  invitees: RFQInvitee[];
+  /** Internal notes (not sent to subs). */
+  notes: string;
+  sent_at?: string;
+  awarded_to_sub_ref?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const RFQ_STATUS_LABELS: Record<RFQStatus, string> = {
+  draft: "Draft",
+  sent: "Out for bid",
+  comparing: "Comparing bids",
+  awarded: "Awarded",
+  closed: "Closed",
+};
+
+export const RFQ_STATUS_STYLES: Record<RFQStatus, string> = {
+  draft: "bg-slate-100 text-slate-700 ring-slate-200",
+  sent: "bg-amber-100 text-amber-800 ring-amber-200",
+  comparing: "bg-blue-100 text-blue-800 ring-blue-200",
+  awarded: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  closed: "bg-slate-100 text-slate-500 ring-slate-200",
+};

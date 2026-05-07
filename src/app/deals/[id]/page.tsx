@@ -17,6 +17,7 @@ import FloorPlanExtractor from "@/components/floor-plan-extractor";
 import ProjectExecutionPanel from "@/components/project-execution-panel";
 import PhotoGallery from "@/components/photo-gallery";
 import ProjectAIChat from "@/components/project-ai-chat";
+import RFQPanel from "@/components/rfq-panel";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -282,6 +283,8 @@ export default function DealDetailPage({
             <QuoteCard dealId={deal.id} lines={quoteLines} />
 
             <ProjectExecutionPanel deal={deal} />
+
+            <RFQPanel deal={deal} />
 
             <PhotoGallery dealId={deal.id} orgRef={deal.org_ref} />
 
