@@ -729,6 +729,47 @@ export async function seedDemoData(orgRef: string): Promise<SeedResult> {
   return { parsedCacheByDeal };
 }
 
+// ── wipeOrgData: blow away every record for an org ───────────────
+// Useful for demo prep when stale fixtures need replacing. Wipes deals
+// and all child records (quote_lines, attachments, milestones, photos,
+// rfqs) plus accounts, contacts, distributors. Settings preserved.
+//
+// NOT meant for production users — destructive and irreversible.
+
+export async function wipeOrgData(orgRef: string): Promise<void> {
+  const allDeals = await listDeals(orgRef);
+
+  // Cascade-delete child records per deal first.
+  for (const deal of allDeals) {
+    const [lines, atts, milestones, photos] = await Promise.all([
+      listQuoteLines(deal.id),
+      listAttachments(deal.id),
+      listMilestones(deal.id),
+      listPhotos(deal.id),
+    ]);
+    const rfqs = await listRFQs(deal.id);
+    for (const l of lines) await removeFromCollection("quote_lines", l.id);
+    for (const a of atts) await deleteAttachment(a.id);
+    for (const m of milestones) await deleteMilestone(m.id);
+    for (const p of photos) await deletePhoto(p.id);
+    for (const r of rfqs) await deleteRFQ(r.id);
+    await deleteDeal(deal.id);
+  }
+
+  // Top-level records.
+  const accounts = await listAccounts(orgRef);
+  for (const a of accounts) await deleteAccount(a.id);
+  const contacts = await listContacts(orgRef);
+  for (const c of contacts) await deleteContact(c.id);
+  const distributors = await listDistributors(orgRef);
+  for (const d of distributors) await deleteDistributor(d.id);
+}
+
+export async function resetAndSeedBuilderDemo(orgRef: string): Promise<SeedResult> {
+  await wipeOrgData(orgRef);
+  return seedBuilderDemoData(orgRef);
+}
+
 // ── seedBuilderDemoData: builder-flavored sample data ────────────
 // Replaces the federal-IT-VAR sample with custom-home builder
 // fixtures: homeowner clients, trade subs, projects across all

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
 import { Deal, DealStage } from "@/types";
 import { BUILDER_STAGES } from "@/types/builder";
-import { listDeals, saveDeal, seedBuilderDemoData } from "@/lib/store";
+import { listDeals, saveDeal, seedBuilderDemoData, resetAndSeedBuilderDemo } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
 const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; headerColor: string }> = {
@@ -57,6 +57,31 @@ export default function DealsPage() {
     }
   }
 
+  async function onResetAndSeed() {
+    if (!profile || seeding) return;
+    if (!confirm(
+      "Replace all existing pipeline data (clients, subs, projects, milestones, photos, RFQs) with the builder sample fixtures?\n\nThis cannot be undone."
+    )) return;
+    setSeeding(true);
+    try {
+      await resetAndSeedBuilderDemo(profile.org_ref);
+      // Clear sessionStorage parsed-BOM cache too — stale references.
+      try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && (k.startsWith("parsed:") || k.startsWith("chat:"))) {
+            sessionStorage.removeItem(k);
+          }
+        }
+      } catch {
+        // ignore
+      }
+      await refresh();
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   async function handleDrop(stage: DealStage) {
     if (!draggedDeal) return;
     const deal = deals.find((d) => d.id === draggedDeal);
@@ -82,13 +107,26 @@ export default function DealsPage() {
               : "Loading…"}
           </p>
         </div>
-        <button
-          onClick={() => setShowNewDeal(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
-        >
-          <PlusIcon className="h-4 w-4" />
-          New Project
-        </button>
+        <div className="flex items-center gap-2">
+          {loaded && deals.length > 0 && (
+            <button
+              onClick={onResetAndSeed}
+              disabled={seeding}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Wipe all data and reload builder sample fixtures"
+            >
+              <ArrowPathIcon className="h-3.5 w-3.5" />
+              {seeding ? "Resetting…" : "Reset to demo data"}
+            </button>
+          )}
+          <button
+            onClick={() => setShowNewDeal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New Project
+          </button>
+        </div>
       </div>
 
       {loaded && deals.length === 0 && (
