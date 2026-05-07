@@ -11,14 +11,17 @@ import {
   CalendarDaysIcon,
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
+  PlusIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { Deal, Distributor } from "@/types";
-import { ProjectMilestone, MILESTONE_STATUS_STYLES } from "@/types/builder";
+import { ProjectMilestone, MILESTONE_STATUS_STYLES, MILESTONE_STATUS_LABELS } from "@/types/builder";
 import {
   listDeals,
   listDistributors,
   listMilestones,
+  saveMilestone,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -46,10 +49,37 @@ export default function SchedulePage() {
   const [subs, setSubs] = useState<Distributor[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [todayMs, setTodayMs] = useState<number | null>(null);
+  const [assignSubId, setAssignSubId] = useState<string | null>(null);
 
   useEffect(() => {
     setTodayMs(Date.now());
   }, []);
+
+  async function assignSubToMilestone(subId: string, milestoneId: string) {
+    const m = milestones.find((x) => x.id === milestoneId);
+    if (!m) return;
+    const existing = m.assigned_subs || [];
+    if (existing.includes(subId)) return;
+    const updated: ProjectMilestone = {
+      ...m,
+      assigned_subs: [...existing, subId],
+      updated_at: new Date().toISOString(),
+    };
+    setMilestones((prev) => prev.map((x) => (x.id === milestoneId ? updated : x)));
+    await saveMilestone(updated);
+  }
+
+  async function unassignSubFromMilestone(subId: string, milestoneId: string) {
+    const m = milestones.find((x) => x.id === milestoneId);
+    if (!m) return;
+    const updated: ProjectMilestone = {
+      ...m,
+      assigned_subs: (m.assigned_subs || []).filter((x) => x !== subId),
+      updated_at: new Date().toISOString(),
+    };
+    setMilestones((prev) => prev.map((x) => (x.id === milestoneId ? updated : x)));
+    await saveMilestone(updated);
+  }
 
   useEffect(() => {
     if (!profile) return;
@@ -225,6 +255,20 @@ export default function SchedulePage() {
           conflicts={conflicts}
           window={window}
           todayMs={todayMs}
+          onAssignClick={(subId) => setAssignSubId(subId)}
+          onUnassign={(subId, mId) => void unassignSubFromMilestone(subId, mId)}
+        />
+      )}
+
+      {assignSubId && (
+        <AssignModal
+          sub={subs.find((s) => s.id === assignSubId)!}
+          deals={deals}
+          milestones={milestones}
+          onAssign={async (mId) => {
+            await assignSubToMilestone(assignSubId, mId);
+          }}
+          onClose={() => setAssignSubId(null)}
         />
       )}
 
@@ -249,12 +293,16 @@ function ScheduleGrid({
   conflicts,
   window,
   todayMs,
+  onAssignClick,
+  onUnassign,
 }: {
   subs: { active: Distributor[]; idle: Distributor[] };
   assignments: SubAssignment[];
   conflicts: Set<string>;
   window: { startMs: number; endMs: number; totalMs: number; weeks: { start: number; label: string }[] } | null;
   todayMs: number | null;
+  onAssignClick: (subId: string) => void;
+  onUnassign: (subId: string, milestoneId: string) => void;
 }) {
   if (!window) return null;
   const todayInRange = todayMs !== null && todayMs >= window.startMs && todayMs <= window.endMs;
@@ -313,6 +361,8 @@ function ScheduleGrid({
               assignments={subAssignments}
               conflicts={conflicts}
               window={window}
+              onAssignClick={() => onAssignClick(sub.id)}
+              onUnassign={(mId) => onUnassign(sub.id, mId)}
             />
           );
         })}
@@ -330,6 +380,8 @@ function ScheduleGrid({
                 conflicts={conflicts}
                 window={window}
                 idle
+                onAssignClick={() => onAssignClick(sub.id)}
+                onUnassign={(mId) => onUnassign(sub.id, mId)}
               />
             ))}
           </>
@@ -345,20 +397,34 @@ function SubRow({
   conflicts,
   window,
   idle,
+  onAssignClick,
+  onUnassign,
 }: {
   sub: Distributor;
   assignments: SubAssignment[];
   conflicts: Set<string>;
   window: { startMs: number; endMs: number; totalMs: number; weeks: { start: number; label: string }[] };
   idle?: boolean;
+  onAssignClick: () => void;
+  onUnassign: (milestoneId: string) => void;
 }) {
   return (
-    <div className="flex border-b border-slate-100 last:border-b-0">
-      <div className="w-48 flex-shrink-0 border-r border-slate-200 px-4 py-3">
-        <p className="truncate text-sm font-medium text-slate-900">{sub.name}</p>
-        {sub.account_number && (
-          <p className="truncate text-[11px] text-slate-500">{sub.account_number}</p>
-        )}
+    <div className="group flex border-b border-slate-100 last:border-b-0">
+      <div className="flex w-48 flex-shrink-0 items-start justify-between gap-1 border-r border-slate-200 px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-slate-900">{sub.name}</p>
+          {sub.account_number && (
+            <p className="truncate text-[11px] text-slate-500">{sub.account_number}</p>
+          )}
+        </div>
+        <button
+          onClick={onAssignClick}
+          className="flex-shrink-0 rounded p-1 text-slate-300 opacity-0 hover:bg-amber-50 hover:text-amber-700 group-hover:opacity-100 focus:opacity-100"
+          title="Assign this sub to a project phase"
+          aria-label="Assign work"
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       </div>
       <div className={`relative h-14 flex-1 ${idle ? "bg-slate-50/60" : ""}`}>
         {/* Week column dividers */}
@@ -381,18 +447,36 @@ function SubRow({
           const baseColor = barColorForStatus(a.status);
           const color = isConflict ? "bg-red-500" : baseColor;
           return (
-            <Link
+            <div
               key={a.milestone_id}
-              href={`/deals/${a.deal_id}`}
-              className={`absolute top-2 flex h-10 items-center overflow-hidden rounded-md px-2 text-[10px] font-medium text-white shadow-sm hover:opacity-90 ${color}`}
+              className="group/bar absolute top-2"
               style={{ left: `${left}%`, width: `${width}%` }}
-              title={`${a.deal_name} · ${a.milestone_name} · ${a.start_date} → ${a.end_date}${isConflict ? " · CONFLICT" : ""}`}
             >
-              <div className="min-w-0 truncate">
-                <div className="truncate">{a.deal_name}</div>
-                <div className="truncate text-[9px] opacity-90">{a.milestone_name}</div>
-              </div>
-            </Link>
+              <Link
+                href={`/deals/${a.deal_id}`}
+                className={`flex h-10 items-center overflow-hidden rounded-md px-2 text-[10px] font-medium text-white shadow-sm hover:opacity-90 ${color}`}
+                title={`${a.deal_name} · ${a.milestone_name} · ${a.start_date} → ${a.end_date}${isConflict ? " · CONFLICT" : ""}`}
+              >
+                <div className="min-w-0 truncate">
+                  <div className="truncate">{a.deal_name}</div>
+                  <div className="truncate text-[9px] opacity-90">{a.milestone_name}</div>
+                </div>
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (confirm(`Unassign ${a.sub_name} from "${a.milestone_name}" on ${a.deal_name}?`)) {
+                    onUnassign(a.milestone_id);
+                  }
+                }}
+                className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-slate-500 opacity-0 shadow ring-1 ring-slate-200 hover:bg-red-50 hover:text-red-600 group-hover/bar:opacity-100"
+                title="Unassign"
+                aria-label="Unassign"
+              >
+                <XMarkIcon className="h-2.5 w-2.5" />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -417,4 +501,156 @@ function barColorForStatus(status: ProjectMilestone["status"]): string {
     case "disputed":
       return "bg-red-500";
   }
+}
+
+function AssignModal({
+  sub,
+  deals,
+  milestones,
+  onAssign,
+  onClose,
+}: {
+  sub: Distributor;
+  deals: Deal[];
+  milestones: ProjectMilestone[];
+  onAssign: (milestoneId: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [dealId, setDealId] = useState<string>(deals[0]?.id || "");
+  const [milestoneId, setMilestoneId] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const dealMilestones = useMemo(
+    () => milestones
+      .filter((m) => m.deal_ref === dealId)
+      .sort((a, b) => a.order - b.order),
+    [milestones, dealId]
+  );
+
+  // Auto-select the first phase the sub isn't already on, in the chosen deal.
+  useEffect(() => {
+    const firstAvailable = dealMilestones.find(
+      (m) => !(m.assigned_subs || []).includes(sub.id)
+    );
+    setMilestoneId(firstAvailable?.id || dealMilestones[0]?.id || "");
+  }, [dealId, dealMilestones, sub.id]);
+
+  async function save() {
+    if (!milestoneId || saving) return;
+    setSaving(true);
+    try {
+      await onAssign(milestoneId);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectedDeal = deals.find((d) => d.id === dealId);
+  const selectedMilestone = dealMilestones.find((m) => m.id === milestoneId);
+  const alreadyAssigned = selectedMilestone
+    ? (selectedMilestone.assigned_subs || []).includes(sub.id)
+    : false;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Assign <span className="text-amber-700">{sub.name}</span> to a phase
+          </h3>
+          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 p-5">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Project
+            </label>
+            <select
+              value={dealId}
+              onChange={(e) => setDealId(e.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            >
+              {deals.length === 0 && <option value="">(no projects)</option>}
+              {deals.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Phase
+            </label>
+            {dealMilestones.length === 0 ? (
+              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                This project has no milestones yet. Generate the schedule on the project page first.
+              </p>
+            ) : (
+              <select
+                value={milestoneId}
+                onChange={(e) => setMilestoneId(e.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                {dealMilestones.map((m) => {
+                  const isAssigned = (m.assigned_subs || []).includes(sub.id);
+                  const dates = m.planned_start_date && m.planned_end_date
+                    ? ` · ${m.planned_start_date} → ${m.planned_end_date}`
+                    : "";
+                  return (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({MILESTONE_STATUS_LABELS[m.status]}){dates}
+                      {isAssigned ? " — already assigned" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </div>
+
+          {selectedMilestone && (
+            <div className="rounded-md bg-slate-50 p-3 text-xs">
+              <div className="text-slate-700">
+                <span className="font-semibold">{selectedDeal?.name}</span>
+                {" · "}
+                {selectedMilestone.name}
+              </div>
+              {selectedMilestone.planned_start_date && selectedMilestone.planned_end_date && (
+                <div className="mt-0.5 text-slate-500">
+                  {selectedMilestone.planned_start_date} → {selectedMilestone.planned_end_date}
+                </div>
+              )}
+              {alreadyAssigned && (
+                <div className="mt-1 text-amber-700">
+                  ⚠ {sub.name} is already on this phase.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={!milestoneId || saving || alreadyAssigned}
+            className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+          >
+            {saving ? "Assigning…" : "Assign"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
