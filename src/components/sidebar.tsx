@@ -8,6 +8,7 @@ import {
   HomeIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
+  SparklesIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
@@ -30,6 +31,7 @@ const NAV: NavItem[] = [
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
   { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
   { href: "/documents", label: "Documents", icon: DocumentArrowUpIcon },
+  { href: "/roadmap", label: "Roadmap", icon: SparklesIcon },
 ];
 
 export default function Sidebar() {
