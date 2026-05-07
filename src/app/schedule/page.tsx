@@ -525,7 +525,7 @@ function ColorLegend() {
   const items = [
     { label: "Pending", color: "bg-slate-400" },
     { label: "In progress", color: "bg-sky-500" },
-    { label: "Awaiting approval", color: "bg-blue-500" },
+    { label: "Awaiting approval", color: "bg-amber-500" },
     { label: "Approved", color: "bg-emerald-500" },
     { label: "Paid", color: "bg-emerald-700" },
     { label: "Conflict", color: "bg-red-500" },
@@ -556,7 +556,7 @@ function barColorForStatus(status: ProjectMilestone["status"]): string {
     case "in_progress":
       return "bg-sky-500";
     case "awaiting_approval":
-      return "bg-blue-500";
+      return "bg-amber-500";
     case "approved":
       return "bg-emerald-500";
     case "released":

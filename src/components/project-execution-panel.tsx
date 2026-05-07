@@ -309,7 +309,7 @@ function ScheduleTimeline({ milestones }: { milestones: ProjectMilestone[] }) {
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
         <Legend color="bg-slate-300" label="Pending" />
         <Legend color="bg-sky-500" label="In progress" />
-        <Legend color="bg-blue-500" label="Awaiting approval" />
+        <Legend color="bg-amber-500" label="Awaiting approval" />
         <Legend color="bg-emerald-500" label="Approved" />
         <Legend color="bg-emerald-700" label="Paid" />
       </div>
@@ -333,7 +333,7 @@ function timelineSegmentColor(status: MilestoneStatus): string {
     case "in_progress":
       return "bg-sky-500";
     case "awaiting_approval":
-      return "bg-blue-500";
+      return "bg-amber-500";
     case "approved":
       return "bg-emerald-500";
     case "released":
@@ -543,7 +543,7 @@ function StatusIcon({ status }: { status: MilestoneStatus }) {
     case "in_progress":
       return <PlayCircleIcon className={`${cls} text-sky-600`} />;
     case "awaiting_approval":
-      return <ClockIcon className={`${cls} text-blue-600`} />;
+      return <ClockIcon className={`${cls} text-amber-600`} />;
     case "approved":
       return <CheckCircleIcon className={`${cls} text-emerald-600`} />;
     case "released":
@@ -785,7 +785,7 @@ function ganttBarColor(status: MilestoneStatus): string {
     case "in_progress":
       return "bg-sky-500";
     case "awaiting_approval":
-      return "bg-blue-500";
+      return "bg-amber-500";
     case "approved":
       return "bg-emerald-500";
     case "released":

@@ -250,11 +250,11 @@ export default function ClientPortalPage({
             )}
             {summary.awaitingApproval && (
               <CardCallout
-                icon={<CheckCircleIcon className="h-5 w-5 text-blue-600" />}
+                icon={<CheckCircleIcon className="h-5 w-5 text-amber-600" />}
                 label="Awaiting your review"
                 primary={summary.awaitingApproval.name}
                 secondary={`${fmtMoney(summary.awaitingApproval.amount)} draw — approve to release payment`}
-                accent="blue"
+                accent="amber"
                 action={{
                   label: approving === summary.awaitingApproval.id ? "Approving…" : "Review & sign",
                   onClick: () => summary.awaitingApproval && setSigning(summary.awaitingApproval),
@@ -275,8 +275,8 @@ export default function ClientPortalPage({
 
         {/* Change orders pending client approval */}
         {pendingCos.length > 0 && (
-          <section className="mt-8 rounded-2xl border-2 border-blue-300 bg-blue-50 p-6 shadow-sm">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-800">
+          <section className="mt-8 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-800">
               <CheckCircleIcon className="h-4 w-4" />
               Change Orders awaiting your approval
             </div>
@@ -285,7 +285,7 @@ export default function ClientPortalPage({
                 const sign = co.amount_delta >= 0 ? "+" : "−";
                 const tone = co.amount_delta >= 0 ? "text-emerald-700" : "text-red-700";
                 return (
-                  <div key={co.id} className="rounded-lg bg-white p-4 ring-1 ring-blue-200">
+                  <div key={co.id} className="rounded-lg bg-white p-4 ring-1 ring-amber-200">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="font-mono text-xs font-semibold text-slate-700">{co.number}</span>
                       <p className="text-sm font-semibold text-slate-900">{co.title}</p>
@@ -306,7 +306,7 @@ export default function ClientPortalPage({
                       <button
                         onClick={() => setSigningCo(co)}
                         disabled={coBusy === co.id}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
                       >
                         <CheckCircleIcon className="h-3.5 w-3.5" />
                         Sign &amp; approve
@@ -493,12 +493,12 @@ function CardCallout({
   label: string;
   primary: string;
   secondary?: string;
-  accent?: "blue";
+  accent?: "amber";
   action?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const ring =
-    accent === "blue"
-      ? "ring-blue-200 bg-blue-50"
+    accent === "amber"
+      ? "ring-amber-300 bg-amber-50"
       : "ring-slate-200 bg-white";
   return (
     <div className={`flex items-start gap-3 rounded-lg p-3 ring-1 ${ring}`}>
@@ -515,7 +515,7 @@ function CardCallout({
           <button
             onClick={action.onClick}
             disabled={action.disabled}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
           >
             <CheckCircleIcon className="h-3.5 w-3.5" />
             {action.label}
@@ -590,7 +590,7 @@ function ClientStatusBadge({ status }: { status: ProjectMilestone["status"] }) {
       : status === "in_progress"
       ? "bg-sky-100 text-sky-800"
       : status === "awaiting_approval"
-      ? "bg-blue-100 text-blue-800"
+      ? "bg-amber-100 text-amber-800"
       : "bg-red-100 text-red-800";
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${color}`}>

@@ -224,7 +224,7 @@ export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
 export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
   pending: "bg-slate-100 text-slate-700 ring-slate-200",
   in_progress: "bg-sky-100 text-sky-800 ring-sky-200",
-  awaiting_approval: "bg-blue-100 text-blue-800 ring-blue-200",
+  awaiting_approval: "bg-amber-100 text-amber-800 ring-amber-200",
   approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   released: "bg-emerald-600 text-white ring-emerald-700",
   disputed: "bg-red-100 text-red-800 ring-red-200",
@@ -317,7 +317,10 @@ export const CHANGE_ORDER_STATUS_LABELS: Record<ChangeOrderStatus, string> = {
 
 export const CHANGE_ORDER_STATUS_STYLES: Record<ChangeOrderStatus, string> = {
   draft: "bg-slate-100 text-slate-700 ring-slate-200",
-  sent: "bg-blue-100 text-blue-800 ring-blue-200",
+  // 'sent' = pending client approval — amber matches the milestone
+  // 'awaiting approval' state so the user learns one color = one
+  // action ("you need to do something").
+  sent: "bg-amber-100 text-amber-800 ring-amber-200",
   approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   rejected: "bg-red-100 text-red-800 ring-red-200",
 };
@@ -377,8 +380,10 @@ export const RFQ_STATUS_LABELS: Record<RFQStatus, string> = {
 
 export const RFQ_STATUS_STYLES: Record<RFQStatus, string> = {
   draft: "bg-slate-100 text-slate-700 ring-slate-200",
-  sent: "bg-sky-100 text-sky-800 ring-sky-200",
-  comparing: "bg-blue-100 text-blue-800 ring-blue-200",
+  // 'sent' = out for bid; waiting on subs to respond. Amber = waiting.
+  sent: "bg-amber-100 text-amber-800 ring-amber-200",
+  // 'comparing' = bids in, GC reviewing. Sky brand = active GC work.
+  comparing: "bg-sky-100 text-sky-800 ring-sky-200",
   awarded: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   closed: "bg-slate-100 text-slate-500 ring-slate-200",
 };
