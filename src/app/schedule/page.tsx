@@ -139,7 +139,9 @@ export default function SchedulePage() {
   }, [deals, milestones, subs]);
 
   const conflicts = useMemo(() => {
-    // Group assignments by sub; flag any pairs whose date ranges overlap.
+    // Real conflict = same sub double-booked across DIFFERENT projects.
+    // Same sub on overlapping phases of one project is normal (e.g. the
+    // framing crew rolls into dried-in carpentry) and not flagged.
     const bySub: Record<string, SubAssignment[]> = {};
     for (const a of assignments) {
       (bySub[a.sub_id] ||= []).push(a);
@@ -153,6 +155,9 @@ export default function SchedulePage() {
         for (let j = i + 1; j < list.length; j++) {
           const a = list[i];
           const b = list[j];
+          // Only flag cross-project overlaps. Same-project overlaps are
+          // normal sequencing (sub stays on for two consecutive phases).
+          if (a.deal_id === b.deal_id) continue;
           if (Date.parse(a.end_date) > Date.parse(b.start_date) &&
               Date.parse(a.start_date) < Date.parse(b.end_date)) {
             flagged.add(`${a.sub_id}|${a.milestone_id}`);
