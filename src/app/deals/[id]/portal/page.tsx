@@ -30,7 +30,7 @@ import {
   ProjectPhase,
   BUILDER_STAGE_LABELS,
 } from "@/types/builder";
-import { getDeal, listMilestones, listPhotos } from "@/lib/store";
+import { getDeal, listMilestones, listPhotos, saveMilestone } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
 const fmtMoney = (n: number) =>
@@ -50,6 +50,25 @@ export default function ClientPortalPage({
   const [loaded, setLoaded] = useState(false);
   const [photoFilter, setPhotoFilter] = useState<"all" | ProjectPhase>("all");
   const [lightbox, setLightbox] = useState<ProjectPhoto | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+
+  async function approveDraw(m: ProjectMilestone) {
+    if (!confirm(`Approve "${m.name}" and release the $${m.amount.toLocaleString()} draw?\n\nIn production this triggers the payment release. For the demo, the builder will mark it paid on their side.`)) return;
+    setApproving(m.id);
+    try {
+      const now = new Date().toISOString();
+      const updated: ProjectMilestone = {
+        ...m,
+        status: "approved",
+        approved_at: now,
+        updated_at: now,
+      };
+      await saveMilestone(updated);
+      setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
+    } finally {
+      setApproving(null);
+    }
+  }
 
   useEffect(() => {
     if (!profile) return;
@@ -175,6 +194,11 @@ export default function ClientPortalPage({
                 primary={summary.awaitingApproval.name}
                 secondary={`${fmtMoney(summary.awaitingApproval.amount)} draw — approve to release payment`}
                 accent="blue"
+                action={{
+                  label: approving === summary.awaitingApproval.id ? "Approving…" : "Review & approve",
+                  onClick: () => summary.awaitingApproval && approveDraw(summary.awaitingApproval),
+                  disabled: approving === summary.awaitingApproval.id,
+                }}
               />
             )}
             {!summary.inProgress && !summary.awaitingApproval && summary.next && (
@@ -315,12 +339,14 @@ function CardCallout({
   primary,
   secondary,
   accent,
+  action,
 }: {
   icon: React.ReactNode;
   label: string;
   primary: string;
   secondary?: string;
   accent?: "blue";
+  action?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const ring =
     accent === "blue"
@@ -329,13 +355,23 @@ function CardCallout({
   return (
     <div className={`flex items-start gap-3 rounded-lg p-3 ring-1 ${ring}`}>
       <div className="mt-0.5 flex-shrink-0">{icon}</div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           {label}
         </div>
         <div className="text-sm font-medium text-slate-900">{primary}</div>
         {secondary && (
           <p className="mt-0.5 text-xs text-slate-500">{secondary}</p>
+        )}
+        {action && (
+          <button
+            onClick={action.onClick}
+            disabled={action.disabled}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+          >
+            <CheckCircleIcon className="h-3.5 w-3.5" />
+            {action.label}
+          </button>
         )}
       </div>
     </div>
