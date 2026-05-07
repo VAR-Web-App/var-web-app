@@ -57,8 +57,10 @@ export default function FloorPlanExtractor({
 }) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
+  const progressTimer = useRef<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [extraction, setExtraction] = useState<FloorPlanExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
@@ -73,7 +75,24 @@ export default function FloorPlanExtractor({
   async function runExtraction() {
     if (!file) return;
     setExtracting(true);
+    setProgress(0);
     setError(null);
+
+    // Time-based progress simulation: Claude vision is one-shot, so we
+    // can't read real progress. Animate 0→95% over ~12s (typical
+    // residential plan extraction), holding at 95% until the API
+    // returns. Snap to 100% on completion. Never lies — we only show
+    // 100% when we actually have the response.
+    const start = performance.now();
+    const targetMs = 12000; // 12s expected
+    progressTimer.current = window.setInterval(() => {
+      const elapsed = performance.now() - start;
+      // Ease-out curve: fast at first, slow as we approach 95%.
+      const t = Math.min(1, elapsed / targetMs);
+      const eased = 1 - Math.pow(1 - t, 2.2);
+      setProgress(Math.min(95, eased * 95));
+    }, 100);
+
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -85,11 +104,19 @@ export default function FloorPlanExtractor({
       if (!res.ok || !json.ok) {
         throw new Error(json.error || `Request failed (${res.status})`);
       }
+      setProgress(100);
+      // Brief pause at 100% so the user sees the bar finish before the
+      // results render.
+      await new Promise((r) => setTimeout(r, 250));
       setExtraction(json.extraction);
       onExtracted?.(json.extraction);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      if (progressTimer.current !== null) {
+        clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
       setExtracting(false);
     }
   }
@@ -200,18 +227,23 @@ export default function FloorPlanExtractor({
                   Cancel
                 </button>
                 {extracting ? (
-                  // Progress-bar button — indeterminate slide while Claude reads.
-                  // Reuses the .parser-loading-bar keyframe from globals.css.
+                  // Determinate progress bar: time-based fill from 0 to 95%
+                  // over ~12s, then jumps to 100% when the API returns.
                   <div
-                    role="status"
+                    role="progressbar"
                     aria-live="polite"
-                    aria-label="Reading plan"
-                    className="relative w-44 overflow-hidden rounded-md bg-amber-200 px-5 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-300"
+                    aria-valuenow={Math.round(progress)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    className="relative w-44 overflow-hidden rounded-md bg-amber-100 px-5 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-300"
                   >
-                    <div className="parser-loading-bar absolute inset-y-0 bg-amber-500/70" />
+                    <div
+                      className="absolute inset-y-0 left-0 bg-amber-500 transition-all duration-200 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
                     <div className="relative flex items-center justify-center gap-1.5">
                       <SparklesIcon className="h-4 w-4" />
-                      Reading plan…
+                      <span className="tabular-nums">{Math.round(progress)}%</span>
                     </div>
                   </div>
                 ) : (
