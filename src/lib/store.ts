@@ -1099,6 +1099,22 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     { key: "warranty", label: "Warranty Period", percent: 5, description: "30-day post-occupancy walkthrough" },
   ];
 
+  // Sub assignments per phase — pulls from the subs[] array created
+  // earlier in this function. Index into subs: 0=Cano Concrete,
+  // 1=Hill Country Framing, 2=Quick-Sparks Electric, 3=Texas Plumb Pros,
+  // 4=Comfort HVAC, 5=Boerne Lumber Co.
+  const phaseSubAssignments: number[][] = [
+    [],              // Deposit — no subs (mobilization)
+    [0],             // Foundation → Cano Concrete
+    [1, 5],          // Framing → Hill Country Framing + Boerne Lumber
+    [1],             // Dried-In → Hill Country Framing
+    [2, 3, 4],       // MEP → Electric, Plumb, HVAC (all three)
+    [1],             // Drywall → Hill Country Framing (drywall crew)
+    [5],             // Finishes → Boerne Lumber for trim
+    [],              // Punch — no specific sub
+    [],              // Warranty
+  ];
+
   for (let i = 0; i < milestonePhases.length; i++) {
     const phase = milestonePhases[i];
     const status = phaseStatuses[i];
@@ -1110,6 +1126,8 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     const amount = Math.round((1450000 * phase.percent) / 100);
     const isoStart = startDate.toISOString().slice(0, 10);
     const isoEnd = endDate.toISOString().slice(0, 10);
+
+    const assignedSubIds = phaseSubAssignments[i].map((idx) => subs[idx].id);
 
     const m: Parameters<typeof saveMilestone>[0] = {
       id: newId("ms"),
@@ -1123,6 +1141,7 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       status,
       planned_start_date: isoStart,
       planned_end_date: isoEnd,
+      assigned_subs: assignedSubIds,
       notes: "",
       created_at: isoDaysAgo(90),
       updated_at: isoDaysAgo(2),

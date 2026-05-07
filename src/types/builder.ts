@@ -180,6 +180,9 @@ export interface ProjectMilestone {
   planned_start_date?: string;
   /** Planned end date (ISO date string YYYY-MM-DD). Drives the Gantt. */
   planned_end_date?: string;
+  /** Distributor IDs (subs) working this phase. Drives the cross-project
+   *  /schedule view and surfaces on milestone rows + draw requests. */
+  assigned_subs?: string[];
   /** When work on this phase began (in_progress flip). */
   started_at?: string;
   /** When the GC marked the phase complete (awaiting client approval). */

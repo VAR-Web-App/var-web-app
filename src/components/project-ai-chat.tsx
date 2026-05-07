@@ -6,12 +6,13 @@ import {
   PaperAirplaneIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { Deal, QuoteLine } from "@/types";
+import { Deal, Distributor, QuoteLine } from "@/types";
 import { ProjectMilestone, ProjectPhoto } from "@/types/builder";
 import {
   listMilestones,
   listQuoteLines,
   listPhotos,
+  listDistributors,
 } from "@/lib/store";
 
 interface Message {
@@ -74,12 +75,13 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
 
     try {
       // Pull live project context for grounding.
-      const [milestones, quoteLines, photos] = await Promise.all([
+      const [milestones, quoteLines, photos, subs] = await Promise.all([
         listMilestones(deal.id),
         listQuoteLines(deal.id),
         listPhotos(deal.id),
+        listDistributors(deal.org_ref),
       ]);
-      const context = buildContext(deal, milestones, quoteLines, photos);
+      const context = buildContext(deal, milestones, quoteLines, photos, subs);
 
       const res = await fetch("/api/project-chat", {
         method: "POST",
@@ -251,12 +253,14 @@ function buildContext(
   deal: Deal,
   milestones: ProjectMilestone[],
   quoteLines: QuoteLine[],
-  photos: ProjectPhoto[]
+  photos: ProjectPhoto[],
+  subs: Distributor[]
 ) {
   const photo_counts_by_phase: Record<string, number> = {};
   for (const p of photos) {
     photo_counts_by_phase[p.phase] = (photo_counts_by_phase[p.phase] || 0) + 1;
   }
+  const subById = new Map(subs.map((s) => [s.id, s]));
   return {
     deal: {
       id: deal.id,
@@ -288,6 +292,10 @@ function buildContext(
       marked_complete_at: m.marked_complete_at,
       approved_at: m.approved_at,
       released_at: m.released_at,
+      assigned_subs: (m.assigned_subs || []).map((id) => {
+        const s = subById.get(id);
+        return s ? `${s.name}${s.account_number ? ` (${s.account_number})` : ""}` : id;
+      }),
     })),
     quote_lines: quoteLines.map((l) => ({
       line_number: l.line_number,

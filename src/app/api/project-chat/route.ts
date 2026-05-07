@@ -65,6 +65,7 @@ interface ProjectContextPayload {
     marked_complete_at?: string;
     approved_at?: string;
     released_at?: string;
+    assigned_subs?: string[];
   }>;
   quote_lines: Array<{
     line_number: number;
@@ -101,7 +102,10 @@ function buildSystemPrompt(ctx: ProjectContextPayload): string {
         const dates = m.planned_start_date && m.planned_end_date
           ? `${m.planned_start_date} → ${m.planned_end_date}`
           : "(no dates)";
-        return `  ${i + 1}. ${m.name} — ${m.percentage}% / $${m.amount.toLocaleString()} — status: ${m.status}, planned: ${dates}`;
+        const subs = m.assigned_subs && m.assigned_subs.length > 0
+          ? `, subs: ${m.assigned_subs.join(", ")}`
+          : "";
+        return `  ${i + 1}. ${m.name} — ${m.percentage}% / $${m.amount.toLocaleString()} — status: ${m.status}, planned: ${dates}${subs}`;
       }).join("\n");
 
   const photosText = Object.keys(ctx.photo_counts_by_phase).length === 0

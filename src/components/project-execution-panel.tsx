@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   Deal,
+  Distributor,
   newId,
 } from "@/types";
 import {
@@ -30,6 +31,7 @@ import {
   deleteMilestone,
   listQuoteLines,
   saveDeal,
+  listDistributors,
 } from "@/lib/store";
 
 const fmtMoney = (n: number) =>
@@ -37,16 +39,22 @@ const fmtMoney = (n: number) =>
 
 export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [subs, setSubs] = useState<Distributor[]>([]);
   const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     let active = true;
-    Promise.all([listMilestones(deal.id), listQuoteLines(deal.id)]).then(
-      ([m, lines]) => {
+    Promise.all([
+      listMilestones(deal.id),
+      listQuoteLines(deal.id),
+      listDistributors(deal.org_ref),
+    ]).then(
+      ([m, lines, subList]) => {
         if (!active) return;
         setMilestones(m);
+        setSubs(subList);
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
         // floor-plan apply-to-estimate save lines but not the deal record).
@@ -149,6 +157,16 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     await saveMilestone(updated);
   }
 
+  async function updateAssignedSubs(m: ProjectMilestone, subRefs: string[]) {
+    const updated: ProjectMilestone = {
+      ...m,
+      assigned_subs: subRefs,
+      updated_at: new Date().toISOString(),
+    };
+    setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
+    await saveMilestone(updated);
+  }
+
   async function transition(m: ProjectMilestone, next: MilestoneStatus) {
     const now = new Date().toISOString();
     const patch: Partial<ProjectMilestone> = { status: next, updated_at: now };
@@ -234,7 +252,9 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
             key={m.id}
             milestone={m}
             dealId={deal.id}
+            subs={subs}
             onTransition={(next) => transition(m, next)}
+            onAssignSubs={(refs) => updateAssignedSubs(m, refs)}
             onRemove={() => removeMilestone(m)}
           />
         ))}
@@ -310,18 +330,26 @@ function timelineSegmentColor(status: MilestoneStatus): string {
 function MilestoneRow({
   milestone: m,
   dealId,
+  subs,
   onTransition,
+  onAssignSubs,
   onRemove,
 }: {
   milestone: ProjectMilestone;
   dealId: string;
+  subs: Distributor[];
   onTransition: (next: MilestoneStatus) => void;
+  onAssignSubs: (refs: string[]) => void;
   onRemove: () => void;
 }) {
   const statusStyle = MILESTONE_STATUS_STYLES[m.status];
   // Show the draw-request link once we've started the phase (i.e. once
   // the GC actually has something to bill). Pending phases get no link.
   const hasDrawRequest = m.status !== "pending";
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const assignedRefs = m.assigned_subs || [];
+  const assignedSubs = subs.filter((s) => assignedRefs.includes(s.id));
 
   return (
     <li className="flex items-start gap-3 px-6 py-4 hover:bg-slate-50">
@@ -339,6 +367,41 @@ function MilestoneRow({
         {m.description && (
           <p className="mt-0.5 text-xs text-slate-500">{m.description}</p>
         )}
+
+        {/* Assigned subs */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Subs:
+          </span>
+          {assignedSubs.length > 0 ? (
+            assignedSubs.map((s) => (
+              <span
+                key={s.id}
+                className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                title={s.account_number}
+              >
+                {s.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] italic text-slate-400">none assigned</span>
+          )}
+          <button
+            onClick={() => setPickerOpen((v) => !v)}
+            className="rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-amber-400 hover:text-amber-700"
+          >
+            + assign
+          </button>
+          {pickerOpen && (
+            <SubPicker
+              subs={subs}
+              selected={assignedRefs}
+              onChange={onAssignSubs}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
+        </div>
+
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {nextActions(m.status).map((a) => (
             <button
@@ -369,6 +432,82 @@ function MilestoneRow({
         </div>
       </div>
     </li>
+  );
+}
+
+function SubPicker({
+  subs,
+  selected,
+  onChange,
+  onClose,
+}: {
+  subs: Distributor[];
+  selected: string[];
+  onChange: (refs: string[]) => void;
+  onClose: () => void;
+}) {
+  function toggle(id: string) {
+    if (selected.includes(id)) {
+      onChange(selected.filter((x) => x !== id));
+    } else {
+      onChange([...selected, id]);
+    }
+  }
+
+  if (subs.length === 0) {
+    return (
+      <div className="absolute z-30 mt-7 max-w-xs rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg">
+        <p className="text-slate-600">
+          No subs in your directory yet. Add them on the Subs &amp; Suppliers page.
+        </p>
+        <button
+          onClick={onClose}
+          className="mt-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute z-30 mt-7 max-h-60 w-64 overflow-y-auto rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+      <div className="mb-1 flex items-center justify-between border-b border-slate-100 pb-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Assign subs
+        </span>
+        <button
+          onClick={onClose}
+          className="text-[11px] text-slate-500 hover:text-slate-700"
+        >
+          Done
+        </button>
+      </div>
+      {subs.map((s) => {
+        const checked = selected.includes(s.id);
+        return (
+          <label
+            key={s.id}
+            className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-slate-50 ${
+              checked ? "bg-amber-50" : ""
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggle(s.id)}
+              className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-slate-900">{s.name}</p>
+              {s.account_number && (
+                <p className="truncate text-[10px] text-slate-500">{s.account_number}</p>
+              )}
+            </div>
+          </label>
+        );
+      })}
+    </div>
   );
 }
 

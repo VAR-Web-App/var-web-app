@@ -8,6 +8,7 @@ import {
   HomeIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
+  CalendarDaysIcon,
   SparklesIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
@@ -27,6 +28,7 @@ interface NavItem {
 // land. For now Pipeline still routes to /deals.
 const NAV: NavItem[] = [
   { href: "/deals", label: "Projects", icon: RectangleStackIcon },
+  { href: "/schedule", label: "Schedule", icon: CalendarDaysIcon },
   { href: "/accounts", label: "Clients", icon: HomeIcon },
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
   { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },

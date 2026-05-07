@@ -18,6 +18,7 @@ import {
   SparklesIcon,
   CheckCircleIcon,
   CalendarDaysIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 
@@ -48,6 +49,22 @@ const FEATURES: Feature[] = [
       "Per-sub thread tracking — RFQ responses auto-attach to the bid table",
     ],
     preview: <EmailDigesterPreview />,
+  },
+  {
+    id: "advanced_scheduling",
+    title: "Sub Scheduling — Auto-notify & Conflicts",
+    quarter: "Q3 2026",
+    icon: ClockIcon,
+    tagline: "Auto-text subs when their phase is approaching, catch double-bookings.",
+    description:
+      "Builds on the cross-project sub schedule already live in the Schedule tab. Adds proactive coordination: SMS/email reminders, conflict resolution suggestions, weather-aware date shifts, and per-sub performance tracking.",
+    bullets: [
+      "Auto-SMS subs T-7 days, T-2 days before their phase starts",
+      "Conflict detection across projects with suggested resolution",
+      "Weather forecast integration — shift outdoor phases proactively",
+      "Per-sub performance: on-time, on-budget, quality scoring over time",
+    ],
+    preview: <SchedulingPreview />,
   },
   {
     id: "phone_log",
@@ -445,6 +462,32 @@ function WalkthroughPreview() {
             {r}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function SchedulingPreview() {
+  return (
+    <div className="w-72 space-y-1.5 text-[10px]">
+      <div className="rounded border border-blue-200 bg-blue-50 p-2">
+        <div className="font-semibold text-blue-900">Auto-text scheduled · today 8 AM</div>
+        <div className="mt-0.5 text-blue-800">
+          → Cano Concrete: &ldquo;Foundation pour Mar 18 (T-7d)&rdquo;
+        </div>
+      </div>
+      <div className="rounded border border-red-200 bg-red-50 p-2">
+        <div className="flex justify-between">
+          <span className="font-semibold text-red-900">Conflict detected</span>
+          <span className="text-red-600">2 projects</span>
+        </div>
+        <div className="mt-0.5 text-red-800">
+          Hill Country Framing: Maddox + Reyes overlap Apr 22–28
+        </div>
+      </div>
+      <div className="rounded border border-amber-200 bg-amber-50 p-2 text-amber-800">
+        <span className="font-semibold">Weather alert:</span> Rain Apr 18–20.
+        Suggest shift slab pour to Apr 21.
       </div>
     </div>
   );

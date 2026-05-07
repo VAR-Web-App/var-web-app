@@ -13,12 +13,13 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, PrinterIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
-import { Deal, OrgSettings } from "@/types";
+import { Deal, Distributor, OrgSettings } from "@/types";
 import { ProjectMilestone, MILESTONE_STATUS_LABELS } from "@/types/builder";
 import {
   getDeal,
   getSettings,
   listMilestones,
+  listDistributors,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -36,6 +37,7 @@ export default function DrawRequestPage({
   const [deal, setDeal] = useState<Deal | null>(null);
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [settings, setSettings] = useState<OrgSettings | null>(null);
+  const [subs, setSubs] = useState<Distributor[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -48,14 +50,16 @@ export default function DrawRequestPage({
         router.replace("/deals");
         return;
       }
-      const [m, s] = await Promise.all([
+      const [m, s, subList] = await Promise.all([
         listMilestones(id),
         getSettings(profile!.org_ref),
+        listDistributors(profile!.org_ref),
       ]);
       if (!active) return;
       setDeal(d);
       setMilestones(m);
       setSettings(s);
+      setSubs(subList);
       setLoaded(true);
     }
     void load();
@@ -216,6 +220,22 @@ export default function DrawRequestPage({
                 Project Address:{" "}
               </span>
               <span className="whitespace-pre-line text-slate-900">{deal.ship_to_address}</span>
+            </section>
+          )}
+
+          {/* Subs on this phase */}
+          {thisMs.assigned_subs && thisMs.assigned_subs.length > 0 && (
+            <section className="mt-3 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Subs on this phase:{" "}
+              </span>
+              <span className="text-slate-900">
+                {thisMs.assigned_subs
+                  .map((id) => subs.find((s) => s.id === id))
+                  .filter(Boolean)
+                  .map((s) => `${s!.name}${s!.account_number ? ` (${s!.account_number})` : ""}`)
+                  .join(", ") || "—"}
+              </span>
             </section>
           )}
 
