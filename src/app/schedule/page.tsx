@@ -239,7 +239,7 @@ export default function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
             <CalendarDaysIcon className="h-4 w-4" />
@@ -253,6 +253,7 @@ export default function SchedulePage() {
             highlighted in red.
           </p>
         </div>
+        <ColorLegend />
       </div>
 
       {!loaded ? (
@@ -515,6 +516,32 @@ function SubRow({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function ColorLegend() {
+  const items = [
+    { label: "Pending", color: "bg-slate-400" },
+    { label: "In progress", color: "bg-amber-500" },
+    { label: "Awaiting approval", color: "bg-blue-500" },
+    { label: "Approved", color: "bg-emerald-500" },
+    { label: "Paid", color: "bg-emerald-700" },
+    { label: "Conflict", color: "bg-red-500" },
+  ];
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        Bar color
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-700">
+        {items.map((it) => (
+          <span key={it.label} className="flex items-center gap-1">
+            <span className={`inline-block h-2.5 w-3 rounded-sm ${it.color}`} />
+            {it.label}
+          </span>
+        ))}
       </div>
     </div>
   );
