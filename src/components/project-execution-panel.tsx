@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import {
   CheckCircleIcon,
   PlayCircleIcon,
@@ -9,6 +10,7 @@ import {
   ExclamationCircleIcon,
   PlusIcon,
   TrashIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import {
   Deal,
@@ -231,6 +233,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
           <MilestoneRow
             key={m.id}
             milestone={m}
+            dealId={deal.id}
             onTransition={(next) => transition(m, next)}
             onRemove={() => removeMilestone(m)}
           />
@@ -306,14 +309,19 @@ function timelineSegmentColor(status: MilestoneStatus): string {
 
 function MilestoneRow({
   milestone: m,
+  dealId,
   onTransition,
   onRemove,
 }: {
   milestone: ProjectMilestone;
+  dealId: string;
   onTransition: (next: MilestoneStatus) => void;
   onRemove: () => void;
 }) {
   const statusStyle = MILESTONE_STATUS_STYLES[m.status];
+  // Show the draw-request link once we've started the phase (i.e. once
+  // the GC actually has something to bill). Pending phases get no link.
+  const hasDrawRequest = m.status !== "pending";
 
   return (
     <li className="flex items-start gap-3 px-6 py-4 hover:bg-slate-50">
@@ -341,6 +349,16 @@ function MilestoneRow({
               {a.label}
             </button>
           ))}
+          {hasDrawRequest && (
+            <Link
+              href={`/deals/${dealId}/draw/${m.id}`}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              title="View the draw request document for this phase"
+            >
+              <DocumentTextIcon className="h-3.5 w-3.5" />
+              Draw request
+            </Link>
+          )}
           <button
             onClick={onRemove}
             className="ml-auto rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
