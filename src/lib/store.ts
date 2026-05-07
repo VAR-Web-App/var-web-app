@@ -249,7 +249,36 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder } from "@/types/builder";
+
+// ── project change orders (Builder vertical) ─────────────────────
+
+export async function listChangeOrders(dealRef: string): Promise<ProjectChangeOrder[]> {
+  const q = query(collection(db, "project_change_orders"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectChangeOrder, "id">) }));
+  return items.sort((a, b) => a.number.localeCompare(b.number));
+}
+
+export async function saveChangeOrder(co: ProjectChangeOrder): Promise<void> {
+  await setDoc(doc(db, "project_change_orders", co.id), co, { merge: false });
+}
+
+export async function deleteChangeOrder(id: string): Promise<void> {
+  await removeFromCollection("project_change_orders", id);
+}
+
+/** Effective contract value = base contract + sum of approved COs.
+ *  Single source of truth for "what's the current contract" used across
+ *  the project page, draw requests, proposal, and portal. */
+export function effectiveContractValue(
+  baseContractValue: number,
+  changeOrders: ProjectChangeOrder[]
+): number {
+  return baseContractValue + changeOrders
+    .filter((c) => c.status === "approved")
+    .reduce((s, c) => s + c.amount_delta, 0);
+}
 
 export async function listRFQs(dealRef: string): Promise<ProjectRFQ[]> {
   const q = query(collection(db, "project_rfqs"), where("deal_ref", "==", dealRef));

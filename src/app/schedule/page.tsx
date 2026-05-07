@@ -708,7 +708,7 @@ function AssignModal({
           <button
             onClick={save}
             disabled={!milestoneId || saving || alreadyAssigned}
-            className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+            className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
           >
             {saving ? "Assigning…" : "Assign"}
           </button>

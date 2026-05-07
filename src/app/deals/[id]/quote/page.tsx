@@ -280,7 +280,7 @@ export default function DealQuotePage({
               <button
                 onClick={onSave}
                 disabled={saving}
-                className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+                className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
               >
                 {saving ? "Saving…" : "Save estimate"}
               </button>
@@ -350,7 +350,7 @@ function ImportBanner({
           <button
             key={b.attachment_id}
             onClick={() => onImport(b)}
-            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+            className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
           >
             Import {b.bom.length} line{b.bom.length === 1 ? "" : "s"} from {b.attachment_name}
           </button>
@@ -417,7 +417,7 @@ function EmptyState({
       </p>
       <button
         onClick={onAddBlank}
-        className="mt-4 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+        className="mt-4 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
       >
         Add first line item
       </button>

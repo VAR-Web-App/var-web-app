@@ -172,7 +172,7 @@ export default function NewDealModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {submitting ? "Creating…" : "Create project"}
             </button>

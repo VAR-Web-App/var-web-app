@@ -121,7 +121,7 @@ export default function DealsPage() {
           )}
           <button
             onClick={() => setShowNewDeal(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700"
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800"
           >
             <PlusIcon className="h-4 w-4" />
             New Project
@@ -236,7 +236,7 @@ function EmptyPipeline({
       <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={onNew}
-          className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+          className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
         >
           Add your first project
         </button>

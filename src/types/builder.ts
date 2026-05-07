@@ -197,6 +197,11 @@ export interface ProjectMilestone {
   marked_complete_at?: string;
   /** When the client approved the completion (releases payment). */
   approved_at?: string;
+  /** Typed-name e-signature captured on portal approval. E-SIGN/UETA
+   *  compliance: name + intent (the checkbox in the modal) + record
+   *  retention is sufficient for legally binding electronic signature
+   *  on draw approvals. */
+  approval_signature?: string;
   /** When the payment cleared. */
   released_at?: string;
   released_amount?: number;
@@ -275,6 +280,71 @@ export interface RFQInvitee {
   bid_amount?: number;
   bid_notes?: string;
   responded_at?: string;
+}
+
+// ── Change Orders ────────────────────────────────────────────────
+// During construction, scope changes happen ("homeowner wants to add a
+// window in the master bath"). Each change order documents the scope,
+// the cost delta (positive = add, negative = credit), schedule impact,
+// and gets signed by the homeowner. Approved COs adjust the contract
+// value and surface on the proposal + draw request documents.
+
+export type ChangeOrderStatus = "draft" | "sent" | "approved" | "rejected";
+
+export type ChangeOrderReason =
+  | "client_request"
+  | "design_revision"
+  | "site_conditions"
+  | "weather"
+  | "material_change"
+  | "other";
+
+export const CHANGE_ORDER_REASON_LABELS: Record<ChangeOrderReason, string> = {
+  client_request: "Client request",
+  design_revision: "Design revision",
+  site_conditions: "Unforeseen site conditions",
+  weather: "Weather-related",
+  material_change: "Material substitution",
+  other: "Other",
+};
+
+export const CHANGE_ORDER_STATUS_LABELS: Record<ChangeOrderStatus, string> = {
+  draft: "Draft",
+  sent: "Pending Client Approval",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+export const CHANGE_ORDER_STATUS_STYLES: Record<ChangeOrderStatus, string> = {
+  draft: "bg-slate-100 text-slate-700 ring-slate-200",
+  sent: "bg-blue-100 text-blue-800 ring-blue-200",
+  approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  rejected: "bg-red-100 text-red-800 ring-red-200",
+};
+
+export interface ProjectChangeOrder {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  /** Sequential CO number ("CO-001", "CO-002"). Set on creation. */
+  number: string;
+  /** Brief title shown in lists. */
+  title: string;
+  /** Full scope description sent to the client. */
+  description: string;
+  /** Cost change in dollars. Positive = added cost, negative = credit. */
+  amount_delta: number;
+  /** Days added (or removed if negative) to the project schedule. */
+  schedule_impact_days: number;
+  reason: ChangeOrderReason;
+  status: ChangeOrderStatus;
+  approved_at?: string;
+  /** Typed-name e-signature captured on portal approval. */
+  approval_signature?: string;
+  rejection_reason?: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProjectRFQ {

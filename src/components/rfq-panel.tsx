@@ -77,7 +77,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+          className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           New RFQ
@@ -450,7 +450,7 @@ function RFQModal({
           <button
             onClick={() => save(true)}
             disabled={invitees.length === 0 || !title.trim()}
-            className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+            className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
             {existing?.sent_at ? "Save" : `Send to ${invitees.length} sub${invitees.length === 1 ? "" : "s"}`}

@@ -60,7 +60,7 @@ export default function AccountsPage() {
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+          className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
         >
           <PlusIcon className="h-4 w-4" />
           New Client
@@ -214,7 +214,7 @@ export function ModalFooter({ onCancel, onSave }: { onCancel: () => void; onSave
       </button>
       <button
         onClick={onSave}
-        className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+        className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
       >
         Save
       </button>

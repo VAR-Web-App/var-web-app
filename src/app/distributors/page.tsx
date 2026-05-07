@@ -55,7 +55,7 @@ export default function DistributorsPage() {
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+          className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
         >
           <PlusIcon className="h-4 w-4" />
           New Sub / Supplier

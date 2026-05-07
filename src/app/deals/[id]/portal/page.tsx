@@ -26,12 +26,23 @@ import { Deal } from "@/types";
 import {
   ProjectMilestone,
   ProjectPhoto,
+  ProjectChangeOrder,
   PROJECT_PHASES,
   ProjectPhase,
   BUILDER_STAGE_LABELS,
+  CHANGE_ORDER_REASON_LABELS,
 } from "@/types/builder";
-import { getDeal, listMilestones, listPhotos, saveMilestone } from "@/lib/store";
+import {
+  getDeal,
+  listMilestones,
+  listPhotos,
+  saveMilestone,
+  listChangeOrders,
+  saveChangeOrder,
+  effectiveContractValue,
+} from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import SignatureModal from "@/components/signature-modal";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -51,9 +62,12 @@ export default function ClientPortalPage({
   const [photoFilter, setPhotoFilter] = useState<"all" | ProjectPhase>("all");
   const [lightbox, setLightbox] = useState<ProjectPhoto | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
+  const [signing, setSigning] = useState<ProjectMilestone | null>(null);
+  const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
+  const [signingCo, setSigningCo] = useState<ProjectChangeOrder | null>(null);
+  const [coBusy, setCoBusy] = useState<string | null>(null);
 
-  async function approveDraw(m: ProjectMilestone) {
-    if (!confirm(`Approve "${m.name}" and release the $${m.amount.toLocaleString()} draw?\n\nIn production this triggers the payment release. For the demo, the builder will mark it paid on their side.`)) return;
+  async function approveDraw(m: ProjectMilestone, signature: string) {
     setApproving(m.id);
     try {
       const now = new Date().toISOString();
@@ -61,12 +75,52 @@ export default function ClientPortalPage({
         ...m,
         status: "approved",
         approved_at: now,
+        approval_signature: signature,
         updated_at: now,
       };
       await saveMilestone(updated);
       setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
     } finally {
       setApproving(null);
+      setSigning(null);
+    }
+  }
+
+  async function approveChangeOrder(co: ProjectChangeOrder, signature: string) {
+    setCoBusy(co.id);
+    try {
+      const now = new Date().toISOString();
+      const updated: ProjectChangeOrder = {
+        ...co,
+        status: "approved",
+        approved_at: now,
+        approval_signature: signature,
+        updated_at: now,
+      };
+      await saveChangeOrder(updated);
+      setChangeOrders((prev) => prev.map((x) => (x.id === co.id ? updated : x)));
+    } finally {
+      setCoBusy(null);
+      setSigningCo(null);
+    }
+  }
+
+  async function rejectChangeOrder(co: ProjectChangeOrder) {
+    const reason = prompt(`Reject change order "${co.title}"?\n\nOptional reason for the builder:`);
+    if (reason === null) return;
+    setCoBusy(co.id);
+    try {
+      const now = new Date().toISOString();
+      const updated: ProjectChangeOrder = {
+        ...co,
+        status: "rejected",
+        rejection_reason: reason || "(no reason given)",
+        updated_at: now,
+      };
+      await saveChangeOrder(updated);
+      setChangeOrders((prev) => prev.map((x) => (x.id === co.id ? updated : x)));
+    } finally {
+      setCoBusy(null);
     }
   }
 
@@ -80,14 +134,16 @@ export default function ClientPortalPage({
         router.replace("/deals");
         return;
       }
-      const [m, p] = await Promise.all([
+      const [m, p, co] = await Promise.all([
         listMilestones(id),
         listPhotos(id),
+        listChangeOrders(id),
       ]);
       if (!active) return;
       setDeal(d);
       setMilestones(m);
       setPhotos(p);
+      setChangeOrders(co);
       setLoaded(true);
     }
     void load();
@@ -123,7 +179,12 @@ export default function ClientPortalPage({
     );
   }
 
-  const contractValue = deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+  const baseContract = deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+  const contractValue = effectiveContractValue(baseContract, changeOrders);
+  const pendingCos = changeOrders.filter((c) => c.status === "sent");
+  const approvedCoTotal = changeOrders
+    .filter((c) => c.status === "approved")
+    .reduce((s, c) => s + c.amount_delta, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
@@ -195,8 +256,8 @@ export default function ClientPortalPage({
                 secondary={`${fmtMoney(summary.awaitingApproval.amount)} draw — approve to release payment`}
                 accent="blue"
                 action={{
-                  label: approving === summary.awaitingApproval.id ? "Approving…" : "Review & approve",
-                  onClick: () => summary.awaitingApproval && approveDraw(summary.awaitingApproval),
+                  label: approving === summary.awaitingApproval.id ? "Approving…" : "Review & sign",
+                  onClick: () => summary.awaitingApproval && setSigning(summary.awaitingApproval),
                   disabled: approving === summary.awaitingApproval.id,
                 }}
               />
@@ -211,6 +272,59 @@ export default function ClientPortalPage({
             )}
           </div>
         </section>
+
+        {/* Change orders pending client approval */}
+        {pendingCos.length > 0 && (
+          <section className="mt-8 rounded-2xl border-2 border-blue-300 bg-blue-50 p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-800">
+              <CheckCircleIcon className="h-4 w-4" />
+              Change Orders awaiting your approval
+            </div>
+            <div className="space-y-3">
+              {pendingCos.map((co) => {
+                const sign = co.amount_delta >= 0 ? "+" : "−";
+                const tone = co.amount_delta >= 0 ? "text-emerald-700" : "text-red-700";
+                return (
+                  <div key={co.id} className="rounded-lg bg-white p-4 ring-1 ring-blue-200">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="font-mono text-xs font-semibold text-slate-700">{co.number}</span>
+                      <p className="text-sm font-semibold text-slate-900">{co.title}</p>
+                      <span className={`ml-auto text-base font-bold tabular-nums ${tone}`}>
+                        {sign}{fmtMoney(Math.abs(co.amount_delta))}
+                      </span>
+                    </div>
+                    {co.description && (
+                      <p className="mt-1 text-sm text-slate-700">{co.description}</p>
+                    )}
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {CHANGE_ORDER_REASON_LABELS[co.reason]}
+                      {co.schedule_impact_days !== 0 && (
+                        <> · Schedule impact: {co.schedule_impact_days > 0 ? "+" : ""}{co.schedule_impact_days} days</>
+                      )}
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => setSigningCo(co)}
+                        disabled={coBusy === co.id}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      >
+                        <CheckCircleIcon className="h-3.5 w-3.5" />
+                        Sign &amp; approve
+                      </button>
+                      <button
+                        onClick={() => rejectChangeOrder(co)}
+                        disabled={coBusy === co.id}
+                        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Milestone list */}
         {milestones.length > 0 && (
@@ -244,7 +358,13 @@ export default function ClientPortalPage({
         {/* Payments */}
         {milestones.length > 0 && (
           <section className="mt-8 grid grid-cols-3 gap-3">
-            <PaymentStat label="Contract value" value={fmtMoney(contractValue)} />
+            <PaymentStat
+              label="Contract value"
+              value={fmtMoney(contractValue)}
+              footnote={approvedCoTotal !== 0
+                ? `Base ${fmtMoney(baseContract)} ${approvedCoTotal >= 0 ? "+ " : "− "}${fmtMoney(Math.abs(approvedCoTotal))} change orders`
+                : undefined}
+            />
             <PaymentStat label="Paid to date" value={fmtMoney(summary.released)} accent />
             <PaymentStat
               label="Remaining"
@@ -329,6 +449,34 @@ export default function ClientPortalPage({
       </div>
 
       {lightbox && <ClientLightbox photo={lightbox} onClose={() => setLightbox(null)} />}
+
+      {signing && (
+        <SignatureModal
+          title={`Approve ${signing.name} draw`}
+          amountLabel="Draw amount"
+          amountValue={fmtMoney(signing.amount)}
+          intentText={`I authorize the ${fmtMoney(signing.amount)} draw for "${signing.name}" to be released to the contractor.`}
+          defaultName={deal.account_name}
+          ctaLabel="Sign & approve draw"
+          busy={approving === signing.id}
+          onSign={async ({ signature }) => approveDraw(signing, signature)}
+          onClose={() => setSigning(null)}
+        />
+      )}
+
+      {signingCo && (
+        <SignatureModal
+          title={`Approve change order ${signingCo.number}`}
+          amountLabel={signingCo.amount_delta >= 0 ? "Added cost" : "Credit back"}
+          amountValue={fmtMoney(Math.abs(signingCo.amount_delta))}
+          intentText={`I authorize change order ${signingCo.number} ("${signingCo.title}"), accepting the cost change of ${signingCo.amount_delta >= 0 ? "+" : "−"}${fmtMoney(Math.abs(signingCo.amount_delta))}${signingCo.schedule_impact_days !== 0 ? ` and schedule impact of ${signingCo.schedule_impact_days > 0 ? "+" : ""}${signingCo.schedule_impact_days} days` : ""}.`}
+          defaultName={deal.account_name}
+          ctaLabel="Sign & approve change order"
+          busy={coBusy === signingCo.id}
+          onSign={async ({ signature }) => approveChangeOrder(signingCo, signature)}
+          onClose={() => setSigningCo(null)}
+        />
+      )}
     </div>
   );
 }
@@ -382,10 +530,12 @@ function PaymentStat({
   label,
   value,
   accent,
+  footnote,
 }: {
   label: string;
   value: string;
   accent?: boolean;
+  footnote?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/60 bg-white/80 p-4 text-center shadow-sm backdrop-blur">
@@ -396,6 +546,9 @@ function PaymentStat({
       <div className={`mt-1 text-xl font-bold tabular-nums ${accent ? "text-emerald-700" : "text-slate-900"}`}>
         {value}
       </div>
+      {footnote && (
+        <div className="mt-0.5 text-[10px] text-slate-500">{footnote}</div>
+      )}
     </div>
   );
 }

@@ -173,7 +173,7 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
           <button
             onClick={() => send(input)}
             disabled={sending || !input.trim()}
-            className="inline-flex items-center justify-center rounded-md bg-sky-600 p-2 text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+            className="inline-flex items-center justify-center rounded-md bg-sky-700 p-2 text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
             title="Send"
             aria-label="Send"
           >

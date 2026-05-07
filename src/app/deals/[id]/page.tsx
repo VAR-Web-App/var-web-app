@@ -19,6 +19,7 @@ import ProjectExecutionPanel from "@/components/project-execution-panel";
 import PhotoGallery from "@/components/photo-gallery";
 import ProjectAIChat from "@/components/project-ai-chat";
 import RFQPanel from "@/components/rfq-panel";
+import ChangeOrdersPanel from "@/components/change-orders-panel";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -284,6 +285,8 @@ export default function DealDetailPage({
             <QuoteCard dealId={deal.id} lines={quoteLines} />
 
             <ProjectExecutionPanel deal={deal} />
+
+            <ChangeOrdersPanel deal={deal} />
 
             <RFQPanel deal={deal} />
 
@@ -787,7 +790,7 @@ function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
           </div>
           <Link
             href={`/deals/${dealId}/quote`}
-            className="rounded-md bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+            className="rounded-md bg-sky-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
           >
             Build estimate →
           </Link>

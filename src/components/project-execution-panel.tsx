@@ -19,6 +19,7 @@ import {
 } from "@/types";
 import {
   ProjectMilestone,
+  ProjectChangeOrder,
   MilestoneStatus,
   MILESTONE_STATUS_LABELS,
   MILESTONE_STATUS_STYLES,
@@ -32,6 +33,8 @@ import {
   listQuoteLines,
   saveDeal,
   listDistributors,
+  listChangeOrders,
+  effectiveContractValue,
 } from "@/lib/store";
 
 const fmtMoney = (n: number) =>
@@ -40,6 +43,7 @@ const fmtMoney = (n: number) =>
 export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [subs, setSubs] = useState<Distributor[]>([]);
+  const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -50,11 +54,13 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       listMilestones(deal.id),
       listQuoteLines(deal.id),
       listDistributors(deal.org_ref),
+      listChangeOrders(deal.id),
     ]).then(
-      ([m, lines, subList]) => {
+      ([m, lines, subList, cos]) => {
         if (!active) return;
         setMilestones(m);
         setSubs(subList);
+        setChangeOrders(cos);
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
         // floor-plan apply-to-estimate save lines but not the deal record).
@@ -97,8 +103,12 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
 
   // Contract value = award_total when signed, else live estimate from
   // saved quote lines (not deal.total_quote_value, which can lag).
-  const contractValue =
-    deal.award_total > 0 ? deal.award_total : liveEstimateTotal;
+  // Adjusted by approved change orders.
+  const baseContract = deal.award_total > 0 ? deal.award_total : liveEstimateTotal;
+  const contractValue = effectiveContractValue(baseContract, changeOrders);
+  const approvedCoTotal = changeOrders
+    .filter((c) => c.status === "approved")
+    .reduce((s, c) => s + c.amount_delta, 0);
 
   async function generateDefaults() {
     if (milestones.length > 0) {
@@ -207,7 +217,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         <button
           onClick={generateDefaults}
           disabled={seeding || contractValue === 0}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
         >
           <PlusIcon className="h-4 w-4" />
           {seeding ? "Generating…" : "Generate default schedule"}
@@ -261,7 +271,13 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       </ul>
 
       <div className="grid grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
-        <Stat label="Contract" value={fmtMoney(contractValue)} />
+        <Stat
+          label="Contract"
+          value={fmtMoney(contractValue)}
+          footnote={approvedCoTotal !== 0
+            ? `Base ${fmtMoney(baseContract)} ${approvedCoTotal >= 0 ? "+" : "−"} ${fmtMoney(Math.abs(approvedCoTotal))} COs`
+            : undefined}
+        />
         <Stat label="Approved" value={fmtMoney(totals.approved)} accent="emerald" />
         <Stat label="Paid" value={fmtMoney(totals.released)} accent="emerald" />
       </div>
@@ -538,7 +554,7 @@ function StatusIcon({ status }: { status: MilestoneStatus }) {
 }
 
 function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: string; style: string }[] {
-  const primary = "bg-sky-600 text-white hover:bg-sky-700";
+  const primary = "bg-sky-700 text-white hover:bg-sky-800";
   const secondary = "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
   const success = "bg-emerald-600 text-white hover:bg-emerald-700";
 
@@ -564,12 +580,23 @@ function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: s
   }
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: "emerald" }) {
+function Stat({
+  label,
+  value,
+  accent,
+  footnote,
+}: {
+  label: string;
+  value: string;
+  accent?: "emerald";
+  footnote?: string;
+}) {
   const color = accent === "emerald" ? "text-emerald-700" : "text-slate-900";
   return (
     <div className="px-6 py-4 text-center">
       <div className="text-[11px] uppercase tracking-wider text-slate-500">{label}</div>
       <div className={`mt-1 text-lg font-semibold tabular-nums ${color}`}>{value}</div>
+      {footnote && <div className="mt-0.5 text-[10px] text-slate-500">{footnote}</div>}
     </div>
   );
 }

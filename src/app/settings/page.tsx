@@ -112,7 +112,7 @@ export default function SettingsPage() {
             )}
             <button
               onClick={onSave}
-              className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+              className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
             >
               Save changes
             </button>

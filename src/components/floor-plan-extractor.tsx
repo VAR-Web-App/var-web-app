@@ -249,7 +249,7 @@ export default function FloorPlanExtractor({
                 ) : (
                   <button
                     onClick={runExtraction}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
                   >
                     <SparklesIcon className="h-4 w-4" />
                     Extract
@@ -409,7 +409,7 @@ function ExtractionResults({
         <button
           onClick={onApply}
           disabled={applying}
-          className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+          className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
         >
           {applying ? "Applying…" : "Apply to estimate →"}
         </button>

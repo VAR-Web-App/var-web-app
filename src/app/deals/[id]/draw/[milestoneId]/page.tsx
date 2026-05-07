@@ -20,13 +20,15 @@ import {
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 import { Deal, Distributor, OrgSettings } from "@/types";
-import { ProjectMilestone, MILESTONE_STATUS_LABELS } from "@/types/builder";
+import { ProjectMilestone, ProjectChangeOrder, MILESTONE_STATUS_LABELS } from "@/types/builder";
 import {
   getDeal,
   getSettings,
   listMilestones,
   listDistributors,
   saveMilestone,
+  listChangeOrders,
+  effectiveContractValue,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -45,6 +47,7 @@ export default function DrawRequestPage({
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [subs, setSubs] = useState<Distributor[]>([]);
+  const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -57,16 +60,18 @@ export default function DrawRequestPage({
         router.replace("/deals");
         return;
       }
-      const [m, s, subList] = await Promise.all([
+      const [m, s, subList, cos] = await Promise.all([
         listMilestones(id),
         getSettings(profile!.org_ref),
         listDistributors(profile!.org_ref),
+        listChangeOrders(id),
       ]);
       if (!active) return;
       setDeal(d);
       setMilestones(m);
       setSettings(s);
       setSubs(subList);
+      setChangeOrders(cos);
       setLoaded(true);
     }
     void load();
@@ -95,7 +100,11 @@ export default function DrawRequestPage({
     );
   }
 
-  const contractValue = deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+  const baseContract = deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+  const approvedCoTotal = changeOrders
+    .filter((c) => c.status === "approved")
+    .reduce((s, c) => s + c.amount_delta, 0);
+  const contractValue = effectiveContractValue(baseContract, changeOrders);
 
   // Build the "Schedule of Values" cumulative view through this milestone.
   const ordered = [...milestones].sort((a, b) => a.order - b.order);
@@ -219,7 +228,7 @@ export default function DrawRequestPage({
             </button>
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+              className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
             >
               <PrinterIcon className="h-4 w-4" />
               Print / Save PDF
@@ -294,14 +303,20 @@ export default function DrawRequestPage({
             </section>
           )}
 
-          {/* Summary box (the bank's eyes go here first) */}
+          {/* Summary box (the bank's eyes go here first). Mirrors AIA G702
+             Application & Certificate for Payment line numbering. */}
           <section className="mt-6 grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm sm:grid-cols-4">
-            <SummaryStat label="Original Contract Sum" value={fmtMoney(contractValue)} />
+            <SummaryStat label="Original Contract Sum" value={fmtMoney(baseContract)} />
+            <SummaryStat
+              label="Net Change by COs"
+              value={`${approvedCoTotal >= 0 ? "+" : "−"}${fmtMoney(Math.abs(approvedCoTotal))}`}
+            />
+            <SummaryStat label="Contract Sum to Date" value={fmtMoney(contractValue)} accent />
             <SummaryStat label="Total Completed To Date" value={fmtMoney(totalApproved)} />
             <SummaryStat label="Less Previous Payments" value={fmtMoney(previouslyPaid)} />
             <SummaryStat
               label="This Draw Request"
-              value={fmtMoney(thisRequest - 0)}
+              value={fmtMoney(thisRequest)}
               accent
             />
             <SummaryStat label="Project Completion" value={`${completionPercent.toFixed(1)}%`} />
@@ -312,6 +327,48 @@ export default function DrawRequestPage({
             <SummaryStat label="Phase" value={thisMs.name} />
             <SummaryStat label="Status" value={MILESTONE_STATUS_LABELS[thisMs.status]} />
           </section>
+
+          {/* Approved Change Orders summary — included if any. */}
+          {changeOrders.filter((c) => c.status === "approved").length > 0 && (
+            <section className="mt-6">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                Approved Change Orders
+              </h2>
+              <table className="mt-3 min-w-full text-xs">
+                <thead className="border-y border-slate-300 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                  <tr>
+                    <th className="px-2 py-2 text-left">CO #</th>
+                    <th className="px-2 py-2 text-left">Description</th>
+                    <th className="px-2 py-2 text-right">Schedule Δ</th>
+                    <th className="px-2 py-2 text-right">Amount Δ</th>
+                    <th className="px-2 py-2 text-left">Approved</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {changeOrders
+                    .filter((c) => c.status === "approved")
+                    .map((co) => (
+                      <tr key={co.id}>
+                        <td className="px-2 py-1.5 font-mono">{co.number}</td>
+                        <td className="px-2 py-1.5">{co.title}</td>
+                        <td className="px-2 py-1.5 text-right">
+                          {co.schedule_impact_days !== 0
+                            ? `${co.schedule_impact_days > 0 ? "+" : ""}${co.schedule_impact_days}d`
+                            : "—"}
+                        </td>
+                        <td className={`px-2 py-1.5 text-right tabular-nums ${co.amount_delta >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                          {co.amount_delta >= 0 ? "+" : "−"}{fmtMoney(Math.abs(co.amount_delta))}
+                        </td>
+                        <td className="px-2 py-1.5 text-[10px] text-slate-500">
+                          {co.approval_signature || "—"}
+                          {co.approved_at && ` · ${new Date(co.approved_at).toLocaleDateString()}`}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </section>
+          )}
 
           {/* Schedule of Values */}
           <section className="mt-8">
@@ -405,7 +462,12 @@ export default function DrawRequestPage({
                 Contract Documents and authorizes the lender to release funds in the amount
                 certified above.
               </p>
-              <SignatureBlock label="Owner" name={deal.account_name} />
+              <SignatureBlock
+                label="Owner"
+                name={deal.account_name}
+                signature={thisMs.approval_signature}
+                signedAt={thisMs.approved_at}
+              />
             </div>
           </section>
 
@@ -478,10 +540,40 @@ function SummaryStat({
   );
 }
 
-function SignatureBlock({ label, name }: { label: string; name?: string }) {
+function SignatureBlock({
+  label,
+  name,
+  signature,
+  signedAt,
+}: {
+  label: string;
+  name?: string;
+  signature?: string;
+  signedAt?: string;
+}) {
+  // If we captured an e-signature, render it on the line; otherwise show
+  // an empty line for ink. The label below stays the same so the printed
+  // doc looks right either way.
   return (
     <div className="mt-6">
-      <div className="border-b border-slate-400 pb-1" style={{ minHeight: "2.25rem" }} />
+      <div
+        className="flex items-end justify-between border-b border-slate-400 pb-1"
+        style={{ minHeight: "2.25rem" }}
+      >
+        {signature && (
+          <span
+            className="italic text-slate-900"
+            style={{ fontFamily: "Brush Script MT, cursive", fontSize: "1.5rem" }}
+          >
+            /s/ {signature}
+          </span>
+        )}
+        {signedAt && (
+          <span className="text-[10px] text-slate-500">
+            Signed {new Date(signedAt).toLocaleDateString()}
+          </span>
+        )}
+      </div>
       <div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
         {label} · {name || "Signature"} · Date
       </div>
