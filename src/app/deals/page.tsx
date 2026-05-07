@@ -7,7 +7,7 @@ import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
 import { Deal, DealStage } from "@/types";
 import { BUILDER_STAGES } from "@/types/builder";
-import { listDeals, saveDeal, seedDemoData } from "@/lib/store";
+import { listDeals, saveDeal, seedBuilderDemoData } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
 const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; headerColor: string }> = {
@@ -50,17 +50,7 @@ export default function DealsPage() {
     if (!profile || seeding) return;
     setSeeding(true);
     try {
-      const { parsedCacheByDeal } = await seedDemoData(profile.org_ref);
-      // Pre-populate sessionStorage so the deal detail page shows the
-      // parsed BOM + comparison instantly (no 30-60s parser wait during
-      // the live demo).
-      try {
-        for (const [dealId, cache] of Object.entries(parsedCacheByDeal)) {
-          sessionStorage.setItem(`parsed:${dealId}`, JSON.stringify(cache));
-        }
-      } catch {
-        // ignore quota errors
-      }
+      await seedBuilderDemoData(profile.org_ref);
       await refresh();
     } finally {
       setSeeding(false);

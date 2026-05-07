@@ -729,6 +729,384 @@ export async function seedDemoData(orgRef: string): Promise<SeedResult> {
   return { parsedCacheByDeal };
 }
 
+// ── seedBuilderDemoData: builder-flavored sample data ────────────
+// Replaces the federal-IT-VAR sample with custom-home builder
+// fixtures: homeowner clients, trade subs, projects across all
+// pipeline stages, and a fully-populated 'In Progress' project
+// with realistic milestones (some completed, some active, some
+// pending) for the photo gallery + Gantt + draw flow demos.
+
+export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
+  // ── Clients (homeowners + a developer) ────────────────────────
+  const clients: Account[] = [
+    {
+      id: newId("client"),
+      name: "Maddox Family",
+      type: "commercial",
+      contract_vehicles: ["Architect referral — Smith Designs"],
+      ship_to_addresses: ["1428 Country Lane\nBoerne, TX 78006"],
+      payment_terms: "Per draw schedule (construction loan)",
+      notes: "Construction loan with First Texas Bank — draws need AIA-style docs.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("client"),
+      name: "Hunter Family",
+      type: "commercial",
+      contract_vehicles: ["Direct inquiry — website"],
+      ship_to_addresses: ["3210 Lakeshore Drive\nCanyon Lake, TX 78133"],
+      payment_terms: "Per draw schedule",
+      notes: "",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("client"),
+      name: "Wilson Family",
+      type: "commercial",
+      contract_vehicles: [],
+      ship_to_addresses: ["907 Oakwood Ave\nSan Antonio, TX 78212"],
+      payment_terms: "50% deposit, 50% completion",
+      notes: "Repeat client — built their main house 4 years ago.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("client"),
+      name: "Reyes Holdings LLC",
+      type: "federal", // mapped to "Developer" in builder UI
+      contract_vehicles: ["Spec home build — Cedar Ridge subdivision"],
+      ship_to_addresses: ["4231 Cedar Lane\nBoerne, TX 78006"],
+      payment_terms: "Net 30 from milestone completion",
+      notes: "Developer building 8 spec homes in the subdivision; this is unit 3.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("client"),
+      name: "Patel Family",
+      type: "commercial",
+      contract_vehicles: [],
+      ship_to_addresses: ["55 Hillside Drive\nSan Antonio, TX 78258"],
+      payment_terms: "Per draw schedule",
+      notes: "Kitchen remodel only — completed Mar 2026, in warranty.",
+      org_ref: orgRef,
+    },
+  ];
+  for (const c of clients) await saveAccount(c);
+
+  // ── Subs & suppliers ──────────────────────────────────────────
+  const subs: Distributor[] = [
+    {
+      id: newId("sub"),
+      name: "Cano Concrete & Foundation",
+      account_number: "Foundation",
+      address: "210 Industrial Dr\nBoerne, TX 78006",
+      order_poc_name: "Mike Cano",
+      notes: "Reliable, on time. Best for crawl + slab; not basement.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("sub"),
+      name: "Hill Country Framing",
+      account_number: "Framing",
+      address: "5500 N Loop 1604\nSan Antonio, TX 78248",
+      order_poc_name: "Dave Pruitt",
+      notes: "Crew of 8. Bids are usually 5-8% higher but quality is best in region.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("sub"),
+      name: "Quick-Sparks Electric",
+      account_number: "Electrical",
+      address: "1820 Crockett St\nBoerne, TX 78006",
+      order_poc_name: "Lisa Hernandez",
+      notes: "Master electrician + 3 apprentices. Solar pre-wire ready.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("sub"),
+      name: "Texas Plumb Pros",
+      account_number: "Plumbing",
+      address: "411 Main St\nBoerne, TX 78006",
+      order_poc_name: "Carlos Reyes",
+      notes: "PEX or copper. Tankless install certified.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("sub"),
+      name: "Comfort HVAC",
+      account_number: "HVAC",
+      address: "9100 IH-10 W\nSan Antonio, TX 78230",
+      order_poc_name: "Tony Mitchell",
+      notes: "Mini-split + ducted. Trane preferred dealer.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("supplier"),
+      name: "Boerne Lumber Co.",
+      account_number: "Lumber yard",
+      address: "1100 Old San Antonio Rd\nBoerne, TX 78006",
+      order_poc_name: "Pro Desk",
+      notes: "30-day terms. Trim package + millwork specialty.",
+      org_ref: orgRef,
+    },
+  ];
+  for (const s of subs) await saveDistributor(s);
+
+  // ── Contacts (homeowners as primary contacts) ─────────────────
+  const contacts: Contact[] = [
+    {
+      id: newId("ct"),
+      name: "Brennan Maddox",
+      email: "brennan@maddoxfam.com",
+      phone: "(210) 555-0142",
+      title: "Homeowner",
+      linked_type: "account",
+      linked_ref: clients[0].id,
+      linked_name: clients[0].name,
+      is_primary: true,
+      org_ref: orgRef,
+    },
+    {
+      id: newId("ct"),
+      name: "Jenny Hunter",
+      email: "jhunter@example.com",
+      phone: "(210) 555-0188",
+      title: "Homeowner",
+      linked_type: "account",
+      linked_ref: clients[1].id,
+      linked_name: clients[1].name,
+      is_primary: true,
+      org_ref: orgRef,
+    },
+    {
+      id: newId("ct"),
+      name: "Daniel Reyes",
+      email: "dreyes@reyesholdings.com",
+      phone: "(210) 555-0210",
+      title: "Owner / Developer",
+      linked_type: "account",
+      linked_ref: clients[3].id,
+      linked_name: clients[3].name,
+      is_primary: true,
+      org_ref: orgRef,
+    },
+  ];
+  for (const ct of contacts) await saveContact(ct);
+
+  // ── Projects across stages ────────────────────────────────────
+  // The Maddox project is the demo's anchor — it's mid-build with
+  // milestones populated below. Other projects show pipeline variety.
+  const maddoxId = newId("deal");
+
+  const projects: Deal[] = [
+    {
+      id: maddoxId,
+      name: "Maddox — Country Dream House",
+      stage: "po_sent", // "Pre-Construction" / partially_shipped maps to "In Progress"
+      deal_type: "quotation",
+      manufacturer: "Custom Home",
+      account_ref: clients[0].id,
+      account_name: clients[0].name,
+      poc_ref: contacts[0].id,
+      poc_name: contacts[0].name,
+      solicitation_number: "MAD-2026-001",
+      customer_po: "First Texas Bank construction loan #CL-29844",
+      ship_to_address: "1428 Country Lane\nBoerne, TX 78006",
+      ship_to_poc_name: "Brennan Maddox",
+      ship_to_poc_email: "brennan@maddoxfam.com",
+      lead_time: "32 weeks",
+      due_date: isoDaysAgo(60).slice(0, 10),
+      award_date: isoDaysAgo(55),
+      award_total: 1450000,
+      total_quote_value: 1450000,
+      total_cost: 1235000,
+      margin_percent: 14.8,
+      notes: "Construction loan in place. Bank wants AIA-style draw requests for each milestone.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(90),
+      updated_at: isoDaysAgo(2),
+    },
+    {
+      id: newId("deal"),
+      name: "Hunter — Lakefront Custom",
+      stage: "vendor_sourcing", // = Estimating
+      deal_type: "quotation",
+      manufacturer: "Custom Home",
+      account_ref: clients[1].id,
+      account_name: clients[1].name,
+      poc_ref: contacts[1].id,
+      poc_name: contacts[1].name,
+      solicitation_number: "HUN-2026-002",
+      customer_po: "",
+      ship_to_address: "3210 Lakeshore Drive\nCanyon Lake, TX 78133",
+      ship_to_poc_name: "Jenny Hunter",
+      ship_to_poc_email: "jhunter@example.com",
+      lead_time: "36 weeks",
+      due_date: isoDaysAgo(-90).slice(0, 10),
+      award_total: 0,
+      total_quote_value: 0,
+      total_cost: 0,
+      margin_percent: 0,
+      notes: "Architect: Smith Designs. Plans being finalized — RFQs go out next week.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(14),
+      updated_at: isoDaysAgo(2),
+    },
+    {
+      id: newId("deal"),
+      name: "Wilson — Master Suite Addition",
+      stage: "rfq", // = Lead
+      deal_type: "budgetary",
+      manufacturer: "Addition",
+      account_ref: clients[2].id,
+      account_name: clients[2].name,
+      solicitation_number: "WIL-2026-003",
+      customer_po: "",
+      ship_to_address: "907 Oakwood Ave\nSan Antonio, TX 78212",
+      ship_to_poc_name: "",
+      ship_to_poc_email: "",
+      lead_time: "16 weeks",
+      due_date: isoDaysAgo(-120).slice(0, 10),
+      award_total: 0,
+      total_quote_value: 0,
+      total_cost: 0,
+      margin_percent: 0,
+      notes: "Repeat client. Want budgetary number this week — detailed estimate after they sign architect.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(3),
+      updated_at: isoDaysAgo(1),
+    },
+    {
+      id: newId("deal"),
+      name: "Reyes Spec — 4231 Cedar Lane",
+      stage: "quoted", // = Estimate Sent
+      deal_type: "quotation",
+      manufacturer: "Spec Build",
+      account_ref: clients[3].id,
+      account_name: clients[3].name,
+      poc_ref: contacts[2].id,
+      poc_name: contacts[2].name,
+      solicitation_number: "REY-2026-004",
+      customer_po: "",
+      ship_to_address: "4231 Cedar Lane\nBoerne, TX 78006",
+      ship_to_poc_name: "Daniel Reyes",
+      ship_to_poc_email: "dreyes@reyesholdings.com",
+      lead_time: "28 weeks",
+      due_date: isoDaysAgo(-30).slice(0, 10),
+      award_total: 0,
+      total_quote_value: 685000,
+      total_cost: 590000,
+      margin_percent: 13.9,
+      notes: "Spec build — Daniel waiting on bank approval before signing.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(21),
+      updated_at: isoDaysAgo(5),
+    },
+    {
+      id: newId("deal"),
+      name: "Patel — Kitchen Remodel",
+      stage: "closed_won", // = Complete
+      deal_type: "quotation",
+      manufacturer: "Remodel",
+      account_ref: clients[4].id,
+      account_name: clients[4].name,
+      solicitation_number: "PAT-2025-018",
+      customer_po: "Personal funds",
+      ship_to_address: "55 Hillside Drive\nSan Antonio, TX 78258",
+      ship_to_poc_name: "",
+      ship_to_poc_email: "",
+      lead_time: "Complete",
+      due_date: isoDaysAgo(75).slice(0, 10),
+      award_date: isoDaysAgo(180),
+      award_total: 142000,
+      total_quote_value: 142000,
+      total_cost: 118500,
+      margin_percent: 16.5,
+      notes: "In warranty period (30-day post-occupancy walkthrough completed clean).",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(220),
+      updated_at: isoDaysAgo(45),
+    },
+  ];
+  for (const p of projects) await saveDeal(p);
+
+  // ── Maddox milestones (the anchor project gets a fully-populated
+  //    schedule + draw history so the demo is rich on click-through).
+  const today = new Date();
+  const phaseStarts = [-120, -90, -75, -45, -30, -15, 5, 60, 75]; // days from today
+  const phaseDurations = [7, 21, 42, 14, 21, 21, 56, 14, 30];
+  const phaseStatuses: Array<"released" | "approved" | "in_progress" | "pending"> = [
+    "released",     // Deposit
+    "released",     // Foundation
+    "released",     // Framing
+    "in_progress",  // Dried-In (current)
+    "pending",      // MEP
+    "pending",      // Drywall
+    "pending",      // Finishes
+    "pending",      // Punch
+    "pending",      // Warranty
+  ];
+
+  const milestonePhases = [
+    { key: "deposit", label: "Deposit / Mobilization", percent: 5, description: "Contract signing + permits + site prep" },
+    { key: "foundation", label: "Foundation Complete", percent: 10, description: "Excavation, footings, foundation walls poured" },
+    { key: "framing", label: "Framing Complete", percent: 20, description: "Frame up, sheathing, roof structure" },
+    { key: "dried_in", label: "Dried-In", percent: 10, description: "Roof, windows, exterior doors installed" },
+    { key: "mep_rough", label: "MEP Rough-In", percent: 15, description: "Plumbing, electrical, HVAC rough complete + inspected" },
+    { key: "drywall", label: "Drywall & Insulation", percent: 10, description: "Insulation, drywall hung + finished" },
+    { key: "finishes", label: "Finishes", percent: 20, description: "Trim, paint, flooring, cabinets, fixtures" },
+    { key: "punch", label: "Punch List", percent: 5, description: "Final inspections, punch list complete, CO issued" },
+    { key: "warranty", label: "Warranty Period", percent: 5, description: "30-day post-occupancy walkthrough" },
+  ];
+
+  for (let i = 0; i < milestonePhases.length; i++) {
+    const phase = milestonePhases[i];
+    const status = phaseStatuses[i];
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() + phaseStarts[i]);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + phaseDurations[i]);
+
+    const amount = Math.round((1450000 * phase.percent) / 100);
+    const isoStart = startDate.toISOString().slice(0, 10);
+    const isoEnd = endDate.toISOString().slice(0, 10);
+
+    const m: Parameters<typeof saveMilestone>[0] = {
+      id: newId("ms"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      name: phase.label,
+      description: phase.description,
+      order: i,
+      percentage: phase.percent,
+      amount,
+      status,
+      planned_start_date: isoStart,
+      planned_end_date: isoEnd,
+      notes: "",
+      created_at: isoDaysAgo(90),
+      updated_at: isoDaysAgo(2),
+      ...(status === "released" && {
+        started_at: isoDaysAgo(-phaseStarts[i] + 5),
+        marked_complete_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i] - 1),
+        approved_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i] - 1),
+        released_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i]),
+        released_amount: amount,
+      }),
+      ...(status === "approved" && {
+        started_at: isoDaysAgo(-phaseStarts[i] + 3),
+        marked_complete_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i] + 2),
+        approved_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i]),
+      }),
+      ...(status === "in_progress" && {
+        started_at: isoDaysAgo(-phaseStarts[i]),
+      }),
+    };
+    await saveMilestone(m);
+  }
+
+  return { parsedCacheByDeal: {} };
+}
+
 // ── re-exports ───────────────────────────────────────────────────
 
 export { newId };
