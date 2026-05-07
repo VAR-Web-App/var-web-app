@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   EyeIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
@@ -337,6 +338,14 @@ function DealHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <Link
+          href={`/deals/${deal.id}/proposal`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          title="Generate the client-facing proposal document"
+        >
+          <PaperAirplaneIcon className="h-4 w-4" />
+          Proposal
+        </Link>
         <Link
           href={`/deals/${deal.id}/portal`}
           className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"

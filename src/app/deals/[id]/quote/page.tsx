@@ -9,6 +9,7 @@ import {
   TrashIcon,
   ArrowDownTrayIcon,
   CheckIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { useAuth } from "@/lib/auth-context";
@@ -257,6 +258,16 @@ export default function DealQuotePage({
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {!dirty && !saving && lines.length > 0 && (
+              <Link
+                href={`/deals/${id}/proposal`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+                title="Generate the client-facing proposal"
+              >
+                <PaperAirplaneIcon className="h-4 w-4" />
+                Generate proposal
+              </Link>
+            )}
             {!dirty && !saving ? (
               // Resting state: button area shows a green "Saved" pill so the
               // user knows their work is persisted (rather than seeing a
