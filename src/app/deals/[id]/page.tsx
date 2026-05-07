@@ -16,6 +16,7 @@ import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
 import ProjectExecutionPanel from "@/components/project-execution-panel";
 import PhotoGallery from "@/components/photo-gallery";
+import ProjectAIChat from "@/components/project-ai-chat";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -305,6 +306,7 @@ export default function DealDetailPage({
 
           <div className="space-y-6">
             <DealMetadataCard deal={deal} stageColor={stage?.color ?? ""} />
+            <ProjectAIChat deal={deal} />
             <NotesCard deal={deal} onUpdate={(notes) => updateDeal({ notes })} />
           </div>
         </div>
