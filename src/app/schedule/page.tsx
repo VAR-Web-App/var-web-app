@@ -174,25 +174,51 @@ export default function SchedulePage() {
     return { active, idle };
   }, [subs, assignments]);
 
-  // Calendar window: 2 weeks before today through 16 weeks after.
+  // Calendar window: dynamically fits the data so historical and future
+  // assignments are visible. Bounded to today-9mo / today+18mo so a
+  // single very-old or very-future assignment can't blow the scale up.
   const window = useMemo(() => {
     if (todayMs === null) return null;
-    const start = new Date(todayMs);
+
+    // Start with a default window of today-6w through today+20w, then
+    // expand to include any assignment dates that fall outside it.
+    const defaultStart = todayMs - 6 * WEEK_MS;
+    const defaultEnd = todayMs + 20 * WEEK_MS;
+    const minStart = todayMs - 39 * WEEK_MS; // ~9 months ago cap
+    const maxEnd = todayMs + 78 * WEEK_MS;   // ~18 months ahead cap
+
+    let earliestMs = defaultStart;
+    let latestMs = defaultEnd;
+    for (const a of assignments) {
+      const aStart = Date.parse(a.start_date);
+      const aEnd = Date.parse(a.end_date);
+      if (aStart < earliestMs) earliestMs = aStart;
+      if (aEnd > latestMs) latestMs = aEnd;
+    }
+    earliestMs = Math.max(earliestMs, minStart);
+    latestMs = Math.min(latestMs, maxEnd);
+
+    // Snap start to a Monday for clean column boundaries
+    const start = new Date(earliestMs);
     start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - 14);
-    // Round to Monday for cleaner column boundaries
     const dow = start.getDay();
     const offsetToMonday = dow === 0 ? -6 : 1 - dow;
     start.setDate(start.getDate() + offsetToMonday);
     const startMs = start.getTime();
 
-    const end = new Date(startMs);
-    end.setDate(end.getDate() + 18 * 7); // 18 weeks
+    // Snap end to next Sunday
+    const end = new Date(latestMs);
+    end.setHours(23, 59, 59, 999);
+    const endDow = end.getDay();
+    const offsetToSunday = endDow === 0 ? 0 : 7 - endDow;
+    end.setDate(end.getDate() + offsetToSunday);
     const endMs = end.getTime();
 
     const totalMs = endMs - startMs;
+    const weekCount = Math.max(1, Math.round(totalMs / WEEK_MS));
+
     const weeks: { start: number; label: string }[] = [];
-    for (let w = 0; w < 18; w++) {
+    for (let w = 0; w < weekCount; w++) {
       const wStart = startMs + w * WEEK_MS;
       const wDate = new Date(wStart);
       weeks.push({
@@ -204,7 +230,7 @@ export default function SchedulePage() {
       });
     }
     return { startMs, endMs, totalMs, weeks };
-  }, [todayMs]);
+  }, [todayMs, assignments]);
 
   return (
     <AppShell>
@@ -313,23 +339,28 @@ function ScheduleGrid({
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      {/* Date axis */}
+      {/* Date axis — label every Nth week to avoid smushing at wide windows */}
       <div className="flex border-b border-slate-200 bg-slate-50">
         <div className="w-48 flex-shrink-0 border-r border-slate-200 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           Sub / Trade
         </div>
         <div className="relative flex-1">
           <div className="flex h-8">
-            {window.weeks.map((w, i) => (
-              <div
-                key={w.start}
-                className={`flex-1 border-r border-slate-200 px-1 text-center text-[9px] font-medium uppercase tracking-wider text-slate-500 last:border-r-0 ${
-                  i % 4 === 0 ? "bg-slate-100" : ""
-                }`}
-              >
-                <div className="pt-1.5">{w.label}</div>
-              </div>
-            ))}
+            {window.weeks.map((w, i) => {
+              // Show ~12-18 visible labels regardless of window width
+              const labelStride = window.weeks.length <= 18 ? 1 : window.weeks.length <= 36 ? 2 : 4;
+              const showLabel = i % labelStride === 0;
+              return (
+                <div
+                  key={w.start}
+                  className={`flex-1 border-r border-slate-200 px-1 text-center text-[9px] font-medium uppercase tracking-wider text-slate-500 last:border-r-0 ${
+                    i % (labelStride * 4) === 0 ? "bg-slate-100" : ""
+                  }`}
+                >
+                  {showLabel && <div className="pt-1.5">{w.label}</div>}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
