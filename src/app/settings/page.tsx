@@ -13,12 +13,15 @@ const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
   company_address: "",
   company_phone: "",
   company_email: "",
-  cage_code: "",
-  duns: "",
-  sam_id: "",
-  default_blanket_discount_percent: 50,
-  default_markup_percent: 10,
-  default_manufacturer: "Cisco",
+  // Builder repurpose: the federal-contractor identifier fields are
+  // reused for builder-side license/registration fields. Schema names
+  // are kept for compatibility; UI labels remap them.
+  cage_code: "",     // → State Contractor License #
+  duns: "",          // → EIN (or business reg #)
+  sam_id: "",        // → Local business license #
+  default_blanket_discount_percent: 0,  // not used by builders; kept zero
+  default_markup_percent: 15,           // typical mid-grade builder markup
+  default_manufacturer: "Custom Home",  // → default project type
   prepared_by_name: "",
   prepared_by_phone: "",
 });
@@ -56,36 +59,30 @@ export default function SettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Org-level info, pricing defaults, and quote-document fields. Used to populate quotes
-            and POs throughout the app.
+            Your business info and defaults. Used to populate estimates, draw requests,
+            and customer-facing pages throughout the app.
           </p>
         </div>
 
         <section className="space-y-6">
-          <Card title="Company info" subtitle="Used in quote and PO headers, email signatures.">
+          <Card title="Business info" subtitle="Used on estimate and draw-request headers, the customer portal, and email signatures.">
             <div className="space-y-4">
-              <Input label="Company name" value={settings.company_name} onChange={(v) => setSettings({ ...settings, company_name: v })} />
+              <Input label="Business name" value={settings.company_name} onChange={(v) => setSettings({ ...settings, company_name: v })} />
               <TextArea label="Address" value={settings.company_address} onChange={(v) => setSettings({ ...settings, company_address: v })} />
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Phone" value={settings.company_phone} onChange={(v) => setSettings({ ...settings, company_phone: v })} />
                 <Input label="Email" value={settings.company_email} onChange={(v) => setSettings({ ...settings, company_email: v })} />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <Input label="CAGE Code" value={settings.cage_code} onChange={(v) => setSettings({ ...settings, cage_code: v })} />
-                <Input label="DUNS" value={settings.duns} onChange={(v) => setSettings({ ...settings, duns: v })} />
-                <Input label="SAM ID" value={settings.sam_id} onChange={(v) => setSettings({ ...settings, sam_id: v })} />
+                <Input label="State License #" value={settings.cage_code} onChange={(v) => setSettings({ ...settings, cage_code: v })} />
+                <Input label="EIN" value={settings.duns} onChange={(v) => setSettings({ ...settings, duns: v })} />
+                <Input label="Local License #" value={settings.sam_id} onChange={(v) => setSettings({ ...settings, sam_id: v })} />
               </div>
             </div>
           </Card>
 
-          <Card title="Pricing defaults" subtitle="Applied automatically to imported lines.">
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                type="number"
-                label="Default blanket discount %"
-                value={String(settings.default_blanket_discount_percent)}
-                onChange={(v) => setSettings({ ...settings, default_blanket_discount_percent: parseFloat(v) || 0 })}
-              />
+          <Card title="Estimate defaults" subtitle="Applied to new line items so you don't have to set markup every time.">
+            <div className="grid grid-cols-1 gap-4">
               <Input
                 type="number"
                 label="Default markup %"
@@ -95,16 +92,16 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          <Card title="App defaults" subtitle="Pre-fills on new deals and customer quote exports.">
+          <Card title="Project defaults" subtitle="Pre-fills on new projects and the estimate document.">
             <div className="space-y-4">
               <Input
-                label="Default manufacturer"
+                label="Default project type"
                 value={settings.default_manufacturer}
                 onChange={(v) => setSettings({ ...settings, default_manufacturer: v })}
               />
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Quotes prepared by" value={settings.prepared_by_name} onChange={(v) => setSettings({ ...settings, prepared_by_name: v })} />
-                <Input label="Phone (on quotes)" value={settings.prepared_by_phone} onChange={(v) => setSettings({ ...settings, prepared_by_phone: v })} />
+                <Input label="Estimates prepared by" value={settings.prepared_by_name} onChange={(v) => setSettings({ ...settings, prepared_by_name: v })} />
+                <Input label="Phone (on estimates)" value={settings.prepared_by_phone} onChange={(v) => setSettings({ ...settings, prepared_by_phone: v })} />
               </div>
             </div>
           </Card>
@@ -115,7 +112,7 @@ export default function SettingsPage() {
             )}
             <button
               onClick={onSave}
-              className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
             >
               Save changes
             </button>

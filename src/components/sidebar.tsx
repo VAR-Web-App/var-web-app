@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   RectangleStackIcon,
-  DocumentArrowUpIcon,
   HomeIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
@@ -32,7 +31,6 @@ const NAV: NavItem[] = [
   { href: "/accounts", label: "Clients", icon: HomeIcon },
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
   { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
-  { href: "/documents", label: "Documents", icon: DocumentArrowUpIcon },
   { href: "/roadmap", label: "Roadmap", icon: SparklesIcon },
 ];
 

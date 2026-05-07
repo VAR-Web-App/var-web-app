@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VAR Web App — Quote-to-cash for federal IT VARs",
+  title: "Builder — Project + estimate + draw management for custom home builders",
   description:
-    "Pipeline, parsed distributor quotes, award reconciliation, vendor POs — the federal IT VAR workflow in one app.",
+    "AI-assisted estimating, draw schedule + lender-ready requests, sub coordination, customer portal — the custom-home builder workflow in one app.",
 };
 
 export default function RootLayout({

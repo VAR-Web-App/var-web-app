@@ -63,12 +63,12 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-base font-bold text-white">
-            V
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-600 text-base font-bold text-white">
+            B
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">VAR Web App</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Builder</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Federal IT VAR — quote-to-cash workflow
+            Custom home builder — project + estimate + draw management
           </p>
         </div>
 
@@ -99,8 +99,8 @@ export default function LoginPage() {
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Acme Federal Solutions"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="e.g. Maddox Custom Homes"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                   required
                   autoFocus
                 />
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 required
                 autoFocus={mode === "signin"}
                 autoComplete={mode === "signin" ? "email" : "new-email"}
@@ -122,7 +122,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 required
                 minLength={6}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
@@ -139,7 +139,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="w-full rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
@@ -148,7 +148,7 @@ export default function LoginPage() {
 
         <p className="mt-4 text-center text-xs text-slate-500">
           Just looking?{" "}
-          <Link href="/demo" className="font-medium text-blue-600 hover:underline">
+          <Link href="/demo" className="font-medium text-amber-700 hover:underline">
             Browse the demo (no account needed)
           </Link>
         </p>
