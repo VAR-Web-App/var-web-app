@@ -422,6 +422,14 @@ function MilestoneRow({
               Draw / Invoice
             </Link>
           )}
+          {m.qb_invoice_number && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
+              title={`Synced to QuickBooks${m.qb_synced_at ? ` on ${new Date(m.qb_synced_at).toLocaleDateString()}` : ""}`}
+            >
+              QB · {m.qb_invoice_number}
+            </span>
+          )}
           <button
             onClick={onRemove}
             className="ml-auto rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"

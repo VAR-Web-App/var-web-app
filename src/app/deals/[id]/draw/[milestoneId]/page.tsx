@@ -12,7 +12,13 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, PrinterIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  PrinterIcon,
+  EnvelopeIcon,
+  CloudArrowUpIcon,
+  CheckBadgeIcon,
+} from "@heroicons/react/24/outline";
 import { Deal, Distributor, OrgSettings } from "@/types";
 import { ProjectMilestone, MILESTONE_STATUS_LABELS } from "@/types/builder";
 import {
@@ -20,6 +26,7 @@ import {
   getSettings,
   listMilestones,
   listDistributors,
+  saveMilestone,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -114,6 +121,35 @@ export default function DrawRequestPage({
     day: "numeric",
   });
 
+  async function pushToQuickBooks() {
+    if (!deal || !thisMs) return;
+    if (thisMs.qb_invoice_id) {
+      if (!confirm(
+        `This draw is already synced to QuickBooks as ${thisMs.qb_invoice_number}. Re-sync anyway?`
+      )) return;
+    }
+    // Demo behavior: real QB sync is Q3 (OAuth flow + invoice push API).
+    // For now, simulate the push so the workflow + UX shape are real.
+    // Mock invoice number format matches QB's: INV-{4-digit}
+    const mockNumber = `INV-${1000 + Math.floor(Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+    const updated: ProjectMilestone = {
+      ...thisMs,
+      qb_invoice_id: `mock_${Date.now()}`,
+      qb_invoice_number: mockNumber,
+      qb_synced_at: now,
+      updated_at: now,
+    };
+    setMilestones((prev) => prev.map((m) => (m.id === thisMs.id ? updated : m)));
+    await saveMilestone(updated);
+    alert(
+      `Pushed to QuickBooks · ${mockNumber}\n\n` +
+      `(Demo mode — your real QuickBooks integration ships Q3. ` +
+      `When live, this creates an invoice on your QBO account using ` +
+      `the customer mapping you set up in Settings.)`
+    );
+  }
+
   function emailToClient() {
     // Build a mailto: link with prefilled draw request notification +
     // portal link. GC forwards in their normal email client.
@@ -153,7 +189,26 @@ export default function DrawRequestPage({
             <ArrowLeftIcon className="h-4 w-4" />
             Back to project
           </Link>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {thisMs.qb_invoice_number ? (
+              <button
+                onClick={pushToQuickBooks}
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+                title={`Synced to QuickBooks as ${thisMs.qb_invoice_number}. Click to re-sync.`}
+              >
+                <CheckBadgeIcon className="h-4 w-4" />
+                QB · {thisMs.qb_invoice_number}
+              </button>
+            ) : (
+              <button
+                onClick={pushToQuickBooks}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                title="Create a QuickBooks invoice from this draw"
+              >
+                <CloudArrowUpIcon className="h-4 w-4" />
+                Push to QuickBooks
+              </button>
+            )}
             <button
               onClick={emailToClient}
               className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"

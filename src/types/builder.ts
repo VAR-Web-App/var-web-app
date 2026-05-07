@@ -183,6 +183,14 @@ export interface ProjectMilestone {
   /** Distributor IDs (subs) working this phase. Drives the cross-project
    *  /schedule view and surfaces on milestone rows + draw requests. */
   assigned_subs?: string[];
+  /** QuickBooks Online invoice ID after manual or auto sync. Demo mode
+   *  populates this with a mock value; production fills it from the
+   *  QBO API response. */
+  qb_invoice_id?: string;
+  /** Human-readable QB invoice number ("INV-1042"). Surfaces in UI. */
+  qb_invoice_number?: string;
+  /** ISO timestamp of the last successful QB sync. */
+  qb_synced_at?: string;
   /** When work on this phase began (in_progress flip). */
   started_at?: string;
   /** When the GC marked the phase complete (awaiting client approval). */
