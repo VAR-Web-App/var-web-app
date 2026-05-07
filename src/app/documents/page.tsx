@@ -406,7 +406,7 @@ function ResultBanner({ result }: { result: ParseResult }) {
   return (
     <section
       className={`rounded-xl border p-6 ${
-        result.ok ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+        result.ok ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-4">
@@ -414,7 +414,7 @@ function ResultBanner({ result }: { result: ParseResult }) {
           {result.ok ? (
             <CheckCircleIcon className="h-7 w-7 flex-shrink-0 text-emerald-600" />
           ) : (
-            <ExclamationTriangleIcon className="h-7 w-7 flex-shrink-0 text-amber-600" />
+            <ExclamationTriangleIcon className="h-7 w-7 flex-shrink-0 text-sky-600" />
           )}
           <div>
             <h2 className="text-base font-semibold text-slate-900">
@@ -461,7 +461,7 @@ function Issues({
   const palette =
     tone === "error"
       ? "border-red-200 bg-red-50 text-red-900"
-      : "border-amber-200 bg-amber-50 text-amber-900";
+      : "border-sky-200 bg-sky-50 text-sky-900";
   const Icon = tone === "error" ? XCircleIcon : ExclamationTriangleIcon;
   return (
     <section className={`rounded-xl border p-4 ${palette}`}>

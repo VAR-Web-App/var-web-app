@@ -63,7 +63,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-600 text-base font-bold text-white">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-600 text-base font-bold text-white">
             B
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Builder</h1>
@@ -100,7 +100,7 @@ export default function LoginPage() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Maddox Custom Homes"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                   required
                   autoFocus
                 />
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 required
                 autoFocus={mode === "signin"}
                 autoComplete={mode === "signin" ? "email" : "new-email"}
@@ -122,7 +122,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 required
                 minLength={6}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
@@ -139,7 +139,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="w-full rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
@@ -148,7 +148,7 @@ export default function LoginPage() {
 
         <p className="mt-4 text-center text-xs text-slate-500">
           Just looking?{" "}
-          <Link href="/demo" className="font-medium text-amber-700 hover:underline">
+          <Link href="/demo" className="font-medium text-sky-700 hover:underline">
             Browse the demo (no account needed)
           </Link>
         </p>

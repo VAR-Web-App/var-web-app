@@ -29,7 +29,7 @@ export const BUILDER_STAGE_LABELS: Record<DealStage, string> = {
 
 export const BUILDER_STAGES: { key: DealStage; label: string; color: string }[] = [
   { key: "rfq", label: "Lead", color: "bg-blue-100 text-blue-800" },
-  { key: "vendor_sourcing", label: "Estimating", color: "bg-amber-100 text-amber-800" },
+  { key: "vendor_sourcing", label: "Estimating", color: "bg-sky-100 text-sky-800" },
   { key: "quoted", label: "Estimate Sent", color: "bg-yellow-100 text-yellow-800" },
   { key: "awarded", label: "Contract Signed", color: "bg-green-100 text-green-800" },
   { key: "po_sent", label: "Pre-Construction", color: "bg-teal-100 text-teal-800" },
@@ -210,7 +210,7 @@ export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
 
 export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
   pending: "bg-slate-100 text-slate-700 ring-slate-200",
-  in_progress: "bg-amber-100 text-amber-800 ring-amber-200",
+  in_progress: "bg-sky-100 text-sky-800 ring-sky-200",
   awaiting_approval: "bg-blue-100 text-blue-800 ring-blue-200",
   approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   released: "bg-emerald-600 text-white ring-emerald-700",
@@ -299,7 +299,7 @@ export const RFQ_STATUS_LABELS: Record<RFQStatus, string> = {
 
 export const RFQ_STATUS_STYLES: Record<RFQStatus, string> = {
   draft: "bg-slate-100 text-slate-700 ring-slate-200",
-  sent: "bg-amber-100 text-amber-800 ring-amber-200",
+  sent: "bg-sky-100 text-sky-800 ring-sky-200",
   comparing: "bg-blue-100 text-blue-800 ring-blue-200",
   awarded: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   closed: "bg-slate-100 text-slate-500 ring-slate-200",

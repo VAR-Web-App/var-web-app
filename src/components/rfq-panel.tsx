@@ -77,7 +77,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+          className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           New RFQ
@@ -274,7 +274,7 @@ function RFQModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Foundation excavation + footings"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </div>
             <div>
@@ -282,7 +282,7 @@ function RFQModal({
               <select
                 value={phase}
                 onChange={(e) => setPhase(e.target.value as ProjectPhase)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 {PROJECT_PHASES.map((p) => (
                   <option key={p} value={p}>{p}</option>
@@ -300,7 +300,7 @@ function RFQModal({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Detailed scope of work, materials, timeline expectations…"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
           </div>
 
@@ -320,13 +320,13 @@ function RFQModal({
                   return (
                     <label
                       key={s.id}
-                      className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50 ${checked ? "bg-amber-50" : ""}`}
+                      className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50 ${checked ? "bg-sky-50" : ""}`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleSub(s)}
-                        className="rounded text-amber-600 focus:ring-amber-500"
+                        className="rounded text-sky-600 focus:ring-sky-500"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{s.name}</p>
@@ -378,7 +378,7 @@ function RFQModal({
                               });
                             }}
                             placeholder="—"
-                            className="w-24 rounded border border-slate-300 px-2 py-1 text-right text-xs tabular-nums focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-24 rounded border border-slate-300 px-2 py-1 text-right text-xs tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -387,7 +387,7 @@ function RFQModal({
                             value={inv.bid_notes || ""}
                             onChange={(e) => updateInvitee(inv.sub_ref, { bid_notes: e.target.value })}
                             placeholder="Inclusions/exclusions…"
-                            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                           />
                         </td>
                         <td className="px-3 py-2 text-[11px]">
@@ -395,7 +395,7 @@ function RFQModal({
                             inv.status === "selected" ? "bg-emerald-100 text-emerald-700" :
                             inv.status === "responded" ? "bg-blue-100 text-blue-700" :
                             inv.status === "passed" ? "bg-slate-100 text-slate-500" :
-                            "bg-amber-100 text-amber-700"
+                            "bg-sky-100 text-sky-700"
                           }`}>
                             {inv.status}
                           </span>
@@ -429,7 +429,7 @@ function RFQModal({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Notes only you see…"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
           </div>
         </div>
@@ -443,14 +443,14 @@ function RFQModal({
           </button>
           <button
             onClick={() => save(false)}
-            className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+            className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
           >
             Save draft
           </button>
           <button
             onClick={() => save(true)}
             disabled={invitees.length === 0 || !title.trim()}
-            className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+            className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
             {existing?.sent_at ? "Save" : `Send to ${invitees.length} sub${invitees.length === 1 ? "" : "s"}`}

@@ -115,7 +115,7 @@ export default function ClientPortalPage({
 
   if (!deal || !loaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
         <div className="mx-auto max-w-4xl px-6 py-16 text-center text-sm text-slate-500">
           Loading your project…
         </div>
@@ -126,22 +126,22 @@ export default function ClientPortalPage({
   const contractValue = deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
       {/* GC preview banner — only the builder sees this. In production, the */}
       {/* portal page lives on a public token URL and skips this banner. */}
-      <div className="border-b border-amber-200 bg-amber-100/70 px-6 py-2 text-center text-xs text-amber-900">
+      <div className="border-b border-sky-200 bg-sky-100/70 px-6 py-2 text-center text-xs text-sky-900">
         <Link href={`/deals/${id}`} className="inline-flex items-center gap-1 font-medium hover:underline">
           <ArrowLeftIcon className="h-3 w-3" />
           Builder preview · back to project
         </Link>
-        <span className="mx-2 text-amber-300">·</span>
+        <span className="mx-2 text-sky-300">·</span>
         Your client sees the page below.
       </div>
 
       <div className="mx-auto max-w-5xl px-6 py-10">
         {/* Hero */}
         <header className="mb-10">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-amber-800">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-sky-800">
             <HomeIcon className="h-4 w-4" />
             Your project · {BUILDER_STAGE_LABELS[deal.stage]}
           </div>
@@ -164,7 +164,7 @@ export default function ClientPortalPage({
                 {summary.completed} of {milestones.length} milestones complete
               </p>
             </div>
-            <div className="text-2xl font-bold tabular-nums text-amber-700">
+            <div className="text-2xl font-bold tabular-nums text-sky-700">
               {summary.percentComplete}%
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function ClientPortalPage({
           {/* Big progress bar */}
           <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-700 transition-all"
               style={{ width: `${summary.percentComplete}%` }}
             />
           </div>
@@ -181,7 +181,7 @@ export default function ClientPortalPage({
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {summary.inProgress && (
               <CardCallout
-                icon={<ClockIcon className="h-5 w-5 text-amber-600" />}
+                icon={<ClockIcon className="h-5 w-5 text-sky-600" />}
                 label="In progress"
                 primary={summary.inProgress.name}
                 secondary={summary.inProgress.description}
@@ -303,7 +303,7 @@ export default function ClientPortalPage({
                       className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-105"
                     />
                     <div className="bg-white/90 px-2 py-1.5">
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
                         {p.phase}
                       </span>
                       {p.caption && (
@@ -412,7 +412,7 @@ function PhaseDot({
   const cls = isDone
     ? "bg-emerald-500 text-white"
     : isActive
-    ? "bg-amber-500 text-white"
+    ? "bg-sky-500 text-white"
     : "bg-slate-200 text-slate-500";
   return (
     <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${cls}`}>
@@ -435,7 +435,7 @@ function ClientStatusBadge({ status }: { status: ProjectMilestone["status"] }) {
     status === "released" || status === "approved"
       ? "bg-emerald-100 text-emerald-800"
       : status === "in_progress"
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-sky-100 text-sky-800"
       : status === "awaiting_approval"
       ? "bg-blue-100 text-blue-800"
       : "bg-red-100 text-red-800";
@@ -460,7 +460,7 @@ function ChipFilter({
       onClick={onClick}
       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
         active
-          ? "bg-amber-600 text-white"
+          ? "bg-sky-600 text-white"
           : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
       }`}
     >
@@ -490,7 +490,7 @@ function ClientLightbox({ photo, onClose }: { photo: ProjectPhoto; onClose: () =
           className="max-h-[80vh] max-w-full rounded-lg object-contain"
         />
         <div className="mt-3 text-center text-sm text-white">
-          <span className="rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+          <span className="rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
             {photo.phase}
           </span>
           {photo.caption && <span className="ml-2">{photo.caption}</span>}

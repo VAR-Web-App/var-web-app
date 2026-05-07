@@ -340,7 +340,7 @@ function DealHeader({
       <div className="flex items-center gap-2">
         <Link
           href={`/deals/${deal.id}/proposal`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
           title="Generate the client-facing proposal document"
         >
           <PaperAirplaneIcon className="h-4 w-4" />
@@ -348,7 +348,7 @@ function DealHeader({
         </Link>
         <Link
           href={`/deals/${deal.id}/portal`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
           title="See what your client sees"
         >
           <EyeIcon className="h-4 w-4" />
@@ -357,7 +357,7 @@ function DealHeader({
         <select
           value={deal.stage}
           onChange={(e) => onChangeStage(e.target.value as Deal["stage"])}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
         >
           {BUILDER_STAGES.map((s) => (
             <option key={s.key} value={s.key}>
@@ -639,7 +639,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div
         className={`border-b px-6 py-4 ${
-          allClean ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+          allClean ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"
         }`}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-4">
@@ -647,7 +647,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
             {allClean ? (
               <CheckCircleIcon className="h-6 w-6 flex-shrink-0 text-emerald-600" />
             ) : (
-              <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-amber-600" />
+              <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-sky-600" />
             )}
             <div>
               <h2 className="text-sm font-semibold text-slate-900">
@@ -696,7 +696,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
                 if (priceChanged) labels.push("Price Δ");
                 const dColor = extDelta > 0 ? "text-emerald-700" : "text-red-700";
                 return (
-                  <tr key={i} className="bg-amber-50/30">
+                  <tr key={i} className="bg-sky-50/30">
                     <td className="px-4 py-3 align-top">
                       <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
                       <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
@@ -710,7 +710,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
                       <div className="text-[11px] text-slate-500">= {fmtMoney(row.award.extended_price)}</div>
                     </td>
                     <td className="px-4 py-3 align-top text-xs">
-                      <div className="font-medium text-amber-900">{labels.join(" + ")}</div>
+                      <div className="font-medium text-sky-900">{labels.join(" + ")}</div>
                       {Math.abs(extDelta) > 0.01 && (
                         <div className={`tabular-nums ${dColor}`}>
                           {fmtDelta(extDelta)} on this line
@@ -721,7 +721,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
                 );
               })}
               {comparison.only_in_quote.map((line, i) => (
-                <tr key={`q${i}`} className="bg-amber-50/30">
+                <tr key={`q${i}`} className="bg-sky-50/30">
                   <td className="px-4 py-3 align-top">
                     <div className="font-mono text-xs text-slate-900">{line.part_number}</div>
                     <div className="mt-0.5 text-xs text-slate-500">{line.description}</div>
@@ -732,7 +732,7 @@ function ComparisonCard({ comparison }: { comparison: CompareResult }) {
                   </td>
                   <td className="px-4 py-3 text-right align-top tabular-nums text-xs italic text-slate-400">—</td>
                   <td className="px-4 py-3 align-top text-xs">
-                    <div className="font-medium text-amber-900">Only in quote</div>
+                    <div className="font-medium text-sky-900">Only in quote</div>
                     <div className="text-slate-500">customer dropped from award</div>
                   </td>
                 </tr>
@@ -787,7 +787,7 @@ function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
           </div>
           <Link
             href={`/deals/${dealId}/quote`}
-            className="rounded-md bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            className="rounded-md bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
           >
             Build estimate →
           </Link>
@@ -831,7 +831,7 @@ function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
           <div className="text-xs uppercase tracking-wide text-slate-500">Margin</div>
           <div
             className={`mt-1 text-lg font-semibold tabular-nums ${
-              margin >= 15 ? "text-emerald-700" : margin >= 5 ? "text-amber-700" : "text-red-700"
+              margin >= 15 ? "text-emerald-700" : margin >= 5 ? "text-sky-700" : "text-red-700"
             }`}
           >
             {margin.toFixed(1)}%

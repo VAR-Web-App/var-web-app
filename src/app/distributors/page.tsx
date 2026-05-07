@@ -55,7 +55,7 @@ export default function DistributorsPage() {
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
         >
           <PlusIcon className="h-4 w-4" />
           New Sub / Supplier
@@ -82,7 +82,7 @@ export default function DistributorsPage() {
                 <td className="px-4 py-3 whitespace-pre-line text-xs text-slate-700">{d.address || "—"}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
-                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-amber-700 hover:text-amber-800">
+                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-sky-700 hover:text-sky-800">
                       Edit
                     </button>
                     <button onClick={() => onDelete(d.id)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">

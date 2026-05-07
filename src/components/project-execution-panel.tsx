@@ -207,13 +207,13 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         <button
           onClick={generateDefaults}
           disabled={seeding || contractValue === 0}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
         >
           <PlusIcon className="h-4 w-4" />
           {seeding ? "Generating…" : "Generate default schedule"}
         </button>
         {contractValue === 0 && (
-          <p className="mt-3 text-xs text-amber-700">
+          <p className="mt-3 text-xs text-sky-700">
             Add an estimate first — milestone $ amounts roll up from the contract value.
           </p>
         )}
@@ -292,7 +292,7 @@ function ScheduleTimeline({ milestones }: { milestones: ProjectMilestone[] }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
         <Legend color="bg-slate-300" label="Pending" />
-        <Legend color="bg-amber-500" label="In progress" />
+        <Legend color="bg-sky-500" label="In progress" />
         <Legend color="bg-blue-500" label="Awaiting approval" />
         <Legend color="bg-emerald-500" label="Approved" />
         <Legend color="bg-emerald-700" label="Paid" />
@@ -315,7 +315,7 @@ function timelineSegmentColor(status: MilestoneStatus): string {
     case "pending":
       return "bg-slate-300";
     case "in_progress":
-      return "bg-amber-500";
+      return "bg-sky-500";
     case "awaiting_approval":
       return "bg-blue-500";
     case "approved":
@@ -377,7 +377,7 @@ function MilestoneRow({
             assignedSubs.map((s) => (
               <span
                 key={s.id}
-                className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800"
                 title={s.account_number}
               >
                 {s.name}
@@ -388,7 +388,7 @@ function MilestoneRow({
           )}
           <button
             onClick={() => setPickerOpen((v) => !v)}
-            className="rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-amber-400 hover:text-amber-700"
+            className="rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-sky-400 hover:text-sky-700"
           >
             + assign
           </button>
@@ -416,10 +416,10 @@ function MilestoneRow({
             <Link
               href={`/deals/${dealId}/draw/${m.id}`}
               className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              title="View the draw request document for this phase"
+              title="Generate the draw request / invoice document for this phase"
             >
               <DocumentTextIcon className="h-3.5 w-3.5" />
-              Draw request
+              Draw / Invoice
             </Link>
           )}
           <button
@@ -489,14 +489,14 @@ function SubPicker({
           <label
             key={s.id}
             className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-slate-50 ${
-              checked ? "bg-amber-50" : ""
+              checked ? "bg-sky-50" : ""
             }`}
           >
             <input
               type="checkbox"
               checked={checked}
               onChange={() => toggle(s.id)}
-              className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+              className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-medium text-slate-900">{s.name}</p>
@@ -517,7 +517,7 @@ function StatusIcon({ status }: { status: MilestoneStatus }) {
     case "pending":
       return <ClockIcon className={`${cls} text-slate-400`} />;
     case "in_progress":
-      return <PlayCircleIcon className={`${cls} text-amber-600`} />;
+      return <PlayCircleIcon className={`${cls} text-sky-600`} />;
     case "awaiting_approval":
       return <ClockIcon className={`${cls} text-blue-600`} />;
     case "approved":
@@ -530,7 +530,7 @@ function StatusIcon({ status }: { status: MilestoneStatus }) {
 }
 
 function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: string; style: string }[] {
-  const primary = "bg-amber-600 text-white hover:bg-amber-700";
+  const primary = "bg-sky-600 text-white hover:bg-sky-700";
   const secondary = "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
   const success = "bg-emerald-600 text-white hover:bg-emerald-700";
 
@@ -716,7 +716,7 @@ function GanttBar({
                 type="date"
                 value={m.planned_start_date || ""}
                 onChange={(e) => onChangeDates({ planned_start_date: e.target.value })}
-                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </label>
             <label className="block">
@@ -725,7 +725,7 @@ function GanttBar({
                 type="date"
                 value={m.planned_end_date || ""}
                 onChange={(e) => onChangeDates({ planned_end_date: e.target.value })}
-                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </label>
           </div>
@@ -748,7 +748,7 @@ function ganttBarColor(status: MilestoneStatus): string {
     case "pending":
       return "bg-slate-400";
     case "in_progress":
-      return "bg-amber-500";
+      return "bg-sky-500";
     case "awaiting_approval":
       return "bg-blue-500";
     case "approved":

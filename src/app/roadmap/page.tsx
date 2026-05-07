@@ -170,7 +170,7 @@ export default function RoadmapPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
           <SparklesIcon className="h-4 w-4" />
           Roadmap
         </div>
@@ -219,15 +219,15 @@ function FeatureCard({
   return (
     <article
       className={`rounded-xl border bg-white shadow-sm transition-all ${
-        expanded ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-200"
+        expanded ? "border-sky-300 ring-2 ring-sky-100" : "border-slate-200"
       }`}
     >
       <button
         onClick={onToggle}
         className="flex w-full items-start gap-3 p-5 text-left"
       >
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
-          <Icon className="h-5 w-5 text-amber-700" />
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-sky-100">
+          <Icon className="h-5 w-5 text-sky-700" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2">
@@ -239,7 +239,7 @@ function FeatureCard({
           </div>
           <p className="mt-1 text-sm text-slate-700">{f.tagline}</p>
         </div>
-        <span className="mt-1 text-xs font-medium text-amber-700">
+        <span className="mt-1 text-xs font-medium text-sky-700">
           {expanded ? "Hide" : "Preview →"}
         </span>
       </button>
@@ -252,7 +252,7 @@ function FeatureCard({
             <ul className="space-y-1.5 text-xs text-slate-700">
               {f.bullets.map((b, i) => (
                 <li key={i} className="flex gap-1.5">
-                  <CheckCircleIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+                  <CheckCircleIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sky-600" />
                   <span>{b}</span>
                 </li>
               ))}
@@ -284,12 +284,12 @@ function EmailDigesterPreview() {
           Plumber: &ldquo;Need decision on faucet brand by Friday&rdquo;
         </div>
       </div>
-      <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
+      <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5">
         <div className="flex justify-between">
-          <span className="font-semibold text-amber-900">Awaiting reply (2)</span>
-          <span className="text-amber-600">→ Smith Remodel</span>
+          <span className="font-semibold text-sky-900">Awaiting reply (2)</span>
+          <span className="text-sky-600">→ Smith Remodel</span>
         </div>
-        <div className="mt-1 truncate text-amber-800">
+        <div className="mt-1 truncate text-sky-800">
           You sent quote to client 4 days ago. Nudge?
         </div>
       </div>
@@ -314,7 +314,7 @@ function PhoneLogPreview() {
           to Wednesday — won&apos;t affect critical path.&rdquo;
         </div>
         <div className="mt-1.5 flex gap-1">
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-800">
+          <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-medium text-sky-800">
             +Action
           </span>
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
@@ -346,7 +346,7 @@ function MaterialsPreview() {
           <PriceTile vendor="Lowe&apos;s" price="$11.97" />
           <PriceTile vendor="Local" price="$10.85" best />
         </div>
-        <button className="mt-1.5 w-full rounded bg-amber-600 px-2 py-1 text-[9px] font-semibold text-white">
+        <button className="mt-1.5 w-full rounded bg-sky-600 px-2 py-1 text-[9px] font-semibold text-white">
           Add to estimate
         </button>
       </div>
@@ -375,7 +375,7 @@ function FinanceForecastPreview() {
           {[20, 35, 28, 42, 50, 38, 60, 65, 55, 70, 80, 75].map((h, i) => (
             <div
               key={i}
-              className={`flex-1 rounded-t ${i % 3 === 0 ? "bg-amber-500" : "bg-amber-300"}`}
+              className={`flex-1 rounded-t ${i % 3 === 0 ? "bg-sky-500" : "bg-sky-300"}`}
               style={{ height: `${h}%` }}
             />
           ))}
@@ -428,7 +428,7 @@ function BidRow({
     tone === "emerald"
       ? "bg-emerald-100 text-emerald-800"
       : tone === "amber"
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-sky-100 text-sky-800"
       : "bg-slate-100 text-slate-700";
   return (
     <div className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1.5">
@@ -446,7 +446,7 @@ function WalkthroughPreview() {
     <div className="relative h-32 w-72 overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 to-slate-900">
       <div className="absolute inset-0 flex items-center justify-center text-white">
         <div className="text-center">
-          <HomeModernIcon className="mx-auto h-10 w-10 text-amber-400 opacity-80" />
+          <HomeModernIcon className="mx-auto h-10 w-10 text-sky-400 opacity-80" />
           <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider">
             Walk the house
           </p>
@@ -485,7 +485,7 @@ function SchedulingPreview() {
           Hill Country Framing: Maddox + Reyes overlap Apr 22–28
         </div>
       </div>
-      <div className="rounded border border-amber-200 bg-amber-50 p-2 text-amber-800">
+      <div className="rounded border border-sky-200 bg-sky-50 p-2 text-sky-800">
         <span className="font-semibold">Weather alert:</span> Rain Apr 18–20.
         Suggest shift slab pour to Apr 21.
       </div>
@@ -511,7 +511,7 @@ function LeadGenPreview() {
           <span>✓</span>
         </div>
       </div>
-      <div className="rounded border border-amber-200 bg-amber-50 p-2 text-amber-800">
+      <div className="rounded border border-sky-200 bg-sky-50 p-2 text-sky-800">
         <span className="font-semibold">Reminder:</span> Quote sent 6 days ago to Smith family,
         no reply. Send nudge?
       </div>

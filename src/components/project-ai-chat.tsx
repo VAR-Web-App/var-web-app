@@ -120,9 +120,9 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-1.5">
-          <SparklesIcon className="h-4 w-4 text-amber-600" />
+          <SparklesIcon className="h-4 w-4 text-sky-600" />
           <h2 className="text-sm font-semibold text-slate-900">Ask the project AI</h2>
-          <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-800">
+          <span className="ml-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-800">
             Beta
           </span>
         </div>
@@ -168,12 +168,12 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
             onKeyDown={onKeyDown}
             placeholder="Ask about this project — costs, schedule, status…"
             rows={1}
-            className="flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
           <button
             onClick={() => send(input)}
             disabled={sending || !input.trim()}
-            className="inline-flex items-center justify-center rounded-md bg-amber-600 p-2 text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+            className="inline-flex items-center justify-center rounded-md bg-sky-600 p-2 text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
             title="Send"
             aria-label="Send"
           >
@@ -200,7 +200,7 @@ function Bubble({
   if (role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-amber-600 px-3 py-2 text-sm text-white">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-sky-600 px-3 py-2 text-sm text-white">
           {text}
         </div>
       </div>
@@ -208,8 +208,8 @@ function Bubble({
   }
   return (
     <div className="flex items-start gap-2">
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
-        <SparklesIcon className="h-3.5 w-3.5 text-amber-700" />
+      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sky-100">
+        <SparklesIcon className="h-3.5 w-3.5 text-sky-700" />
       </div>
       <div className={`max-w-[85%] rounded-2xl rounded-bl-md bg-slate-100 px-3 py-2 text-sm text-slate-800 ${pending ? "animate-pulse" : ""}`}>
         {pending ? <DotPulse /> : <pre className="whitespace-pre-wrap font-sans">{text}</pre>}
@@ -239,7 +239,7 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
           <button
             key={q}
             onClick={() => onPick(q)}
-            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
           >
             {q}
           </button>

@@ -115,7 +115,7 @@ export default function PhotoGallery({
             <select
               value={uploadPhase}
               onChange={(e) => setUploadPhase(e.target.value as ProjectPhase)}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               {PROJECT_PHASES.map((ph) => (
                 <option key={ph} value={ph}>{ph}</option>
@@ -129,8 +129,8 @@ export default function PhotoGallery({
             onClick={() => fileInput.current?.click()}
             className={`flex flex-1 min-w-[260px] cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed py-2.5 text-sm font-medium transition-colors ${
               dragActive
-                ? "border-amber-500 bg-amber-50 text-amber-800"
-                : "border-slate-300 text-slate-600 hover:border-amber-300 hover:bg-amber-50/50 hover:text-amber-700"
+                ? "border-sky-500 bg-sky-50 text-sky-800"
+                : "border-slate-300 text-slate-600 hover:border-sky-300 hover:bg-sky-50/50 hover:text-sky-700"
             }`}
           >
             <PlusIcon className="h-4 w-4" />
@@ -219,7 +219,7 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
         active
-          ? "bg-amber-600 text-white"
+          ? "bg-sky-600 text-white"
           : "bg-slate-100 text-slate-700 hover:bg-slate-200"
       }`}
     >
@@ -266,7 +266,7 @@ function PhotoCard({
 
       <figcaption className="bg-white px-3 py-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
             {photo.phase}
           </span>
           <time className="text-[10px] text-slate-400" dateTime={photo.uploaded_at}>
@@ -307,7 +307,7 @@ function Lightbox({ photo, onClose }: { photo: ProjectPhoto; onClose: () => void
           className="max-h-[80vh] max-w-full rounded-lg object-contain"
         />
         <div className="mt-3 text-center text-sm text-white">
-          <span className="rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+          <span className="rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
             {photo.phase}
           </span>
           {photo.caption && <span className="ml-2">{photo.caption}</span>}

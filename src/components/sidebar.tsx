@@ -48,7 +48,7 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 z-50 flex h-full w-56 flex-col bg-slate-900 text-white">
       <div className="border-b border-slate-700 px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-600 text-sm font-bold">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-sm font-bold">
             B
           </div>
           <h1 className="text-lg font-bold tracking-tight">Builder</h1>

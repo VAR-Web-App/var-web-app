@@ -174,11 +174,11 @@ export default function FloorPlanExtractor({
   }
 
   return (
-    <section className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm">
-      <div className="flex items-center gap-2 border-b border-amber-200 px-6 py-4">
-        <SparklesIcon className="h-5 w-5 text-amber-700" />
+    <section className="rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm">
+      <div className="flex items-center gap-2 border-b border-sky-200 px-6 py-4">
+        <SparklesIcon className="h-5 w-5 text-sky-700" />
         <h2 className="text-sm font-semibold text-slate-900">AI Floor Plan Extraction</h2>
-        <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
+        <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
           Beta
         </span>
       </div>
@@ -197,11 +197,11 @@ export default function FloorPlanExtractor({
               onClick={() => fileInput.current?.click()}
               className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
                 dragActive
-                  ? "border-amber-500 bg-amber-100"
-                  : "border-amber-300 bg-white hover:border-amber-400 hover:bg-amber-50"
+                  ? "border-sky-500 bg-sky-100"
+                  : "border-sky-300 bg-white hover:border-sky-400 hover:bg-sky-50"
               }`}
             >
-              <ArrowUpTrayIcon className="h-8 w-8 text-amber-600" />
+              <ArrowUpTrayIcon className="h-8 w-8 text-sky-600" />
               <p className="mt-2 text-sm font-medium text-slate-900">
                 {file ? file.name : "Drop floor plan PDF here"}
               </p>
@@ -235,10 +235,10 @@ export default function FloorPlanExtractor({
                     aria-valuenow={Math.round(progress)}
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    className="relative w-44 overflow-hidden rounded-md bg-amber-100 px-5 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-300"
+                    className="relative w-44 overflow-hidden rounded-md bg-sky-100 px-5 py-2 text-sm font-semibold text-sky-900 ring-1 ring-sky-300"
                   >
                     <div
-                      className="absolute inset-y-0 left-0 bg-amber-500 transition-all duration-200 ease-out"
+                      className="absolute inset-y-0 left-0 bg-sky-500 transition-all duration-200 ease-out"
                       style={{ width: `${progress}%` }}
                     />
                     <div className="relative flex items-center justify-center gap-1.5">
@@ -249,7 +249,7 @@ export default function FloorPlanExtractor({
                 ) : (
                   <button
                     onClick={runExtraction}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
                   >
                     <SparklesIcon className="h-4 w-4" />
                     Extract
@@ -302,7 +302,7 @@ function ExtractionResults({
 }) {
   const conf = extraction.confidence;
   const confColor =
-    conf === "high" ? "bg-emerald-100 text-emerald-800" : conf === "medium" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800";
+    conf === "high" ? "bg-emerald-100 text-emerald-800" : conf === "medium" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-800";
 
   const linesPreview = generateEstimateLines(extraction);
   const totalEstimateCost = linesPreview.reduce((s, l) => s + l.cost_extended, 0);
@@ -381,7 +381,7 @@ function ExtractionResults({
       </details>
 
       {extraction.ambiguity_notes.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
           <p className="mb-1 font-semibold">AI flagged:</p>
           <ul className="list-disc space-y-0.5 pl-4">
             {extraction.ambiguity_notes.map((n, i) => (
@@ -409,7 +409,7 @@ function ExtractionResults({
         <button
           onClick={onApply}
           disabled={applying}
-          className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-400"
+          className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
         >
           {applying ? "Applying…" : "Apply to estimate →"}
         </button>

@@ -60,7 +60,7 @@ export default function AccountsPage() {
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
         >
           <PlusIcon className="h-4 w-4" />
           New Client
@@ -93,7 +93,7 @@ export default function AccountsPage() {
                   <div className="flex justify-end gap-1">
                     <button
                       onClick={() => setEditing(a)}
-                      className="text-xs font-medium text-amber-700 hover:text-amber-800"
+                      className="text-xs font-medium text-sky-700 hover:text-sky-800"
                     >
                       Edit
                     </button>
@@ -110,7 +110,7 @@ export default function AccountsPage() {
             {accounts.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                  No clients yet. Click <span className="text-amber-700">New Client</span> above.
+                  No clients yet. Click <span className="text-sky-700">New Client</span> above.
                 </td>
               </tr>
             )}
@@ -214,7 +214,7 @@ export function ModalFooter({ onCancel, onSave }: { onCancel: () => void; onSave
       </button>
       <button
         onClick={onSave}
-        className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+        className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
       >
         Save
       </button>
@@ -248,7 +248,7 @@ export function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       />
     </div>
   );
@@ -272,7 +272,7 @@ export function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       />
     </div>
   );
@@ -295,7 +295,7 @@ export function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

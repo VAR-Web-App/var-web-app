@@ -45,15 +45,15 @@ export default function DemoPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Demo banner */}
-      <div className="border-b border-amber-200 bg-amber-50">
+      <div className="border-b border-sky-200 bg-sky-50">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3 text-sm">
-          <span className="text-amber-900">
+          <span className="text-sky-900">
             <span className="font-semibold">Demo mode</span> — read-only kanban with sample data.
             Try dragging a card.
           </span>
           <Link
             href="/login"
-            className="inline-flex items-center gap-1 rounded-md bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+            className="inline-flex items-center gap-1 rounded-md bg-sky-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
           >
             Create your own pipeline
             <ArrowRightIcon className="h-3 w-3" />

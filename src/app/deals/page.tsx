@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 
 const STAGE_STYLES: Record<DealStage, { columnBg: string; topBorder: string; headerColor: string }> = {
   rfq: { columnBg: "bg-blue-50", topBorder: "border-t-4 border-t-blue-400", headerColor: "text-blue-800" },
-  vendor_sourcing: { columnBg: "bg-amber-50", topBorder: "border-t-4 border-t-amber-400", headerColor: "text-amber-800" },
+  vendor_sourcing: { columnBg: "bg-sky-50", topBorder: "border-t-4 border-t-sky-400", headerColor: "text-sky-800" },
   quoted: { columnBg: "bg-yellow-50", topBorder: "border-t-4 border-t-yellow-500", headerColor: "text-yellow-800" },
   awarded: { columnBg: "bg-green-50", topBorder: "border-t-4 border-t-green-500", headerColor: "text-green-800" },
   po_sent: { columnBg: "bg-teal-50", topBorder: "border-t-4 border-t-teal-500", headerColor: "text-teal-800" },
@@ -121,7 +121,7 @@ export default function DealsPage() {
           )}
           <button
             onClick={() => setShowNewDeal(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700"
           >
             <PlusIcon className="h-4 w-4" />
             New Project
@@ -171,7 +171,7 @@ export default function DealsPage() {
                       href={`/deals/${deal.id}`}
                       draggable
                       onDragStart={() => setDraggedDeal(deal.id)}
-                      className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-amber-300 hover:shadow active:cursor-grabbing ${
+                      className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-sky-300 hover:shadow active:cursor-grabbing ${
                         draggedDeal === deal.id ? "opacity-50" : ""
                       }`}
                     >
@@ -236,7 +236,7 @@ function EmptyPipeline({
       <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={onNew}
-          className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+          className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
         >
           Add your first project
         </button>

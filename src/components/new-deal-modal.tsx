@@ -94,7 +94,7 @@ export default function NewDealModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Maddox — Country Dream House"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               required
               autoFocus
             />
@@ -105,7 +105,7 @@ export default function NewDealModal({
               <select
                 value={accountRef}
                 onChange={(e) => setAccountRef(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 <option value="">— select —</option>
                 {accounts.map((a) => (
@@ -119,7 +119,7 @@ export default function NewDealModal({
               <select
                 value={manufacturer}
                 onChange={(e) => setManufacturer(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 <option value="Custom Home">Custom Home</option>
                 <option value="Remodel">Remodel</option>
@@ -136,7 +136,7 @@ export default function NewDealModal({
               value={solicitation}
               onChange={(e) => setSolicitation(e.target.value)}
               placeholder="Optional — your internal job # or lot reference"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
           </Field>
 
@@ -145,7 +145,7 @@ export default function NewDealModal({
               <select
                 value={dealType}
                 onChange={(e) => setDealType(e.target.value as "budgetary" | "quotation")}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 <option value="quotation">Detailed Estimate</option>
                 <option value="budgetary">Ballpark / Budget</option>
@@ -156,7 +156,7 @@ export default function NewDealModal({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </Field>
           </div>
@@ -172,7 +172,7 @@ export default function NewDealModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {submitting ? "Creating…" : "Create project"}
             </button>

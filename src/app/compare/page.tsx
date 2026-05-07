@@ -364,7 +364,7 @@ function ComparisonSummary({ comparison }: { comparison: CompareResult }) {
   return (
     <section
       className={`rounded-xl border p-6 ${
-        allClean ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+        allClean ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-4">
@@ -372,7 +372,7 @@ function ComparisonSummary({ comparison }: { comparison: CompareResult }) {
           {allClean ? (
             <CheckCircleIcon className="h-7 w-7 flex-shrink-0 text-emerald-600" />
           ) : (
-            <ExclamationTriangleIcon className="h-7 w-7 flex-shrink-0 text-amber-600" />
+            <ExclamationTriangleIcon className="h-7 w-7 flex-shrink-0 text-sky-600" />
           )}
           <div>
             <h2 className="text-base font-semibold text-slate-900">
@@ -499,7 +499,7 @@ function MatchedRows({ rows }: { rows: ReturnType<typeof compareBoms>["matched"]
             const extDelta = row.award.extended_price - row.quote.extended_price;
             const extDeltaSig = Math.abs(extDelta) > 0.01;
             return (
-              <tr key={i} className={isMatch ? "" : "bg-amber-50/30"}>
+              <tr key={i} className={isMatch ? "" : "bg-sky-50/30"}>
                 <td className="px-4 py-3 align-top">
                   <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
                   <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
@@ -574,7 +574,7 @@ function SideCell({
 }) {
   const baseQty = "text-slate-900";
   const baseUnit = "text-slate-700";
-  const hi = "rounded bg-amber-100 px-1.5 font-semibold text-amber-900";
+  const hi = "rounded bg-sky-100 px-1.5 font-semibold text-sky-900";
   return (
     <div className="space-y-0.5">
       <div>
@@ -613,7 +613,7 @@ function StatusCell({
   const deltaColor = extDelta > 0 ? "text-emerald-700" : "text-red-700";
   return (
     <div className="space-y-0.5 text-xs">
-      <div className="font-medium text-amber-900">{labels.join(" + ")}</div>
+      <div className="font-medium text-sky-900">{labels.join(" + ")}</div>
       {extDeltaSig && (
         <div className={`tabular-nums ${deltaColor}`}>
           {extDelta > 0 ? "+" : "−"}
@@ -636,7 +636,7 @@ function SidedTable({
   tone: "warning" | "info";
 }) {
   const Icon = tone === "warning" ? MinusCircleIcon : PlusCircleIcon;
-  const headerColor = tone === "warning" ? "text-amber-700" : "text-blue-700";
+  const headerColor = tone === "warning" ? "text-sky-700" : "text-blue-700";
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start gap-3 border-b border-slate-200 px-6 py-4">

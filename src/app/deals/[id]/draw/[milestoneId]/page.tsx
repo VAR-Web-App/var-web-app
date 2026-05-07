@@ -164,7 +164,7 @@ export default function DrawRequestPage({
             </button>
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+              className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
             >
               <PrinterIcon className="h-4 w-4" />
               Print / Save PDF
@@ -181,10 +181,10 @@ export default function DrawRequestPage({
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Application for Payment
+                  Application for Payment / Invoice
                 </h1>
                 <p className="mt-1 text-sm text-slate-600">
-                  Draw Request #{drawNumber}
+                  Draw Request #{drawNumber} · Invoice #{drawNumber}
                 </p>
               </div>
               <div className="text-right text-xs text-slate-600">
@@ -287,20 +287,20 @@ export default function DrawRequestPage({
                   return (
                     <tr
                       key={m.id}
-                      className={isThis ? "bg-amber-50" : phaseDone ? "" : "text-slate-500"}
+                      className={isThis ? "bg-sky-50" : phaseDone ? "" : "text-slate-500"}
                     >
                       <td className="px-2 py-1.5">{i + 1}</td>
                       <td className="px-2 py-1.5">
-                        <span className={`font-medium ${isThis ? "text-amber-900" : "text-slate-900"}`}>
+                        <span className={`font-medium ${isThis ? "text-sky-900" : "text-slate-900"}`}>
                           {m.name}
                         </span>
                         {isThis && (
-                          <span className="ml-2 rounded-full bg-amber-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                          <span className="ml-2 rounded-full bg-sky-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
                             This Draw
                           </span>
                         )}
                         {phasePending && !isThis && (
-                          <span className="ml-2 text-[10px] text-amber-700">In progress</span>
+                          <span className="ml-2 text-[10px] text-sky-700">In progress</span>
                         )}
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtMoney(m.amount)}</td>
@@ -416,7 +416,7 @@ function SummaryStat({
       <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         {label}
       </div>
-      <div className={`mt-0.5 text-sm font-bold tabular-nums ${accent ? "text-amber-700" : "text-slate-900"}`}>
+      <div className={`mt-0.5 text-sm font-bold tabular-nums ${accent ? "text-sky-700" : "text-slate-900"}`}>
         {value}
       </div>
     </div>

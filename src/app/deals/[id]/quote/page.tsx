@@ -261,7 +261,7 @@ export default function DealQuotePage({
             {!dirty && !saving && lines.length > 0 && (
               <Link
                 href={`/deals/${id}/proposal`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
                 title="Generate the client-facing proposal"
               >
                 <PaperAirplaneIcon className="h-4 w-4" />
@@ -280,7 +280,7 @@ export default function DealQuotePage({
               <button
                 onClick={onSave}
                 disabled={saving}
-                className="rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-400"
+                className="rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
               >
                 {saving ? "Saving…" : "Save estimate"}
               </button>
@@ -337,9 +337,9 @@ function ImportBanner({
   onImport: (bom: ParsedAttCache) => void;
 }) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div className="text-sm text-amber-900">
+        <div className="text-sm text-sky-900">
           <span className="font-semibold">Import from a parsed bid or material list.</span>{" "}
           Pull line items in from an attached PDF. Default markup from your settings is
           applied — edit per line.
@@ -350,7 +350,7 @@ function ImportBanner({
           <button
             key={b.attachment_id}
             onClick={() => onImport(b)}
-            className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
           >
             Import {b.bom.length} line{b.bom.length === 1 ? "" : "s"} from {b.attachment_name}
           </button>
@@ -391,7 +391,7 @@ function Stat({
   accent?: "emerald" | "amber" | "red";
 }) {
   const color =
-    accent === "emerald" ? "text-emerald-700" : accent === "amber" ? "text-amber-700" : accent === "red" ? "text-red-700" : "text-slate-900";
+    accent === "emerald" ? "text-emerald-700" : accent === "amber" ? "text-sky-700" : accent === "red" ? "text-red-700" : "text-slate-900";
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
@@ -417,7 +417,7 @@ function EmptyState({
       </p>
       <button
         onClick={onAddBlank}
-        className="mt-4 rounded-md bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+        className="mt-4 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
       >
         Add first line item
       </button>
@@ -505,7 +505,7 @@ function LineEditor({
                       line.margin_percent >= 15
                         ? "text-emerald-700"
                         : line.margin_percent >= 5
-                        ? "text-amber-700"
+                        ? "text-sky-700"
                         : line.margin_percent === 0
                         ? "text-slate-400"
                         : "text-red-700"
@@ -546,7 +546,7 @@ function CellInput({
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
+      className={`rounded border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 ${className}`}
     />
   );
 }
@@ -578,7 +578,7 @@ function NumInput({
         if (Number.isFinite(n)) onChange(n);
       }}
       onBlur={() => setRaw(decimals ? value.toFixed(2) : String(value))}
-      className={`rounded border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-slate-200 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 ${width}`}
+      className={`rounded border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-slate-200 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 ${width}`}
     />
   );
 }

@@ -241,7 +241,7 @@ export default function SchedulePage() {
     <AppShell>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
             <CalendarDaysIcon className="h-4 w-4" />
             Cross-project schedule
           </div>
@@ -266,7 +266,7 @@ export default function SchedulePage() {
           <p className="mt-3 text-sm font-medium text-slate-700">No subs in your directory</p>
           <p className="mt-1 text-xs text-slate-500">
             Add subs on the{" "}
-            <Link href="/distributors" className="font-medium text-amber-700 hover:underline">
+            <Link href="/distributors" className="font-medium text-sky-700 hover:underline">
               Subs &amp; Suppliers
             </Link>{" "}
             page first, then assign them to project phases.
@@ -456,7 +456,7 @@ function SubRow({
         </div>
         <button
           onClick={onAssignClick}
-          className="flex-shrink-0 rounded p-1 text-slate-300 opacity-0 hover:bg-amber-50 hover:text-amber-700 group-hover:opacity-100 focus:opacity-100"
+          className="flex-shrink-0 rounded p-1 text-slate-300 opacity-0 hover:bg-sky-50 hover:text-sky-700 group-hover:opacity-100 focus:opacity-100"
           title="Assign this sub to a project phase"
           aria-label="Assign work"
         >
@@ -524,7 +524,7 @@ function SubRow({
 function ColorLegend() {
   const items = [
     { label: "Pending", color: "bg-slate-400" },
-    { label: "In progress", color: "bg-amber-500" },
+    { label: "In progress", color: "bg-sky-500" },
     { label: "Awaiting approval", color: "bg-blue-500" },
     { label: "Approved", color: "bg-emerald-500" },
     { label: "Paid", color: "bg-emerald-700" },
@@ -554,7 +554,7 @@ function barColorForStatus(status: ProjectMilestone["status"]): string {
     case "pending":
       return "bg-slate-400";
     case "in_progress":
-      return "bg-amber-500";
+      return "bg-sky-500";
     case "awaiting_approval":
       return "bg-blue-500";
     case "approved":
@@ -623,7 +623,7 @@ function AssignModal({
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-900">
-            Assign <span className="text-amber-700">{sub.name}</span> to a phase
+            Assign <span className="text-sky-700">{sub.name}</span> to a phase
           </h3>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
             <XMarkIcon className="h-4 w-4" />
@@ -638,7 +638,7 @@ function AssignModal({
             <select
               value={dealId}
               onChange={(e) => setDealId(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               {deals.length === 0 && <option value="">(no projects)</option>}
               {deals.map((d) => (
@@ -659,7 +659,7 @@ function AssignModal({
               <select
                 value={milestoneId}
                 onChange={(e) => setMilestoneId(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 {dealMilestones.map((m) => {
                   const isAssigned = (m.assigned_subs || []).includes(sub.id);
@@ -690,7 +690,7 @@ function AssignModal({
                 </div>
               )}
               {alreadyAssigned && (
-                <div className="mt-1 text-amber-700">
+                <div className="mt-1 text-sky-700">
                   ⚠ {sub.name} is already on this phase.
                 </div>
               )}
@@ -708,7 +708,7 @@ function AssignModal({
           <button
             onClick={save}
             disabled={!milestoneId || saving || alreadyAssigned}
-            className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-300"
+            className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
           >
             {saving ? "Assigning…" : "Assign"}
           </button>
