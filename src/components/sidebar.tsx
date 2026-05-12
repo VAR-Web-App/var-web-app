@@ -31,7 +31,7 @@ const NAV: NavItem[] = [
   { href: "/accounts", label: "Clients", icon: HomeIcon },
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
   { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
-  { href: "/roadmap", label: "Roadmap", icon: SparklesIcon },
+  { href: "/roadmap", label: "Add-ons", icon: SparklesIcon },
 ];
 
 export default function Sidebar() {

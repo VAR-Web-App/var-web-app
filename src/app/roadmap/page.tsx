@@ -1,10 +1,11 @@
 "use client";
 
-// Roadmap / "Coming Soon" wall. Communicates platform momentum to demo
-// audiences without requiring those features to actually exist. Each
-// card has a stylized preview component showing the shape of the
-// feature, so it reads as "we know exactly what we're building" not
-// "we'll figure it out later." Quarter labels set realistic expectations.
+// Add-ons gallery. Reframed from a quarter-dated "Roadmap" because the
+// audience (builders evaluating the platform solo) reacts better to
+// "here's what's possible — pick what you'd use" than to "coming Q3."
+// Each card has a stylized preview so the shape of the feature is
+// visible without requiring it to actually exist yet. Builder asks for
+// one → we prioritize and deliver.
 
 import { useState } from "react";
 import {
@@ -17,7 +18,6 @@ import {
   MegaphoneIcon,
   SparklesIcon,
   CheckCircleIcon,
-  CalendarDaysIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
@@ -25,7 +25,6 @@ import AppShell from "@/components/app-shell";
 interface Feature {
   id: string;
   title: string;
-  quarter: string;
   icon: React.ComponentType<{ className?: string }>;
   tagline: string;
   description: string;
@@ -37,7 +36,6 @@ const FEATURES: Feature[] = [
   {
     id: "email_digester",
     title: "Email Digester",
-    quarter: "Q3 2026",
     icon: EnvelopeIcon,
     tagline: "Stop missing project messages buried in your inbox.",
     description:
@@ -53,7 +51,6 @@ const FEATURES: Feature[] = [
   {
     id: "advanced_scheduling",
     title: "Sub Scheduling — Auto-notify & Conflicts",
-    quarter: "Q3 2026",
     icon: ClockIcon,
     tagline: "Auto-text subs when their phase is approaching, catch double-bookings.",
     description:
@@ -69,7 +66,6 @@ const FEATURES: Feature[] = [
   {
     id: "phone_log",
     title: "Phone Call Summarization",
-    quarter: "Q3 2026",
     icon: PhoneIcon,
     tagline: "Calls become project notes automatically.",
     description:
@@ -85,7 +81,6 @@ const FEATURES: Feature[] = [
   {
     id: "materials",
     title: "Materials Sourcing Catalog",
-    quarter: "Q4 2026",
     icon: CubeIcon,
     tagline: "Real-time pricing across Home Depot, Lowe's, and your local supplier.",
     description:
@@ -101,7 +96,6 @@ const FEATURES: Feature[] = [
   {
     id: "finance_forecast",
     title: "Dynamic Finance Forecasting",
-    quarter: "Q4 2026",
     icon: ChartBarIcon,
     tagline: "Cash flow projection that updates as bills arrive.",
     description:
@@ -117,7 +111,6 @@ const FEATURES: Feature[] = [
   {
     id: "bid_intelligence",
     title: "Sub Bid Intelligence",
-    quarter: "Q4 2026",
     icon: ScaleIcon,
     tagline: "Know if a sub bid is high, low, or fair before you sign.",
     description:
@@ -133,7 +126,6 @@ const FEATURES: Feature[] = [
   {
     id: "walkthrough",
     title: "3D Virtual Walkthrough",
-    quarter: "Q4 2026",
     icon: HomeModernIcon,
     tagline: "Your client walks the house before you break ground.",
     description:
@@ -149,7 +141,6 @@ const FEATURES: Feature[] = [
   {
     id: "lead_gen",
     title: "Lead Generation",
-    quarter: "Q1 2027",
     icon: MegaphoneIcon,
     tagline: "Inbound leads that match your build profile.",
     description:
@@ -172,15 +163,14 @@ export default function RoadmapPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
           <SparklesIcon className="h-4 w-4" />
-          Roadmap
+          Add-ons
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-          What we&apos;re building next
+          What&apos;s possible
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-          Features in active design or build. We prioritize based on customer feedback —
-          if any of these would unlock real time savings for you, let us know and we&apos;ll
-          fast-track it.
+          Optional capabilities you can turn on. We deliver based on what you actually
+          need — pick what would save you the most time and we&apos;ll prioritize it.
         </p>
       </div>
 
@@ -198,8 +188,8 @@ export default function RoadmapPage() {
       <div className="mt-10 rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center">
         <p className="text-sm font-medium text-slate-900">Have something else you need?</p>
         <p className="mt-1 text-xs text-slate-500">
-          The roadmap above is what&apos;s on deck — we&apos;re open to bumping anything
-          higher based on what would save you time.
+          The add-ons above are common requests — if there&apos;s something specific to
+          how you run jobs that would save real time, tell us and we&apos;ll build it.
         </p>
       </div>
     </AppShell>
@@ -232,9 +222,8 @@ function FeatureCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2">
             <h2 className="text-base font-semibold text-slate-900">{f.title}</h2>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
-              <CalendarDaysIcon className="mr-0.5 inline-block h-2.5 w-2.5" />
-              {f.quarter}
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+              Add-on
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-700">{f.tagline}</p>
