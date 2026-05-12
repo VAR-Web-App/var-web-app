@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import FirstVisitTour from "@/components/first-visit-tour";
 import NewDealModal from "@/components/new-deal-modal";
 import { Deal, DealStage } from "@/types";
 import { BUILDER_STAGES } from "@/types/builder";
@@ -98,6 +99,7 @@ export default function DealsPage() {
 
   return (
     <AppShell>
+      <FirstVisitTour />
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Project Pipeline</h1>
@@ -137,7 +139,11 @@ export default function DealsPage() {
         />
       )}
 
-      <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: "calc(100vh - 180px)" }}>
+      <div
+        data-tour-id="pipeline"
+        className="flex gap-3 overflow-x-auto pb-4"
+        style={{ minHeight: "calc(100vh - 180px)" }}
+      >
         {BUILDER_STAGES.map((stage) => {
           const style = STAGE_STYLES[stage.key];
           const stageDeals = dealsByStage(stage.key);
@@ -170,6 +176,7 @@ export default function DealsPage() {
                       key={deal.id}
                       href={`/deals/${deal.id}`}
                       draggable
+                      data-tour-id="project-card"
                       onDragStart={() => setDraggedDeal(deal.id)}
                       className={`block cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-sky-300 hover:shadow active:cursor-grabbing ${
                         draggedDeal === deal.id ? "opacity-50" : ""
