@@ -57,6 +57,19 @@ export interface Deal {
   org_ref: string;          // multi-tenant placeholder
   created_at: string;
   updated_at: string;
+  // ── Floor plan extraction ───────────────────────────────────────
+  // Persists the latest AI extraction so navigating away from the
+  // project page and back surfaces the extracted plan (instead of
+  // showing an empty upload dropzone). Saved as a JSON blob on the
+  // deal doc — typed loosely to avoid circular imports with the
+  // FloorPlanExtraction interface in the extractor component.
+  floor_plan_extraction?: Record<string, unknown>;
+  floor_plan_extracted_at?: string;
+  /** Indices into floor_plan_extraction.ambiguity_notes that the GC
+   *  has marked as verified / resolved. Persists alongside the
+   *  extraction so resolution survives navigation. Reset to []
+   *  whenever a new extraction lands. */
+  resolved_ambiguity_indices?: number[];
 }
 
 export interface QuoteLine {

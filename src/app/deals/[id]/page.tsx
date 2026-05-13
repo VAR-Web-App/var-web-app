@@ -240,7 +240,16 @@ export default function DealDetailPage({
             <NextActionCard deal={deal} />
 
             <div id="floor-plan-extractor" className="scroll-mt-6">
-              <FloorPlanExtractor dealId={deal.id} orgRef={deal.org_ref} />
+              <FloorPlanExtractor
+                dealId={deal.id}
+                orgRef={deal.org_ref}
+                initialExtraction={
+                  deal.floor_plan_extraction as unknown as
+                    | import("@/components/floor-plan-extractor").FloorPlanExtraction
+                    | undefined
+                }
+                initialResolvedFlags={deal.resolved_ambiguity_indices}
+              />
             </div>
 
             <QuoteCard dealId={deal.id} lines={quoteLines} />

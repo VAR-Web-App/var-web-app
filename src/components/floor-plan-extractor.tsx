@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpTrayIcon,
   SparklesIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { QuoteLine } from "@/types";
 import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, newId } from "@/lib/store";
@@ -101,10 +102,16 @@ export interface FloorPlanExtraction {
 export default function FloorPlanExtractor({
   dealId,
   orgRef,
+  initialExtraction,
+  initialResolvedFlags,
   onExtracted,
 }: {
   dealId: string;
   orgRef: string;
+  /** If the deal already has a saved extraction, render straight into
+   *  the post-extract UI instead of the upload dropzone. */
+  initialExtraction?: FloorPlanExtraction;
+  initialResolvedFlags?: number[];
   onExtracted?: (extraction: FloorPlanExtraction) => void;
 }) {
   const router = useRouter();
@@ -113,14 +120,55 @@ export default function FloorPlanExtractor({
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [extraction, setExtraction] = useState<FloorPlanExtraction | null>(null);
+  const [extraction, setExtraction] = useState<FloorPlanExtraction | null>(
+    initialExtraction ?? null,
+  );
+  const [resolvedFlags, setResolvedFlags] = useState<Set<number>>(
+    new Set(initialResolvedFlags ?? []),
+  );
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  // When the page is loaded with a saved extraction, default the view to
+  // a compact summary card. Builder clicks "Show details" to expand back
+  // into the full post-extract UI.
+  const [collapsed, setCollapsed] = useState(!!initialExtraction);
+
+  // Persist extraction + resolved flags onto the deal doc whenever they
+  // change. Wrapped in a debounced effect so rapid flag toggles don't
+  // hammer Firestore. Skips the first invocation when the component
+  // hydrates from initialExtraction props — no point writing back the
+  // exact data we just read (would also bump deal.updated_at uselessly).
+  const skipFirstSave = useRef(!!initialExtraction);
+  useEffect(() => {
+    if (!extraction) return;
+    if (skipFirstSave.current) {
+      skipFirstSave.current = false;
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const deal = await getDeal(dealId);
+        if (!deal) return;
+        await saveDeal({
+          ...deal,
+          floor_plan_extraction: extraction as unknown as Record<string, unknown>,
+          floor_plan_extracted_at: deal.floor_plan_extracted_at ?? new Date().toISOString(),
+          resolved_ambiguity_indices: Array.from(resolvedFlags).sort((a, b) => a - b),
+          updated_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn("[floor-plan-extractor] persist failed", e);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [extraction, resolvedFlags, dealId]);
 
   function pickFile(picked: File | null) {
     setError(null);
-    setExtraction(null);
+    // Don't wipe extraction here — re-upload should be an explicit action
+    // (the "Re-upload" button below) so the GC doesn't accidentally lose
+    // their saved extraction by clicking the drop zone.
     setFile(picked);
   }
 
@@ -131,6 +179,24 @@ export default function FloorPlanExtractor({
     setError(null);
     setFile(null);
     setExtraction(SAMPLE_EXTRACTION);
+    setResolvedFlags(new Set());
+    setCollapsed(false);
+  }
+
+  function toggleFlag(idx: number) {
+    setResolvedFlags((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
+  function startReupload() {
+    setExtraction(null);
+    setResolvedFlags(new Set());
+    setFile(null);
+    setCollapsed(false);
   }
 
   async function runExtraction() {
@@ -170,6 +236,10 @@ export default function FloorPlanExtractor({
       // results render.
       await new Promise((r) => setTimeout(r, 250));
       setExtraction(json.extraction);
+      // New extraction lands → previously-resolved flag indices are
+      // meaningless against the new ambiguity_notes array.
+      setResolvedFlags(new Set());
+      setCollapsed(false);
       onExtracted?.(json.extraction);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -343,16 +413,25 @@ export default function FloorPlanExtractor({
           </div>
         )}
 
-        {extraction && (
+        {extraction && collapsed && (
+          <ExtractionSummary
+            extraction={extraction}
+            unresolvedFlagCount={
+              extraction.ambiguity_notes.filter((_, i) => !resolvedFlags.has(i)).length
+            }
+            onExpand={() => setCollapsed(false)}
+            onReupload={startReupload}
+          />
+        )}
+
+        {extraction && !collapsed && (
           <ExtractionResults
             extraction={extraction}
+            resolvedFlags={resolvedFlags}
+            onToggleFlag={toggleFlag}
             onUpdate={setExtraction}
             onApply={applyToEstimate}
-            onReset={() => {
-              setExtraction(null);
-              setFile(null);
-              if (fileInput.current) fileInput.current.value = "";
-            }}
+            onReset={startReupload}
             applying={applying}
           />
         )}
@@ -363,12 +442,16 @@ export default function FloorPlanExtractor({
 
 function ExtractionResults({
   extraction,
+  resolvedFlags,
+  onToggleFlag,
   onUpdate,
   onApply,
   onReset,
   applying,
 }: {
   extraction: FloorPlanExtraction;
+  resolvedFlags: Set<number>;
+  onToggleFlag: (idx: number) => void;
   onUpdate: (e: FloorPlanExtraction) => void;
   onApply: () => void;
   onReset: () => void;
@@ -455,12 +538,41 @@ function ExtractionResults({
       </details>
 
       {extraction.ambiguity_notes.length > 0 && (
-        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
-          <p className="mb-1 font-semibold">AI flagged:</p>
-          <ul className="list-disc space-y-0.5 pl-4">
-            {extraction.ambiguity_notes.map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs">
+          <div className="mb-2 flex items-baseline justify-between">
+            <p className="font-semibold text-sky-900">
+              Open verifications — check off as you confirm
+            </p>
+            <span className="text-[10px] text-sky-700">
+              {extraction.ambiguity_notes.length - resolvedFlags.size} of{" "}
+              {extraction.ambiguity_notes.length} open
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {extraction.ambiguity_notes.map((note, i) => {
+              const resolved = resolvedFlags.has(i);
+              return (
+                <li key={i}>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={resolved}
+                      onChange={() => onToggleFlag(i)}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-sky-400 text-sky-700 focus:ring-sky-500"
+                    />
+                    <span
+                      className={
+                        resolved
+                          ? "text-slate-500 line-through"
+                          : "text-sky-900"
+                      }
+                    >
+                      {note}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -783,4 +895,74 @@ function generateEstimateLines(extraction: FloorPlanExtraction): QuoteLine[] {
 function round(n: number, places: number): number {
   const f = Math.pow(10, places);
   return Math.round(n * f) / f;
+}
+
+// Compact summary shown when the page loads and an extraction is already
+// saved on the deal. Gives Barry an at-a-glance confirmation that work
+// is preserved, plus visibility into how many AI-flagged verifications
+// are still open. Click 'Show details' to expand into the full editor;
+// 'Re-upload' to replace with a new plan.
+function ExtractionSummary({
+  extraction,
+  unresolvedFlagCount,
+  onExpand,
+  onReupload,
+}: {
+  extraction: FloorPlanExtraction;
+  unresolvedFlagCount: number;
+  onExpand: () => void;
+  onReupload: () => void;
+}) {
+  const stats: string[] = [];
+  if (extraction.total_sqft) stats.push(`${extraction.total_sqft.toLocaleString()} sqft`);
+  if (extraction.bedrooms != null) stats.push(`${extraction.bedrooms} bed`);
+  if (extraction.full_baths != null) {
+    const baths =
+      extraction.full_baths + 0.5 * (extraction.half_baths ?? 0);
+    stats.push(`${baths} bath`);
+  }
+  if (extraction.garage_cars) stats.push(`${extraction.garage_cars}-car garage`);
+
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900">
+              {extraction.plan_name || "Floor plan extracted"}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-600">
+              {stats.join(" · ") || "Extraction saved"}
+            </p>
+            {unresolvedFlagCount > 0 && (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                <ExclamationTriangleIcon className="h-3 w-3" />
+                {unresolvedFlagCount} open verification
+                {unresolvedFlagCount === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={onExpand}
+            className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          >
+            Show details
+          </button>
+          <button
+            type="button"
+            onClick={onReupload}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            title="Replace with a new plan"
+          >
+            <ArrowPathIcon className="h-3.5 w-3.5" />
+            Re-upload
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
