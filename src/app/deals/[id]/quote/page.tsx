@@ -112,7 +112,12 @@ export default function DealQuotePage({
   const dirty = JSON.stringify(lines) !== savedLinesSnapshot;
 
   function recomputeLine(line: QuoteLine): QuoteLine {
-    // cost = list × (1 - discount%), customer = cost × (1 + markup%)
+    // Builder pricing model: the user types their cost directly into the
+    // 'Unit Cost' column (stored as list_price). discount_percent is
+    // always 0 for builder workflows, so cost_unit == list_price ==
+    // typed cost. customer_unit = cost × (1 + markup%). list_price /
+    // discount_percent field names are vestigial VAR schema; the UI
+    // never exposes a discount input to builders.
     const cost_unit = line.list_price * (1 - (line.discount_percent || 0) / 100);
     const customer_unit = cost_unit * (1 + (line.markup_percent || 0) / 100);
     const cost_extended = cost_unit * (line.qty || 0);
@@ -145,14 +150,19 @@ export default function DealQuotePage({
       line_number: lines.length + 1,
       product_code: "",
       description: "",
-      manufacturer: deal?.manufacturer || "",
+      // Builder pricing model: the GC types their cost directly into the
+      // Unit Cost column (stored as list_price). discount_percent stays
+      // at 0 so cost_unit == list_price == what they typed. The
+      // default_blanket_discount_percent setting is VAR-era (federal IT
+      // resellers buy at a list/discount); ignored here.
+      manufacturer: "",
       is_service: false,
       qty: 1,
       list_price: 0,
-      discount_percent: settings?.default_blanket_discount_percent ?? 0,
+      discount_percent: 0,
       customer_unit_price: 0,
       customer_extended: 0,
-      markup_percent: settings?.default_markup_percent ?? 0,
+      markup_percent: settings?.default_markup_percent ?? 20,
       cost_unit_price: 0,
       cost_extended: 0,
       margin_percent: 0,
@@ -170,24 +180,21 @@ export default function DealQuotePage({
   }
 
   function importFromBom(bom: ParsedAttCache) {
-    const blanketDiscount = settings?.default_blanket_discount_percent ?? 0;
-    const markup = settings?.default_markup_percent ?? 0;
+    const markup = settings?.default_markup_percent ?? 20;
     const newLines: QuoteLine[] = bom.bom.map((b, i) =>
       recomputeLine({
         id: newId("ql"),
         line_number: lines.length + i + 1,
         product_code: b.part_number,
         description: b.description,
-        manufacturer: deal?.manufacturer || "",
+        // Builder pricing: imported BOM unit_price is treated as the cost
+        // the GC pays directly (sub bid or supplier line). No blanket
+        // discount applied — the math runs as cost × (1 + markup).
+        manufacturer: "",
         is_service: false,
         qty: b.qty,
-        // BOM unit_price coming from a distributor quote is post-discount
-        // (what we'd pay them). To populate list_price we'd need to
-        // de-rate by the assumed discount. For v1, treat the BOM unit as
-        // list and apply the org's default blanket discount as the cost
-        // adjustment. User can override either side per-line.
         list_price: b.unit_price,
-        discount_percent: blanketDiscount,
+        discount_percent: 0,
         markup_percent: markup,
         customer_unit_price: 0,
         customer_extended: 0,
@@ -441,7 +448,7 @@ function LineEditor({
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-3 text-left">#</th>
-              <th className="px-3 py-3 text-left">Item / Code</th>
+              <th className="px-3 py-3 text-left">Phase</th>
               <th className="px-3 py-3 text-left">Description</th>
               <th className="px-3 py-3 text-right">Qty</th>
               <th className="px-3 py-3 text-right">Unit Cost</th>
@@ -460,7 +467,8 @@ function LineEditor({
                   <CellInput
                     value={line.product_code}
                     onChange={(v) => onUpdate(i, { product_code: v })}
-                    className="w-28 font-mono text-xs"
+                    className="w-32 text-xs"
+                    placeholder="Foundation"
                   />
                 </td>
                 <td className="px-2 py-1.5">
@@ -536,16 +544,19 @@ function CellInput({
   value,
   onChange,
   className = "",
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
+  placeholder?: string;
 }) {
   return (
     <input
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
       className={`rounded border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 ${className}`}
     />
   );
