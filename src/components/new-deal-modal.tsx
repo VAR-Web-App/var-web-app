@@ -29,6 +29,7 @@ export default function NewDealModal({
   const [dealType, setDealType] = useState<"budgetary" | "quotation">("quotation");
   const [dueDate, setDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -70,7 +71,25 @@ export default function NewDealModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !profile) return;
+    setSubmitError(null);
+    if (!name.trim()) {
+      setSubmitError("Project name is required.");
+      return;
+    }
+    if (!profile) {
+      setSubmitError("Not signed in — refresh and try again.");
+      return;
+    }
+    // Guard: if the user clicked Create project while still in inline-
+    // client-create mode, their typed client name hasn't been saved yet.
+    // Prompt them to save or cancel that first so the project doesn't
+    // attach to no client by surprise.
+    if (creatingClient) {
+      setSubmitError(
+        "Finish adding the new client (Add button) or cancel that first."
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const account = accounts.find((a) => a.id === accountRef);
@@ -103,6 +122,11 @@ export default function NewDealModal({
       };
       await saveDeal(deal);
       onCreated();
+    } catch (err) {
+      console.error("[new-deal] save failed", err);
+      setSubmitError(
+        err instanceof Error ? err.message : "Couldn't create the project."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -247,6 +271,11 @@ export default function NewDealModal({
             </Field>
           </div>
 
+          {submitError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {submitError}
+            </div>
+          )}
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
             <button
               type="button"
