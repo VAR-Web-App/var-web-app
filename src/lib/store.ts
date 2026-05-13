@@ -27,6 +27,7 @@ import {
 import {
   Deal,
   Account,
+  ClientSignLink,
   Contact,
   Distributor,
   OrgSettings,
@@ -289,6 +290,51 @@ export async function listRFQs(dealRef: string): Promise<ProjectRFQ[]> {
 
 export async function saveRFQ(r: ProjectRFQ): Promise<void> {
   await setDoc(doc(db, "project_rfqs", r.id), r, { merge: false });
+}
+
+// ── client sign links (public-facing proposal acceptance) ───────
+//
+// Top-level collection client_sign_links/{token}. Doc ID IS the token
+// so the client doesn't need auth to read by URL. Firestore rules
+// allow public read + a single update writing the signature fields.
+// See firestore.rules for the trust boundary.
+
+export async function createClientSignLink(link: ClientSignLink): Promise<void> {
+  await setDoc(doc(db, "client_sign_links", link.token), link, { merge: false });
+}
+
+export async function getClientSignLink(token: string): Promise<ClientSignLink | undefined> {
+  const snap = await getDoc(doc(db, "client_sign_links", token));
+  if (!snap.exists()) return undefined;
+  return snap.data() as ClientSignLink;
+}
+
+export async function signClientSignLink(
+  token: string,
+  patch: { signed_by_name: string; signed_user_agent?: string }
+): Promise<void> {
+  const ref = doc(db, "client_sign_links", token);
+  const existing = await getDoc(ref);
+  if (!existing.exists()) throw new Error("Sign link not found");
+  const data = existing.data() as ClientSignLink;
+  await setDoc(
+    ref,
+    {
+      ...data,
+      signed_by_name: patch.signed_by_name,
+      signed_user_agent: patch.signed_user_agent,
+      signed_at: new Date().toISOString(),
+    },
+    { merge: false },
+  );
+}
+
+export async function markSignLinkSynced(token: string): Promise<void> {
+  const ref = doc(db, "client_sign_links", token);
+  const existing = await getDoc(ref);
+  if (!existing.exists()) return;
+  const data = existing.data() as ClientSignLink;
+  await setDoc(ref, { ...data, synced_to_deal: true }, { merge: false });
 }
 
 export async function deleteRFQ(id: string): Promise<void> {

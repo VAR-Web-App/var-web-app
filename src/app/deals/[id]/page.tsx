@@ -29,8 +29,10 @@ import { BUILDER_STAGES } from "@/types/builder";
 import {
   deleteDeal,
   getDeal,
+  getClientSignLink,
   listAttachments,
   listQuoteLines,
+  markSignLinkSynced,
   saveAttachment,
   saveDeal,
   newId,
@@ -84,6 +86,41 @@ export default function DealDetailPage({
         if (cached && active) setParsed(JSON.parse(cached));
       } catch {
         // ignore
+      }
+      // Auto-sync: if the deal has a sign link and the client signed it
+      // since the GC last visited (signed_at is set but synced_to_deal
+      // is still false), advance the deal stage Estimate Sent → Contract
+      // Signed and stamp the signature into deal.notes. Closes the loop
+      // on the public sign flow without requiring the GC to refresh
+      // anything or click 'Mark as accepted' manually.
+      if (active && d.client_sign_token && d.stage === "quoted") {
+        try {
+          const signLink = await getClientSignLink(d.client_sign_token);
+          if (
+            signLink &&
+            signLink.signed_at &&
+            signLink.signed_by_name &&
+            !signLink.synced_to_deal
+          ) {
+            const now = new Date().toISOString();
+            const signedDate = new Date(signLink.signed_at).toLocaleDateString();
+            const advanced: Deal = {
+              ...d,
+              stage: "awarded",
+              award_total: d.total_quote_value || d.award_total,
+              award_date: signLink.signed_at,
+              notes: d.notes
+                ? `${d.notes}\n\nAccepted by ${signLink.signed_by_name} on ${signedDate} via portal sign link.`
+                : `Accepted by ${signLink.signed_by_name} on ${signedDate} via portal sign link.`,
+              updated_at: now,
+            };
+            await saveDeal(advanced);
+            await markSignLinkSynced(d.client_sign_token);
+            if (active) setDeal(advanced);
+          }
+        } catch (e) {
+          console.warn("[deal-detail] sign-link sync failed", e);
+        }
       }
     }
     void load();

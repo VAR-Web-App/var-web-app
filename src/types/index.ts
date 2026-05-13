@@ -57,6 +57,11 @@ export interface Deal {
   org_ref: string;          // multi-tenant placeholder
   created_at: string;
   updated_at: string;
+  // Public client-sign token. Generated when the GC clicks 'Email to
+  // client' on the proposal page (or 'Copy sign link'). Used as the
+  // doc ID in client_sign_links collection so the client can open the
+  // proposal at /sign/{token} without logging in.
+  client_sign_token?: string;
   // ── Floor plan extraction ───────────────────────────────────────
   // Persists the latest AI extraction so navigating away from the
   // project page and back surfaces the extracted plan (instead of
@@ -105,6 +110,47 @@ export interface AwardBomLine {
   extended_price: number;
   matched_quote_line_id?: string;
   discrepancy_notes: string;
+}
+
+// ── Client sign link ─────────────────────────────────────────────
+//
+// Snapshot of a proposal that a homeowner client can open without
+// logging in and sign with a typed name. Lives at the top-level
+// client_sign_links/{token} doc. Public read + limited update via
+// Firestore rules.
+//
+// Snapshot semantics: when the GC sends the proposal, the deal's
+// estimate + business info are FROZEN into this doc. Later edits to
+// the deal don't change what the client sees / signs. The signature,
+// when captured, syncs back to the deal on the GC's next project page
+// load (auto-advance stage Estimate Sent → Contract Signed).
+export interface ClientSignLink {
+  /** Random unguessable token; also the doc ID. */
+  token: string;
+  deal_ref: string;
+  org_ref: string;
+  /** Snapshot fields rendered on the public proposal. */
+  deal_name: string;
+  client_name: string;
+  client_address?: string;
+  business_name: string;
+  business_owner_name?: string;
+  business_phone?: string;
+  business_email?: string;
+  business_license?: string;
+  contract_amount: number;
+  scope_summary?: string;
+  /** Estimate line items at send-time, grouped by phase on render. */
+  lines: QuoteLine[];
+  /** Set when the client signs in-browser. */
+  signed_by_name?: string;
+  signed_at?: string;
+  /** Best-effort device fingerprint for audit. */
+  signed_user_agent?: string;
+  /** Flips true after the GC's project page picks up the signature and
+   *  advances the deal stage. Prevents repeated auto-advances. */
+  synced_to_deal?: boolean;
+  created_at: string;
 }
 
 export interface Account {

@@ -18,10 +18,13 @@ import {
   PrinterIcon,
   EnvelopeIcon,
   CheckCircleIcon,
+  LinkIcon,
 } from "@heroicons/react/24/outline";
-import { Deal, OrgSettings, QuoteLine } from "@/types";
+import { ClientSignLink, Deal, OrgSettings, QuoteLine, newId } from "@/types";
 import { ProjectMilestone } from "@/types/builder";
 import {
+  createClientSignLink,
+  getClientSignLink,
   getDeal,
   getSettings,
   listMilestones,
@@ -55,6 +58,8 @@ export default function ProposalPage({
   const [showAcceptForm, setShowAcceptForm] = useState(false);
   const [signatureName, setSignatureName] = useState("");
   const [accepting, setAccepting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -126,28 +131,91 @@ export default function ProposalPage({
     day: "numeric",
   });
 
-  function emailToClient() {
+  /** Ensure a client sign link exists for this deal, creating one with
+   *  the current proposal snapshot if missing. Idempotent — calling
+   *  twice returns the same token. Returns the public /sign/{token}
+   *  URL the GC sends to the client. */
+  async function ensureSignLink(): Promise<string | null> {
+    if (!deal) return null;
+    // Reuse existing token if the deal already has one (the client
+    // shouldn't get a new URL every time the GC re-sends the email).
+    const fresh = await getDeal(id);
+    if (!fresh) return null;
+    let token = fresh.client_sign_token;
+    if (token) {
+      // Verify the doc still exists; if not, regenerate.
+      const existing = await getClientSignLink(token);
+      if (existing) {
+        return `${window.location.origin}/sign/${token}`;
+      }
+    }
+    token = newId("sgn") + Math.random().toString(36).slice(2, 8);
+    const link: ClientSignLink = {
+      token,
+      deal_ref: deal.id,
+      org_ref: deal.org_ref,
+      deal_name: deal.name,
+      client_name: deal.account_name,
+      client_address: deal.ship_to_address,
+      business_name: settings?.company_name || "Your builder",
+      business_owner_name: settings?.prepared_by_name,
+      business_phone: settings?.company_phone,
+      business_email: settings?.company_email,
+      business_license: settings?.cage_code,
+      contract_amount: totalCustomer,
+      lines,
+      created_at: new Date().toISOString(),
+    };
+    await createClientSignLink(link);
+    await saveDeal({
+      ...fresh,
+      client_sign_token: token,
+      updated_at: new Date().toISOString(),
+    });
+    return `${window.location.origin}/sign/${token}`;
+  }
+
+  async function emailToClient() {
     if (!deal) return;
-    const subject = `Project Proposal — ${deal.name}`;
-    const portalUrl = `${window.location.origin}/deals/${id}/portal`;
-    const body = [
-      `Hi,`,
-      ``,
-      `Attached is your proposal for ${deal.name}.`,
-      ``,
-      `Total contract amount: ${fmtMoneyRound(totalCustomer)}`,
-      `Target start: ${deal.due_date || "TBD"}`,
-      `Proposal valid until: ${validUntilLabel}`,
-      ``,
-      `Review your project portal anytime: ${portalUrl}`,
-      ``,
-      `Reply to this email or call with any questions.`,
-      ``,
-      `Thanks,`,
-      `${settings?.prepared_by_name || settings?.company_name || "Your builder"}`,
-    ].join("\n");
-    const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = href;
+    setEmailing(true);
+    try {
+      const signUrl = await ensureSignLink();
+      if (!signUrl) return;
+      const subject = `Project Proposal — ${deal.name}`;
+      const body = [
+        `Hi,`,
+        ``,
+        `Here's your proposal for ${deal.name}.`,
+        ``,
+        `Total contract amount: ${fmtMoneyRound(totalCustomer)}`,
+        `Target start: ${deal.due_date || "TBD"}`,
+        `Proposal valid until: ${validUntilLabel}`,
+        ``,
+        `Review and sign here: ${signUrl}`,
+        ``,
+        `Reply to this email or call with any questions.`,
+        ``,
+        `Thanks,`,
+        `${settings?.prepared_by_name || settings?.company_name || "Your builder"}`,
+      ].join("\n");
+      const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = href;
+    } finally {
+      setEmailing(false);
+    }
+  }
+
+  async function copyShareLink() {
+    const url = await ensureSignLink();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyToast("Sign link copied — share it with your client.");
+      setTimeout(() => setCopyToast(null), 3500);
+    } catch {
+      // Fallback: prompt() the URL so the GC can copy manually
+      window.prompt("Copy this sign link:", url);
+    }
   }
 
   async function acceptProposal() {
@@ -215,12 +283,21 @@ export default function ProposalPage({
               </span>
             )}
             <button
-              onClick={emailToClient}
+              onClick={copyShareLink}
               className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              title="Open your email client with the proposal prefilled"
+              title="Copy a public sign-and-accept link the client can open without logging in"
+            >
+              <LinkIcon className="h-4 w-4" />
+              Copy sign link
+            </button>
+            <button
+              onClick={emailToClient}
+              disabled={emailing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Open your email app with the sign link prefilled for your client"
             >
               <EnvelopeIcon className="h-4 w-4" />
-              Email to client
+              {emailing ? "Preparing…" : "Email to client"}
             </button>
             <button
               onClick={() => window.print()}
@@ -231,6 +308,13 @@ export default function ProposalPage({
             </button>
           </div>
         </div>
+        {copyToast && (
+          <div className="mx-auto max-w-5xl px-6 pb-3">
+            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">
+              {copyToast}
+            </p>
+          </div>
+        )}
         {showAcceptForm && (
           <div className="mx-auto max-w-5xl px-6 pb-4">
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
