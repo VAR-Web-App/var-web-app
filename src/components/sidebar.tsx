@@ -19,7 +19,6 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  tourId?: string;
 }
 
 // Builder app navigation — same routes as the VAR app underneath
@@ -32,7 +31,7 @@ const NAV: NavItem[] = [
   { href: "/accounts", label: "Clients", icon: HomeIcon },
   { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
   { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
-  { href: "/roadmap", label: "Add-ons", icon: SparklesIcon, tourId: "sidebar-addons" },
+  { href: "/roadmap", label: "Add-ons", icon: SparklesIcon },
 ];
 
 export default function Sidebar() {
@@ -72,7 +71,6 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              data-tour-id={item.tourId}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-blue-600 text-white"

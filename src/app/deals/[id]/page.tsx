@@ -339,7 +339,7 @@ function DealMetadataCard({ deal, stageColor }: { deal: Deal; stageColor: string
     ["Stage", <span key="s" className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stageColor}`}>{stage?.label}</span>],
     ["Client", deal.account_name || "—"],
     ["Project Type", deal.manufacturer || "—"],
-    ["Primary Sub", deal.distributor_name || "—"],
+    ["Lead Contractor", deal.distributor_name || "—"],
     ["Job #", deal.solicitation_number || "—"],
     ["Contract / PO #", deal.customer_po || "—"],
     ["Schedule", deal.lead_time || "—"],

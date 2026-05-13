@@ -13,6 +13,58 @@ import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, newId } from "@/lib/
 
 // Shape returned by /api/floorplan-extract. Mirrors the schema in the
 // route's system prompt; null-allowed for fields Claude couldn't read.
+// Synthetic extraction used by the "Try with sample plan" button. Lets a
+// builder evaluating the platform see the full post-extract UI without
+// having to upload a real PDF. Numbers are realistic for a 4-bed, 3.5-bath
+// custom home — roughly the Maddox House profile in the seed data.
+const SAMPLE_EXTRACTION: FloorPlanExtraction = {
+  plan_name: "Sample Plan — Country Dream House",
+  total_sqft: 3850,
+  first_floor_sqft: 2400,
+  second_floor_sqft: 1450,
+  bonus_sqft: null,
+  porch_sqft: 320,
+  garage_sqft: 720,
+  garage_cars: 3,
+  bedrooms: 4,
+  full_baths: 3,
+  half_baths: 1,
+  footprint_dimensions: "68' × 42'",
+  max_ridge_height: "29' 6\"",
+  stories: 2,
+  foundation_type: "Slab on grade with conditioned crawl in mech room",
+  exterior_wall_type: "2×6 framing, brick + Hardie",
+  ceiling_heights: "10' main, 9' second",
+  rooms: [
+    { name: "Foyer", dimensions: "10' × 14'", sqft: 140, level: "main" },
+    { name: "Great Room", dimensions: "22' × 18'", sqft: 396, level: "main" },
+    { name: "Kitchen", dimensions: "18' × 16'", sqft: 288, level: "main" },
+    { name: "Dining", dimensions: "14' × 14'", sqft: 196, level: "main" },
+    { name: "Master Suite", dimensions: "16' × 18'", sqft: 288, level: "main" },
+    { name: "Master Bath", dimensions: "14' × 11'", sqft: 154, level: "main" },
+    { name: "Mudroom", dimensions: "8' × 10'", sqft: 80, level: "main" },
+    { name: "Bedroom 2", dimensions: "13' × 14'", sqft: 182, level: "second" },
+    { name: "Bedroom 3", dimensions: "12' × 13'", sqft: 156, level: "second" },
+    { name: "Bedroom 4", dimensions: "12' × 13'", sqft: 156, level: "second" },
+    { name: "Bonus / Office", dimensions: "16' × 14'", sqft: 224, level: "second" },
+  ],
+  doors_windows: {
+    exterior_doors_estimated: 5,
+    windows_estimated: 28,
+  },
+  notable_features: [
+    "Vaulted great room with reclaimed beam",
+    "Wraparound covered porch on south + east elevations",
+    "Tankless gas water heater pre-plumb",
+    "EV-ready garage circuit panel",
+  ],
+  ambiguity_notes: [
+    "Mudroom partial dimensions — confirm cabinet depth at framing.",
+    "Master closet depth listed twice on plan — used the larger value.",
+  ],
+  confidence: "high",
+};
+
 export interface FloorPlanExtraction {
   plan_name: string | null;
   total_sqft: number | null;
@@ -70,6 +122,15 @@ export default function FloorPlanExtractor({
     setError(null);
     setExtraction(null);
     setFile(picked);
+  }
+
+  // Load the sample extraction without hitting the API. Lets a first-time
+  // visitor see the full post-extract UI (verify, apply to estimate) using
+  // their existing project — no real PDF required.
+  function loadSampleExtraction() {
+    setError(null);
+    setFile(null);
+    setExtraction(SAMPLE_EXTRACTION);
   }
 
   async function runExtraction() {
@@ -216,6 +277,19 @@ export default function FloorPlanExtractor({
                 className="hidden"
               />
             </div>
+
+            {!file && (
+              <p className="text-center text-xs text-slate-500">
+                Don&apos;t have a plan handy?{" "}
+                <button
+                  type="button"
+                  onClick={loadSampleExtraction}
+                  className="font-semibold text-sky-700 hover:text-sky-900 hover:underline"
+                >
+                  Try with a sample plan →
+                </button>
+              </p>
+            )}
 
             {file && (
               <div className="flex justify-end gap-2">
