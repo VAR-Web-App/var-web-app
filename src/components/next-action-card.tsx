@@ -177,6 +177,12 @@ function daysSince(iso: string | undefined): number {
 }
 
 export default function NextActionCard({ deal }: { deal: Deal }) {
+  // On the Lead stage, the AI Floor Plan Extractor below is already the
+  // page's primary surface — adding a second 'upload your plan' prompt
+  // here just creates two CTAs for one action. Skip the hero entirely.
+  // The extractor's empty state carries the next-action signal on its own.
+  if (deal.stage === "rfq") return null;
+
   const action = pickAction(deal);
   const PrimaryIcon = action.primary?.icon;
   const isQuiet = action.quiet;
