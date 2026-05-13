@@ -9,7 +9,7 @@ import {
   XMarkIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { Deal, Distributor, newId } from "@/types";
+import { Deal, Distributor, QuoteLine, newId } from "@/types";
 import {
   ProjectRFQ,
   RFQInvitee,
@@ -22,6 +22,10 @@ import {
   listRFQs,
   saveRFQ,
   deleteRFQ,
+  listQuoteLines,
+  saveQuoteLines,
+  saveDeal,
+  getDeal,
   listDistributors,
 } from "@/lib/store";
 
@@ -66,6 +70,67 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
     setRfqs((prev) => prev.filter((r) => r.id !== rfq.id));
   }
 
+  /** Push the awarded sub's winning bid into the project estimate as a
+   *  new line item. Builder's typed cost = the bid amount; phase pulls
+   *  from the RFQ. Stamps pushed_to_estimate_at on the RFQ so the row
+   *  shows a 'Pushed' indicator instead of the button on next render —
+   *  prevents accidental duplicates. */
+  async function onPushToEstimate(rfq: ProjectRFQ) {
+    const winning = rfq.invitees.find((i) => i.status === "selected");
+    if (!winning || !winning.bid_amount) return;
+
+    // Load current quote lines so we can append.
+    const existing = await listQuoteLines(deal.id);
+    const cost = winning.bid_amount;
+    const markup = 20; // default builder markup; matches addBlankLine
+    const customer_unit = cost * (1 + markup / 100);
+    const newLine: QuoteLine = {
+      id: newId("ql"),
+      line_number: existing.length + 1,
+      product_code: rfq.phase,
+      description: `${rfq.scope_title} — ${winning.sub_name}`,
+      manufacturer: "",
+      is_service: false,
+      qty: 1,
+      list_price: cost,
+      discount_percent: 0,
+      markup_percent: markup,
+      cost_unit_price: cost,
+      cost_extended: cost,
+      customer_unit_price: customer_unit,
+      customer_extended: customer_unit,
+      margin_percent: markup / (1 + markup / 100),
+      subscription_term_months: 0,
+      notes: "",
+    };
+    const updated = [...existing, newLine];
+    await saveQuoteLines(deal.id, deal.org_ref, updated);
+
+    // Roll deal totals so pipeline cards + draws read the new estimate.
+    const customerTotal = updated.reduce((s, l) => s + (l.customer_extended || 0), 0);
+    const costTotal = updated.reduce((s, l) => s + (l.cost_extended || 0), 0);
+    const margin = customerTotal > 0 ? ((customerTotal - costTotal) / customerTotal) * 100 : 0;
+    const freshDeal = await getDeal(deal.id);
+    if (freshDeal) {
+      await saveDeal({
+        ...freshDeal,
+        total_quote_value: customerTotal,
+        total_cost: costTotal,
+        margin_percent: margin,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    // Mark the RFQ as pushed.
+    const stamped: ProjectRFQ = {
+      ...rfq,
+      pushed_to_estimate_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await saveRFQ(stamped);
+    setRfqs((prev) => prev.map((r) => (r.id === rfq.id ? stamped : r)));
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -102,6 +167,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
               rfq={r}
               onOpen={() => setEditing(r)}
               onRemove={() => onRemove(r)}
+              onPushToEstimate={() => onPushToEstimate(r)}
             />
           ))}
         </ul>
@@ -132,16 +198,20 @@ function RFQRow({
   rfq,
   onOpen,
   onRemove,
+  onPushToEstimate,
 }: {
   rfq: ProjectRFQ;
   onOpen: () => void;
   onRemove: () => void;
+  onPushToEstimate: () => void;
 }) {
   const responded = rfq.invitees.filter((i) => i.status !== "sent").length;
   const winningBid = rfq.invitees.find((i) => i.status === "selected");
   const lowestBid = rfq.invitees
     .filter((i) => i.bid_amount && i.bid_amount > 0)
     .sort((a, b) => (a.bid_amount || 0) - (b.bid_amount || 0))[0];
+  const awarded = rfq.status === "awarded" && !!winningBid?.bid_amount;
+  const pushed = !!rfq.pushed_to_estimate_at;
 
   return (
     <li className="flex items-start gap-3 px-6 py-4 hover:bg-slate-50">
@@ -164,6 +234,27 @@ function RFQRow({
             : ""}
         </p>
       </button>
+      {awarded && !pushed && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPushToEstimate();
+          }}
+          className="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
+          title="Add the winning bid to the project estimate as a line item"
+        >
+          → Estimate
+        </button>
+      )}
+      {awarded && pushed && (
+        <span
+          className="shrink-0 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200"
+          title={`Added to estimate ${new Date(rfq.pushed_to_estimate_at!).toLocaleDateString()}`}
+        >
+          <CheckCircleIcon className="h-3 w-3" />
+          In estimate
+        </span>
+      )}
       <button
         onClick={onRemove}
         className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"

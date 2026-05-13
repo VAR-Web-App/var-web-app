@@ -184,6 +184,39 @@ export default function PhotoGallery({
         <div className="px-6 py-12 text-center text-sm text-slate-500">
           No photos in this phase yet.
         </div>
+      ) : filter === "all" ? (
+        // 'All' view: group photos by phase with section headers so the
+        // build narrative reads top-to-bottom (Site Work → Foundation →
+        // Framing → ...). Filter chips above still let the GC drill in
+        // to a single phase.
+        <div className="space-y-6 p-4">
+          {PROJECT_PHASES.filter((ph) => phaseCounts[ph] > 0).map((ph) => {
+            const phasePhotos = photos.filter((p) => p.phase === ph);
+            return (
+              <div key={ph}>
+                <div className="mb-2 flex items-baseline gap-2 border-b border-slate-100 pb-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    {ph}
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    {phasePhotos.length} photo{phasePhotos.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
+                  {phasePhotos.map((p) => (
+                    <PhotoCard
+                      key={p.id}
+                      photo={p}
+                      onCaption={(c) => updateCaption(p, c)}
+                      onRemove={() => onRemove(p)}
+                      onView={() => setLightbox(p)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (

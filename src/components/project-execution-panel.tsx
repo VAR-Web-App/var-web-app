@@ -15,6 +15,7 @@ import {
 import {
   Deal,
   Distributor,
+  QuoteLine,
   newId,
 } from "@/types";
 import {
@@ -45,6 +46,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [subs, setSubs] = useState<Distributor[]>([]);
   const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
+  const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
@@ -61,6 +63,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         setMilestones(m);
         setSubs(subList);
         setChangeOrders(cos);
+        setQuoteLines(lines);
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
         // floor-plan apply-to-estimate save lines but not the deal record).
@@ -109,6 +112,84 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const approvedCoTotal = changeOrders
     .filter((c) => c.status === "approved")
     .reduce((s, c) => s + c.amount_delta, 0);
+
+  /** Distinct phases parsed from the estimate's Phase column
+   *  (QuoteLine.product_code, repurposed). Case-insensitive grouping,
+   *  empty values bucketed as 'Other'. Order preserved by first
+   *  appearance in the estimate. */
+  const estimatePhases = useMemo(() => {
+    const byKey = new Map<
+      string,
+      { label: string; amount: number; order: number }
+    >();
+    let next = 0;
+    for (const l of quoteLines) {
+      const raw = (l.product_code || "").trim();
+      const key = raw.toLowerCase() || "other";
+      const label = raw || "Other";
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.amount += l.customer_extended || 0;
+      } else {
+        byKey.set(key, { label, amount: l.customer_extended || 0, order: next++ });
+      }
+    }
+    return Array.from(byKey.values())
+      .filter((p) => p.amount > 0)
+      .sort((a, b) => a.order - b.order);
+  }, [quoteLines]);
+
+  async function generateFromEstimate() {
+    if (estimatePhases.length === 0) return;
+    if (milestones.length > 0) {
+      if (
+        !confirm(
+          `Replace existing milestones with ${estimatePhases.length} milestone${
+            estimatePhases.length === 1 ? "" : "s"
+          } derived from estimate phases?`
+        )
+      )
+        return;
+      for (const m of milestones) await deleteMilestone(m.id);
+    }
+    setSeeding(true);
+    try {
+      const total = estimatePhases.reduce((s, p) => s + p.amount, 0);
+      const now = new Date().toISOString();
+      const startSeed = deal.due_date ? new Date(deal.due_date) : new Date();
+      let cursor = new Date(startSeed);
+      // Reserve a default 14-day window per phase. The GC tunes durations
+      // in the Gantt afterward — this is just a starting point.
+      const PHASE_DAYS = 14;
+      const generated: ProjectMilestone[] = estimatePhases.map((p, i) => {
+        const phaseStart = new Date(cursor);
+        const phaseEnd = new Date(cursor);
+        phaseEnd.setDate(phaseEnd.getDate() + PHASE_DAYS);
+        cursor = new Date(phaseEnd);
+        const pct = total > 0 ? (p.amount / total) * 100 : 0;
+        return {
+          id: newId("ms"),
+          deal_ref: deal.id,
+          org_ref: deal.org_ref,
+          name: p.label,
+          description: "",
+          order: i,
+          percentage: Math.round(pct * 10) / 10,
+          amount: Math.round(p.amount),
+          status: "pending" as MilestoneStatus,
+          planned_start_date: toIsoDate(phaseStart),
+          planned_end_date: toIsoDate(phaseEnd),
+          notes: "",
+          created_at: now,
+          updated_at: now,
+        };
+      });
+      await saveMilestones(generated);
+      setMilestones(generated);
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   async function generateDefaults() {
     if (milestones.length > 0) {
@@ -207,22 +288,46 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   }
 
   if (milestones.length === 0) {
+    const hasEstimatePhases = estimatePhases.length > 0;
     return (
       <section className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">Project schedule + draw plan</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-          Generate the default 9-phase builder draw schedule. Each phase becomes a billable
-          milestone — the client approves completion to release the next draw.
+          {hasEstimatePhases
+            ? `Generate ${estimatePhases.length} milestone${
+                estimatePhases.length === 1 ? "" : "s"
+              } from your estimate phases — each phase becomes a billable draw the client approves. Or start from the default 9-phase template.`
+            : "Generate the default 9-phase builder draw schedule. Each phase becomes a billable milestone — the client approves completion to release the next draw."}
         </p>
-        <button
-          onClick={generateDefaults}
-          disabled={seeding || contractValue === 0}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
-        >
-          <PlusIcon className="h-4 w-4" />
-          {seeding ? "Generating…" : "Generate default schedule"}
-        </button>
-        {contractValue === 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {hasEstimatePhases && (
+            <button
+              onClick={generateFromEstimate}
+              disabled={seeding}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+            >
+              <PlusIcon className="h-4 w-4" />
+              {seeding ? "Generating…" : "Generate from estimate"}
+            </button>
+          )}
+          <button
+            onClick={generateDefaults}
+            disabled={seeding || contractValue === 0}
+            className={
+              hasEstimatePhases
+                ? "inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                : "inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+            }
+          >
+            <PlusIcon className="h-4 w-4" />
+            {seeding
+              ? "Generating…"
+              : hasEstimatePhases
+                ? "Use default template"
+                : "Generate default schedule"}
+          </button>
+        </div>
+        {contractValue === 0 && !hasEstimatePhases && (
           <p className="mt-3 text-xs text-sky-700">
             Add an estimate first — milestone $ amounts roll up from the contract value.
           </p>
@@ -240,13 +345,26 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
             {totals.completedCount} of {milestones.length} milestones complete · {fmtMoney(totals.released)} of {fmtMoney(totals.totalAmount)} paid
           </p>
         </div>
-        <button
-          onClick={generateDefaults}
-          className="text-xs font-medium text-slate-500 hover:text-slate-700"
-          title="Reset to default 9-phase schedule"
-        >
-          Reset to defaults
-        </button>
+        <div className="flex items-center gap-3">
+          {estimatePhases.length > 0 && (
+            <button
+              onClick={generateFromEstimate}
+              className="text-xs font-medium text-sky-700 hover:text-sky-900"
+              title={`Regenerate from ${estimatePhases.length} estimate phase${
+                estimatePhases.length === 1 ? "" : "s"
+              }`}
+            >
+              Regenerate from estimate
+            </button>
+          )}
+          <button
+            onClick={generateDefaults}
+            className="text-xs font-medium text-slate-500 hover:text-slate-700"
+            title="Reset to default 9-phase schedule"
+          >
+            Reset to defaults
+          </button>
+        </div>
       </div>
 
       <ScheduleTimeline milestones={milestones} />

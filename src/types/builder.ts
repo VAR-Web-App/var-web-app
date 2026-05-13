@@ -366,6 +366,10 @@ export interface ProjectRFQ {
   notes: string;
   sent_at?: string;
   awarded_to_sub_ref?: string;
+  /** Set when the GC pushes the winning bid into the estimate as a line
+   *  item. Hides the 'Add to estimate' button on the RFQ row and shows
+   *  a 'Pushed' indicator instead so they don't accidentally duplicate. */
+  pushed_to_estimate_at?: string;
   created_at: string;
   updated_at: string;
 }

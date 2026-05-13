@@ -13,7 +13,12 @@
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, PrinterIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  PrinterIcon,
+  EnvelopeIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
 import { Deal, OrgSettings, QuoteLine } from "@/types";
 import { ProjectMilestone } from "@/types/builder";
 import {
@@ -21,6 +26,7 @@ import {
   getSettings,
   listMilestones,
   listQuoteLines,
+  saveDeal,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -42,6 +48,13 @@ export default function ProposalPage({
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // Client-acceptance flow: GC clicks 'Mark as accepted', a small inline
+  // form captures the client's typed signature, then the deal auto-
+  // advances from Estimate Sent → Contract Signed. Used during the demo
+  // and the real flow when the GC is on the phone with the client.
+  const [showAcceptForm, setShowAcceptForm] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
+  const [accepting, setAccepting] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -137,6 +150,41 @@ export default function ProposalPage({
     window.location.href = href;
   }
 
+  async function acceptProposal() {
+    if (!deal) return;
+    const signed = signatureName.trim();
+    if (!signed) return;
+    setAccepting(true);
+    try {
+      const now = new Date().toISOString();
+      // Advance from Estimate Sent → Contract Signed, capture signature
+      // + acceptance timestamp, lock in the contract value from the
+      // current estimate total. The award_total field is what milestone
+      // amounts roll up from (see effectiveContractValue).
+      await saveDeal({
+        ...deal,
+        stage: "awarded",
+        award_total: deal.total_quote_value || deal.award_total,
+        award_date: now,
+        notes: deal.notes
+          ? `${deal.notes}\n\nAccepted by ${signed} on ${new Date().toLocaleDateString()}.`
+          : `Accepted by ${signed} on ${new Date().toLocaleDateString()}.`,
+        updated_at: now,
+      });
+      // Refresh local state so the toolbar reflects the new stage and
+      // the 'Accept' button hides.
+      const fresh = await getDeal(id);
+      if (fresh) setDeal(fresh);
+      setShowAcceptForm(false);
+      setSignatureName("");
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  const canAccept = deal?.stage === "quoted";
+  const alreadyAccepted = deal && ["awarded", "po_sent", "partially_shipped", "closed_won"].includes(deal.stage);
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Toolbar — hidden on print */}
@@ -149,7 +197,23 @@ export default function ProposalPage({
             <ArrowLeftIcon className="h-4 w-4" />
             Back to project
           </Link>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {canAccept && (
+              <button
+                onClick={() => setShowAcceptForm(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                title="Mark this proposal as signed by the client — advances the deal to Contract Signed"
+              >
+                <CheckCircleIcon className="h-4 w-4" />
+                Mark as accepted
+              </button>
+            )}
+            {alreadyAccepted && (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+                <CheckCircleIcon className="h-4 w-4" />
+                Accepted
+              </span>
+            )}
             <button
               onClick={emailToClient}
               className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -167,6 +231,51 @@ export default function ProposalPage({
             </button>
           </div>
         </div>
+        {showAcceptForm && (
+          <div className="mx-auto max-w-5xl px-6 pb-4">
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-900">
+                Mark proposal as accepted by client
+              </p>
+              <p className="mt-1 text-xs text-emerald-800">
+                Captures the typed signature and advances the project from
+                Estimate Sent → Contract Signed. Contract value locks at{" "}
+                {fmtMoneyRound(deal?.total_quote_value || 0)}.
+              </p>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <div className="min-w-[240px] flex-1">
+                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-emerald-900">
+                    Client signature (typed full name)
+                  </label>
+                  <input
+                    type="text"
+                    value={signatureName}
+                    onChange={(e) => setSignatureName(e.target.value)}
+                    placeholder={deal?.account_name || "Full legal name"}
+                    autoFocus
+                    className="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <button
+                  onClick={acceptProposal}
+                  disabled={accepting || !signatureName.trim()}
+                  className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  {accepting ? "Saving…" : "Confirm acceptance"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAcceptForm(false);
+                    setSignatureName("");
+                  }}
+                  className="rounded-md px-3 py-2 text-sm text-slate-600 hover:text-slate-900"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Document */}

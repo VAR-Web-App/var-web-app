@@ -266,14 +266,25 @@ export default function DealQuotePage({
           </div>
           <div className="flex items-center gap-3">
             {!dirty && !saving && lines.length > 0 && (
-              <Link
-                href={`/deals/${id}/proposal`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
-                title="Generate the client-facing proposal"
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-                Generate proposal
-              </Link>
+              <>
+                <button
+                  type="button"
+                  onClick={() => exportLinesCsv(deal, lines)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  title="Download as CSV (import into QuickBooks, Excel, etc)"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export CSV
+                </button>
+                <Link
+                  href={`/deals/${id}/proposal`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
+                  title="Generate the client-facing proposal"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                  Generate proposal
+                </Link>
+              </>
             )}
             {!dirty && !saving ? (
               // Resting state: button area shows a green "Saved" pill so the
@@ -597,4 +608,60 @@ function NumInput({
 function round(n: number, places: number): number {
   const f = Math.pow(10, places);
   return Math.round(n * f) / f;
+}
+
+// CSV export of the estimate line items. Format is plain CSV (RFC 4180-
+// ish) with column headers, suitable for opening in Excel/Numbers, the
+// QuickBooks Online Bulk Add tool, or any other accounting/spreadsheet
+// program. Keeps it neutral rather than baking in QB's specific invoice-
+// import schema (which requires customer/date/terms columns we don't
+// always have at estimate time).
+function exportLinesCsv(deal: Deal, lines: QuoteLine[]) {
+  const headers = [
+    "Line",
+    "Phase",
+    "Description",
+    "Qty",
+    "Unit Cost",
+    "Markup %",
+    "Unit Price",
+    "Line Total",
+    "Margin %",
+  ];
+  // Quote-wrap any value that contains a comma, quote, or newline. Inner
+  // quotes are doubled per RFC 4180.
+  const esc = (v: string | number): string => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = lines.map((l) => [
+    l.line_number,
+    l.product_code || "",
+    l.description || "",
+    l.qty,
+    round(l.cost_unit_price, 2),
+    l.markup_percent,
+    round(l.customer_unit_price, 2),
+    round(l.customer_extended, 2),
+    round(l.margin_percent, 1),
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map(esc).join(","))
+    .join("\n");
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  const safeName = (deal.name || "estimate")
+    .replace(/[^a-z0-9_\- ]/gi, "")
+    .replace(/\s+/g, "-");
+  const filename = `${safeName}_estimate_${dateStamp}.csv`;
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
