@@ -169,12 +169,12 @@ export default function RoadmapPage() {
           What&apos;s possible
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-          Optional capabilities you can turn on. We deliver based on what you actually
+          Optional capabilities we can build. We deliver based on what you actually
           need — pick what would save you the most time and we&apos;ll prioritize it.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         {FEATURES.map((f) => (
           <FeatureCard
             key={f.id}

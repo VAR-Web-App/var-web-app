@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 
 type Mode = "signin" | "signup";
@@ -146,12 +145,6 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-4 text-center text-xs text-slate-500">
-          Just looking?{" "}
-          <Link href="/demo" className="font-medium text-sky-700 hover:underline">
-            Browse the demo (no account needed)
-          </Link>
-        </p>
       </div>
     </div>
   );

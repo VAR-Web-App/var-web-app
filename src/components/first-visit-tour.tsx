@@ -11,7 +11,7 @@
 
 import { useEffect, useLayoutEffect, useState } from "react";
 
-const STORAGE_KEY = "builder_tour_seen_v1";
+const STORAGE_KEY = "builder_tour_seen_v2";
 
 interface TourStep {
   /** data-tour-id of the element to anchor near. Omit for a centered modal. */
@@ -23,22 +23,22 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     title: "Quick tour",
-    body: "30 seconds. We'll show you what's here, where to click, and how to load sample data. Hit Next to start, or Skip to explore on your own.",
+    body: "This is a workflow tool built for custom home builders — AI-assisted estimating, milestone-based client portal, sub coordination, draw schedule. ~60 seconds to show you where everything lives.",
   },
   {
     target: "pipeline",
-    title: "This is your project pipeline",
-    body: "Projects move left → right as they progress: Lead → Estimating → Sent → Signed → In Progress → Complete. Drag a card between columns to update stage.",
-  },
-  {
-    target: "sidebar-addons",
-    title: "Add-ons",
-    body: "Capabilities we can turn on for you — phone-call summarization, sub bid intelligence, 3D walkthrough, more. If any of them would save you real time, just say so.",
+    title: "Your project pipeline",
+    body: "Every project moves left → right through these stages: Lead, Estimating, Estimate Sent, Contract Signed, Pre-Construction, In Progress, Complete (or Lost). Drag any card between columns to update its stage. Each card shows estimate value pre-contract, then contract value once signed.",
   },
   {
     target: "project-card",
-    title: "Open any project",
-    body: "Click a card to see the full workflow: AI floor-plan extraction, estimate builder, milestone tracking, client portal preview. The Maddox House project is fully populated.",
+    title: "Click in to see the actual workflow",
+    body: "The Maddox House project is fully populated. Inside you'll find AI floor-plan extraction (drag a plan PDF, AI reads sqft + room list), the estimate builder, milestone tracking, the client portal with e-signature, and the draw request flow. That's where the platform earns its keep — open it after the tour.",
+  },
+  {
+    target: "sidebar-addons",
+    title: "Add-ons — what else is possible",
+    body: "Capabilities we can build on top: phone-call summarization, sub bid intelligence, 3D walkthroughs, live materials pricing, lead generation. Open the Add-ons page to see the full list. If any one of them would save you real time, tell us and we'll prioritize it.",
   },
 ];
 
