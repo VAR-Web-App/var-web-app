@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import FloorPlanExtractor from "@/components/floor-plan-extractor";
+import NextActionCard from "@/components/next-action-card";
 import ProjectExecutionPanel from "@/components/project-execution-panel";
 import PhotoGallery from "@/components/photo-gallery";
 import ProjectAIChat from "@/components/project-ai-chat";
@@ -236,7 +237,27 @@ export default function DealDetailPage({
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <FloorPlanExtractor dealId={deal.id} orgRef={deal.org_ref} />
+            <NextActionCard deal={deal} />
+
+            <div id="floor-plan-extractor" className="scroll-mt-6">
+              <FloorPlanExtractor dealId={deal.id} orgRef={deal.org_ref} />
+            </div>
+
+            <QuoteCard dealId={deal.id} lines={quoteLines} />
+
+            <div id="project-execution" className="scroll-mt-6">
+              <ProjectExecutionPanel deal={deal} />
+            </div>
+
+            <div id="rfq-panel" className="scroll-mt-6">
+              <RFQPanel deal={deal} />
+            </div>
+
+            <ChangeOrdersPanel deal={deal} />
+
+            <div id="photo-gallery" className="scroll-mt-6">
+              <PhotoGallery dealId={deal.id} orgRef={deal.org_ref} />
+            </div>
 
             <AttachmentsCard
               deal={deal}
@@ -248,16 +269,6 @@ export default function DealDetailPage({
               onDeleteAttachment={onDeleteAttachment}
               onClearError={() => setParseError(null)}
             />
-
-            <QuoteCard dealId={deal.id} lines={quoteLines} />
-
-            <ProjectExecutionPanel deal={deal} />
-
-            <ChangeOrdersPanel deal={deal} />
-
-            <RFQPanel deal={deal} />
-
-            <PhotoGallery dealId={deal.id} orgRef={deal.org_ref} />
           </div>
 
           <div className="space-y-6">
