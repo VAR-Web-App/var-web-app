@@ -149,7 +149,16 @@ export interface Attachment {
   id: string;
   deal_ref: string;
   category:
+    // Builder-flavored categories. Older VAR-era values
+    // (distributor_quote / customer_quote / award_document / vendor_po /
+    // shipping) remain valid for any legacy attachments still in the data
+    // layer, but new uploads go into one of these buckets.
+    | "plans"
+    | "permits"
+    | "contract"
+    | "sub_bid"
     | "email"
+    // Legacy VAR keys — kept in the union so existing data still parses.
     | "distributor_quote"
     | "customer_quote"
     | "award_document"
@@ -163,16 +172,19 @@ export interface Attachment {
   uploaded_at: string;
 }
 
+// Builder-side category list, in the order they render on the project page.
+// Trimmed of the VAR labels (Distributor Quote / Award Document / Vendor PO
+// / Shipping) — those keys still exist on the type for back-compat with
+// legacy data, but are never shown in the upload UI.
 export const ATTACHMENT_CATEGORIES: Array<{
   key: Attachment["category"];
   label: string;
 }> = [
+  { key: "plans", label: "Plans & Drawings" },
+  { key: "permits", label: "Permits" },
+  { key: "contract", label: "Contracts" },
+  { key: "sub_bid", label: "Sub Bids" },
   { key: "email", label: "Emails" },
-  { key: "distributor_quote", label: "Distributor Quotes" },
-  { key: "customer_quote", label: "Customer Quotes" },
-  { key: "award_document", label: "Award Documents" },
-  { key: "vendor_po", label: "Vendor POs" },
-  { key: "shipping", label: "Shipping / Tracking" },
   { key: "other", label: "Other" },
 ];
 

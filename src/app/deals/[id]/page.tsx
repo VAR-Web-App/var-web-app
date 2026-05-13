@@ -190,26 +190,6 @@ export default function DealDetailPage({
     }
   }
 
-  async function onLoadSampleAttachments() {
-    if (!deal) return;
-    setParseError(null);
-    const samples: Array<{ category: Attachment["category"]; path: string; name: string }> = [
-      { category: "customer_quote", path: "/samples/synthetic-quote.pdf", name: "synthetic-quote.pdf" },
-      { category: "award_document", path: "/samples/synthetic-award.pdf", name: "synthetic-award.pdf" },
-    ];
-    for (const s of samples) {
-      try {
-        const res = await fetch(s.path);
-        if (!res.ok) throw new Error(`Could not load ${s.name} (HTTP ${res.status})`);
-        const blob = await res.blob();
-        const file = new File([blob], s.name, { type: "application/pdf" });
-        await onUploadFile(s.category, file);
-      } catch (e) {
-        setParseError(e instanceof Error ? e.message : String(e));
-      }
-    }
-  }
-
   async function onDeleteAttachment(att: Attachment) {
     await deleteAttachment(att.id);
     const { [att.id]: _, ...rest } = parsed;
@@ -265,7 +245,6 @@ export default function DealDetailPage({
               parsingId={parsingId}
               error={parseError}
               onUploadFile={onUploadFile}
-              onLoadSamples={onLoadSampleAttachments}
               onDeleteAttachment={onDeleteAttachment}
               onClearError={() => setParseError(null)}
             />
@@ -450,7 +429,6 @@ function AttachmentsCard({
   parsingId,
   error,
   onUploadFile,
-  onLoadSamples,
   onDeleteAttachment,
   onClearError,
 }: {
@@ -460,7 +438,6 @@ function AttachmentsCard({
   parsingId: string | null;
   error: string | null;
   onUploadFile: (category: Attachment["category"], file: File) => void;
-  onLoadSamples: () => void;
   onDeleteAttachment: (att: Attachment) => void;
   onClearError: () => void;
 }) {
@@ -469,20 +446,12 @@ function AttachmentsCard({
   void deal;
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-6 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Attachments &amp; parsed docs</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Drop a PDF in any category. The parser auto-runs on upload and the data flows
-            into the deal.
-          </p>
-        </div>
-        <button
-          onClick={onLoadSamples}
-          className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-        >
-          Load sample quote + award →
-        </button>
+      <div className="border-b border-slate-200 px-6 py-4">
+        <h2 className="text-sm font-semibold text-slate-900">Attachments</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Drop a PDF in any category. Plans get auto-parsed for square
+          footage and room layout; other docs are stored as-is.
+        </p>
       </div>
 
       {error && (
