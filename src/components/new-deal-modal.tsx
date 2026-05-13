@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Deal, Account } from "@/types";
-import { listAccounts, saveDeal, newId, getSettings } from "@/lib/store";
+import { listAccounts, saveAccount, saveDeal, newId, getSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
 export default function NewDealModal({
@@ -17,6 +17,12 @@ export default function NewDealModal({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [name, setName] = useState("");
   const [accountRef, setAccountRef] = useState("");
+  // Inline-create state for the client dropdown. The select has a sentinel
+  // "__new__" option that flips the field into a name-input + save button.
+  // Saving creates the Account, refreshes the list, and auto-selects it.
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [creatingClientBusy, setCreatingClientBusy] = useState(false);
   const [solicitation, setSolicitation] = useState("");
   // Manufacturer field reused as builder type (Custom Home / Remodel / Addition / Spec Build)
   const [manufacturer, setManufacturer] = useState("Custom Home");
@@ -31,6 +37,36 @@ export default function NewDealModal({
       if (s?.default_manufacturer) setManufacturer(s.default_manufacturer);
     });
   }, [profile]);
+
+  async function handleCreateClient() {
+    if (!profile) return;
+    const trimmed = newClientName.trim();
+    if (!trimmed) return;
+    setCreatingClientBusy(true);
+    try {
+      const acct: Account = {
+        id: newId("acct"),
+        name: trimmed,
+        // Default to commercial — closest match for residential clients.
+        // Builder Account form (when they edit later) can change this if
+        // we ever surface the field; for the inline create here, keep it
+        // out of the way.
+        type: "commercial",
+        contract_vehicles: [],
+        ship_to_addresses: [],
+        payment_terms: "",
+        notes: "",
+        org_ref: profile.org_ref,
+      };
+      await saveAccount(acct);
+      setAccounts((prev) => [...prev, acct]);
+      setAccountRef(acct.id);
+      setNewClientName("");
+      setCreatingClient(false);
+    } finally {
+      setCreatingClientBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,18 +138,68 @@ export default function NewDealModal({
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Client">
-              <select
-                value={accountRef}
-                onChange={(e) => setAccountRef(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
-                <option value="">— select —</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              {creatingClient ? (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCreateClient();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setCreatingClient(false);
+                        setNewClientName("");
+                      }
+                    }}
+                    placeholder="New client name"
+                    autoFocus
+                    className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateClient}
+                    disabled={creatingClientBusy || !newClientName.trim()}
+                    className="shrink-0 rounded-md bg-sky-700 px-2 py-2 text-xs font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    title="Save client"
+                  >
+                    {creatingClientBusy ? "…" : "Add"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingClient(false);
+                      setNewClientName("");
+                    }}
+                    className="shrink-0 rounded-md px-1.5 py-2 text-xs text-slate-500 hover:text-slate-900"
+                    title="Cancel"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={accountRef}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setCreatingClient(true);
+                    } else {
+                      setAccountRef(e.target.value);
+                    }
+                  }}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="">— select —</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Add new client…</option>
+                </select>
+              )}
             </Field>
             <Field label="Project type">
               <select
