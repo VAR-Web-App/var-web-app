@@ -137,20 +137,11 @@ export default function ProposalPage({
    *  URL the GC sends to the client. */
   async function ensureSignLink(): Promise<string | null> {
     if (!deal) return null;
-    // Reuse existing token if the deal already has one (the client
-    // shouldn't get a new URL every time the GC re-sends the email).
     const fresh = await getDeal(id);
     if (!fresh) return null;
-    let token = fresh.client_sign_token;
-    if (token) {
-      // Verify the doc still exists; if not, regenerate.
-      const existing = await getClientSignLink(token);
-      if (existing) {
-        return `${window.location.origin}/sign/${token}`;
-      }
-    }
-    token = newId("sgn") + Math.random().toString(36).slice(2, 8);
-    const link: ClientSignLink = {
+
+    // Build the snapshot from current deal + settings + lines.
+    const snapshot = (token: string, created_at: string): ClientSignLink => ({
       token,
       deal_ref: deal.id,
       org_ref: deal.org_ref,
@@ -164,9 +155,27 @@ export default function ProposalPage({
       business_license: settings?.cage_code,
       contract_amount: totalCustomer,
       lines,
-      created_at: new Date().toISOString(),
-    };
-    await createClientSignLink(link);
+      created_at,
+    });
+
+    let token = fresh.client_sign_token;
+    if (token) {
+      const existing = await getClientSignLink(token);
+      if (existing) {
+        // Reuse the same URL so the client doesn't get a fresh link on
+        // every re-send. BUT if it hasn't been signed yet, refresh the
+        // snapshot from current data — the GC may have updated the
+        // estimate or filled in their company name since. Once signed,
+        // the snapshot is frozen (audit integrity).
+        if (!existing.signed_at) {
+          await createClientSignLink(snapshot(token, existing.created_at));
+        }
+        return `${window.location.origin}/sign/${token}`;
+      }
+    }
+
+    token = newId("sgn") + Math.random().toString(36).slice(2, 8);
+    await createClientSignLink(snapshot(token, new Date().toISOString()));
     await saveDeal({
       ...fresh,
       client_sign_token: token,

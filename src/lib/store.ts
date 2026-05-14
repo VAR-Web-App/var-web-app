@@ -801,6 +801,28 @@ export async function seedDemoData(orgRef: string): Promise<SeedResult> {
     },
   };
 
+  // Seed a sample builder identity so proposals + sign links render with
+  // a real company name out of the box (instead of falling back to
+  // "Your builder"). The real builder overrides this in Settings.
+  const existingSettings = await getSettings(orgRef);
+  if (!existingSettings || !existingSettings.company_name) {
+    await saveSettings({
+      org_ref: orgRef,
+      company_name: "Hill Country Custom Homes",
+      company_address: "210 Main St, Boerne, TX 78006",
+      company_phone: "(830) 555-0142",
+      company_email: "office@hillcountrycustomhomes.com",
+      cage_code: "TX-CHC-114829",          // → State Contractor License #
+      duns: "82-3391047",                  // → EIN
+      sam_id: "BOERNE-BL-2026-0093",        // → Local business license #
+      default_blanket_discount_percent: 0,
+      default_markup_percent: 15,
+      default_manufacturer: "Custom Home",
+      prepared_by_name: "Dale Whitford",
+      prepared_by_phone: "(830) 555-0143",
+    });
+  }
+
   return { parsedCacheByDeal };
 }
 
