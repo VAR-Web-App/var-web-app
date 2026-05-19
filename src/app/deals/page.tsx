@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
+import Tooltip from "@/components/tooltip";
 import { Deal, DealStage } from "@/types";
 import { BUILDER_STAGES } from "@/types/builder";
 import { listDeals, saveDeal, seedBuilderDemoData, resetAndSeedBuilderDemo } from "@/lib/store";
@@ -109,23 +110,30 @@ export default function DealsPage() {
         </div>
         <div className="flex items-center gap-2">
           {loaded && deals.length > 0 && (
-            <button
-              onClick={onResetAndSeed}
-              disabled={seeding}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              title="Wipe all data and reload builder sample fixtures"
-            >
-              <ArrowPathIcon className="h-3.5 w-3.5" />
-              {seeding ? "Resetting…" : "Reset to demo data"}
-            </button>
+            <Tooltip label="Wipe all your projects, clients, subs, milestones, and photos — then reload a fresh set of demo fixtures. Useful for resetting a sales demo.">
+              <button
+                onClick={onResetAndSeed}
+                disabled={seeding}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                {seeding ? "Resetting…" : "Reset to demo data"}
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => setShowNewDeal(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800"
+          <Tooltip
+            variant="directive"
+            label="Start a new project. Capture the client + scope basics — you can add the floor plan and estimate from inside the project."
+            placement="left"
           >
-            <PlusIcon className="h-4 w-4" />
-            New Project
-          </button>
+            <button
+              onClick={() => setShowNewDeal(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800"
+            >
+              <PlusIcon className="h-4 w-4" />
+              New Project
+            </button>
+          </Tooltip>
         </div>
       </div>
 

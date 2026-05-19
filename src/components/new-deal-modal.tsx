@@ -5,6 +5,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Deal, Account } from "@/types";
 import { listAccounts, saveAccount, saveDeal, newId, getSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import Tooltip from "@/components/tooltip";
 
 export default function NewDealModal({
   onClose,
@@ -252,14 +253,19 @@ export default function NewDealModal({
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Estimate type">
-              <select
-                value={dealType}
-                onChange={(e) => setDealType(e.target.value as "budgetary" | "quotation")}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              <Tooltip
+                label="Detailed Estimate = firm line-item pricing the client signs against. Ballpark / Budget = early-stage rough numbers, no commitment. You can change this later."
+                placement="bottom"
               >
-                <option value="quotation">Detailed Estimate</option>
-                <option value="budgetary">Ballpark / Budget</option>
-              </select>
+                <select
+                  value={dealType}
+                  onChange={(e) => setDealType(e.target.value as "budgetary" | "quotation")}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="quotation">Detailed Estimate</option>
+                  <option value="budgetary">Ballpark / Budget</option>
+                </select>
+              </Tooltip>
             </Field>
             <Field label="Target start">
               <input

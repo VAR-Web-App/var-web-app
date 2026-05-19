@@ -20,6 +20,7 @@ import PhotoGallery from "@/components/photo-gallery";
 import ProjectAIChat from "@/components/project-ai-chat";
 import RFQPanel from "@/components/rfq-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
+import Tooltip from "@/components/tooltip";
 import {
   ATTACHMENT_CATEGORIES,
   Attachment,
@@ -347,40 +348,48 @@ function DealHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Link
-          href={`/deals/${deal.id}/proposal`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
-          title="Generate the client-facing proposal document"
+        <Tooltip
+          variant="directive"
+          label="Build the document your client signs. Pulls from the estimate, your branding, and the scope notes."
         >
-          <PaperAirplaneIcon className="h-4 w-4" />
-          Proposal
-        </Link>
-        <Link
-          href={`/deals/${deal.id}/portal`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
-          title="See what your client sees"
-        >
-          <EyeIcon className="h-4 w-4" />
-          View as client
-        </Link>
-        <select
-          value={deal.stage}
-          onChange={(e) => onChangeStage(e.target.value as Deal["stage"])}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-        >
-          {BUILDER_STAGES.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={onDelete}
-          title="Delete project"
-          className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-        >
-          <TrashIcon className="h-5 w-5" />
-        </button>
+          <Link
+            href={`/deals/${deal.id}/proposal`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <PaperAirplaneIcon className="h-4 w-4" />
+            Proposal
+          </Link>
+        </Tooltip>
+        <Tooltip label="Preview the client portal exactly as your client will see it — no login required on their end.">
+          <Link
+            href={`/deals/${deal.id}/portal`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <EyeIcon className="h-4 w-4" />
+            View as client
+          </Link>
+        </Tooltip>
+        <Tooltip label="Move the project through your pipeline. Stage changes update the Next Action card and the client portal.">
+          <select
+            value={deal.stage}
+            onChange={(e) => onChangeStage(e.target.value as Deal["stage"])}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          >
+            {BUILDER_STAGES.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
+        <Tooltip label="Permanently delete this project and all attached docs, photos, and history. Cannot be undone.">
+          <button
+            onClick={onDelete}
+            className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -633,12 +642,18 @@ function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
               Build the estimate you&apos;ll send your client.
             </p>
           </div>
-          <Link
-            href={`/deals/${dealId}/quote`}
-            className="rounded-md bg-sky-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          <Tooltip
+            variant="directive"
+            label="Open the estimate builder. Add materials, labor, and subs as line items — markup rolls up into the client total."
+            placement="left"
           >
-            Build estimate →
-          </Link>
+            <Link
+              href={`/deals/${dealId}/quote`}
+              className="rounded-md bg-sky-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+            >
+              Build estimate →
+            </Link>
+          </Tooltip>
         </div>
         <div className="px-6 py-6 text-center text-sm text-slate-500">
           <p>No line items yet. Add materials, labor, and subs — or upload a floor plan
@@ -657,12 +672,17 @@ function QuoteCard({ dealId, lines }: { dealId: string; lines: QuoteLine[] }) {
             {lines.length} line item{lines.length === 1 ? "" : "s"} · saved
           </p>
         </div>
-        <Link
-          href={`/deals/${dealId}/quote`}
-          className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        <Tooltip
+          label="Open the estimate builder to edit line items, markups, or labor rates."
+          placement="left"
         >
-          Edit estimate →
-        </Link>
+          <Link
+            href={`/deals/${dealId}/quote`}
+            className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Edit estimate →
+          </Link>
+        </Tooltip>
       </div>
       <div className="grid grid-cols-3 divide-x divide-slate-200">
         <div className="px-6 py-4">

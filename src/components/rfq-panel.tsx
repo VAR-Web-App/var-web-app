@@ -28,6 +28,7 @@ import {
   getDeal,
   listDistributors,
 } from "@/lib/store";
+import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -140,13 +141,19 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
             {rfqs.length} bid request{rfqs.length === 1 ? "" : "s"} on this project
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+        <Tooltip
+          variant="directive"
+          label="Send a scope of work to multiple subs at once. They each return a bid; you compare side-by-side and award the winner."
+          placement="left"
         >
-          <PlusIcon className="h-3.5 w-3.5" />
-          New RFQ
-        </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            New RFQ
+          </button>
+        </Tooltip>
       </div>
 
       {!loaded ? (
@@ -235,16 +242,21 @@ function RFQRow({
         </p>
       </button>
       {awarded && !pushed && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPushToEstimate();
-          }}
-          className="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
-          title="Add the winning bid to the project estimate as a line item"
+        <Tooltip
+          variant="directive"
+          label="Add the winning bid to the project estimate as a line item. Cost = the bid amount; default 20% markup applied to the client price."
+          placement="left"
         >
-          → Estimate
-        </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPushToEstimate();
+            }}
+            className="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
+          >
+            → Estimate
+          </button>
+        </Tooltip>
       )}
       {awarded && pushed && (
         <span
@@ -493,13 +505,17 @@ function RFQModal({
                         </td>
                         <td className="px-3 py-2 text-right">
                           {inv.status !== "selected" && inv.bid_amount && (
-                            <button
-                              onClick={() => awardTo(inv.sub_ref)}
-                              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100"
-                              title="Award this bid"
+                            <Tooltip
+                              label="Pick this sub as the winner. Unlocks the → Estimate button so you can drop their bid into the project estimate."
+                              placement="left"
                             >
-                              Award
-                            </button>
+                              <button
+                                onClick={() => awardTo(inv.sub_ref)}
+                                className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100"
+                              >
+                                Award
+                              </button>
+                            </Tooltip>
                           )}
                           {inv.status === "selected" && (
                             <CheckCircleIcon className="ml-auto h-4 w-4 text-emerald-600" />

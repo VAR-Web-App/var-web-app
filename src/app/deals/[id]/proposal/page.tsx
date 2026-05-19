@@ -32,6 +32,7 @@ import {
   saveDeal,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -276,14 +277,18 @@ export default function ProposalPage({
           </Link>
           <div className="flex flex-wrap gap-2">
             {canAccept && (
-              <button
-                onClick={() => setShowAcceptForm(true)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-                title="Mark this proposal as signed by the client — advances the deal to Contract Signed"
+              <Tooltip
+                variant="directive"
+                label="Log that the client signed in person or over the phone. Captures a typed signature and advances the project from Estimate Sent → Contract Signed."
               >
-                <CheckCircleIcon className="h-4 w-4" />
-                Mark as accepted
-              </button>
+                <button
+                  onClick={() => setShowAcceptForm(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  Mark as accepted
+                </button>
+              </Tooltip>
             )}
             {alreadyAccepted && (
               <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
@@ -291,30 +296,37 @@ export default function ProposalPage({
                 Accepted
               </span>
             )}
-            <button
-              onClick={copyShareLink}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              title="Copy a public sign-and-accept link the client can open without logging in"
+            <Tooltip label="Copy a public sign-and-accept link to your clipboard. The client opens it on any device — no login required.">
+              <button
+                onClick={copyShareLink}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Copy sign link
+              </button>
+            </Tooltip>
+            <Tooltip
+              variant="directive"
+              label="Open your email app with the proposal + sign link pre-filled. Edit the body before sending — your client can sign without an account."
             >
-              <LinkIcon className="h-4 w-4" />
-              Copy sign link
-            </button>
-            <button
-              onClick={emailToClient}
-              disabled={emailing}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              title="Open your email app with the sign link prefilled for your client"
-            >
-              <EnvelopeIcon className="h-4 w-4" />
-              {emailing ? "Preparing…" : "Email to client"}
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
-            >
-              <PrinterIcon className="h-4 w-4" />
-              Print / Save PDF
-            </button>
+              <button
+                onClick={emailToClient}
+                disabled={emailing}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <EnvelopeIcon className="h-4 w-4" />
+                {emailing ? "Preparing…" : "Email to client"}
+              </button>
+            </Tooltip>
+            <Tooltip label="Print or save the proposal as a PDF using your browser's native print dialog.">
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
+              >
+                <PrinterIcon className="h-4 w-4" />
+                Print / Save PDF
+              </button>
+            </Tooltip>
           </div>
         </div>
         {copyToast && (

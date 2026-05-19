@@ -17,6 +17,7 @@ import {
   signClientSignLink,
 } from "@/lib/store";
 import { ClientSignLink, QuoteLine } from "@/types";
+import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -306,15 +307,21 @@ export default function SignPage({
                       {error}
                     </p>
                   )}
-                  <button
-                    onClick={sign}
-                    disabled={signing || !signatureName.trim() || !agreed}
-                    className="w-full rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  <Tooltip
+                    label={`Records your acceptance and notifies ${link.business_name}. They'll reach out within a business day to schedule kickoff.`}
+                    placement="top"
+                    className="w-full"
                   >
-                    {signing
-                      ? "Saving…"
-                      : `Sign & accept ${fmtMoneyRound(link.contract_amount)}`}
-                  </button>
+                    <button
+                      onClick={sign}
+                      disabled={signing || !signatureName.trim() || !agreed}
+                      className="w-full rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {signing
+                        ? "Saving…"
+                        : `Sign & accept ${fmtMoneyRound(link.contract_amount)}`}
+                    </button>
+                  </Tooltip>
                 </div>
               </>
             )}

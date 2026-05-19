@@ -37,6 +37,7 @@ import {
   listChangeOrders,
   effectiveContractValue,
 } from "@/lib/store";
+import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -301,31 +302,41 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {hasEstimatePhases && (
+            <Tooltip
+              variant="directive"
+              label={`Turn each phase in your estimate into a billable milestone. The client approves completion of each phase to release that phase's payment (a "draw").`}
+            >
+              <button
+                onClick={generateFromEstimate}
+                disabled={seeding}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+              >
+                <PlusIcon className="h-4 w-4" />
+                {seeding ? "Generating…" : "Generate from estimate"}
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip
+            variant={hasEstimatePhases ? "info" : "directive"}
+            label="Use the standard 9-phase residential build schedule (Demo → Foundation → Framing → … → Punch list). Each phase is a draw the client approves. You can edit phases + dates afterward."
+          >
             <button
-              onClick={generateFromEstimate}
-              disabled={seeding}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+              onClick={generateDefaults}
+              disabled={seeding || contractValue === 0}
+              className={
+                hasEstimatePhases
+                  ? "inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  : "inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+              }
             >
               <PlusIcon className="h-4 w-4" />
-              {seeding ? "Generating…" : "Generate from estimate"}
+              {seeding
+                ? "Generating…"
+                : hasEstimatePhases
+                  ? "Use default template"
+                  : "Generate default schedule"}
             </button>
-          )}
-          <button
-            onClick={generateDefaults}
-            disabled={seeding || contractValue === 0}
-            className={
-              hasEstimatePhases
-                ? "inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                : "inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
-            }
-          >
-            <PlusIcon className="h-4 w-4" />
-            {seeding
-              ? "Generating…"
-              : hasEstimatePhases
-                ? "Use default template"
-                : "Generate default schedule"}
-          </button>
+          </Tooltip>
         </div>
         {contractValue === 0 && !hasEstimatePhases && (
           <p className="mt-3 text-xs text-sky-700">
@@ -520,12 +531,14 @@ function MilestoneRow({
           ) : (
             <span className="text-[11px] italic text-slate-400">none assigned</span>
           )}
-          <button
-            onClick={() => setPickerOpen((v) => !v)}
-            className="rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-sky-400 hover:text-sky-700"
-          >
-            + assign
-          </button>
+          <Tooltip label="Tag the subs working this phase. Used for accountability + populates sub bid requests on the RFQ panel.">
+            <button
+              onClick={() => setPickerOpen((v) => !v)}
+              className="rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-sky-400 hover:text-sky-700"
+            >
+              + assign
+            </button>
+          </Tooltip>
           {pickerOpen && (
             <SubPicker
               subs={subs}
@@ -538,31 +551,38 @@ function MilestoneRow({
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {nextActions(m.status).map((a) => (
-            <button
+            <Tooltip
               key={a.next}
-              onClick={() => onTransition(a.next)}
-              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${a.style}`}
+              label={a.hint}
+              variant={a.style.includes("bg-sky-700") || a.style.includes("bg-emerald-600") ? "directive" : "info"}
             >
-              {a.label}
-            </button>
+              <button
+                onClick={() => onTransition(a.next)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${a.style}`}
+              >
+                {a.label}
+              </button>
+            </Tooltip>
           ))}
           {hasDrawRequest && (
-            <Link
-              href={`/deals/${dealId}/draw/${m.id}`}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              title="Generate the draw request / invoice document for this phase"
-            >
-              <DocumentTextIcon className="h-3.5 w-3.5" />
-              Draw / Invoice
-            </Link>
+            <Tooltip label="Open the draw request page — generate a branded invoice PDF for the client, optionally push to QuickBooks.">
+              <Link
+                href={`/deals/${dealId}/draw/${m.id}`}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <DocumentTextIcon className="h-3.5 w-3.5" />
+                Draw / Invoice
+              </Link>
+            </Tooltip>
           )}
           {m.qb_invoice_number && (
-            <span
-              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
-              title={`Synced to QuickBooks${m.qb_synced_at ? ` on ${new Date(m.qb_synced_at).toLocaleDateString()}` : ""}`}
+            <Tooltip
+              label={`Synced to QuickBooks${m.qb_synced_at ? ` on ${new Date(m.qb_synced_at).toLocaleDateString()}` : ""}. Invoice ${m.qb_invoice_number} is in your QuickBooks Online.`}
             >
-              QB · {m.qb_invoice_number}
-            </span>
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                QB · {m.qb_invoice_number}
+              </span>
+            </Tooltip>
           )}
           <button
             onClick={onRemove}
@@ -671,29 +691,64 @@ function StatusIcon({ status }: { status: MilestoneStatus }) {
   }
 }
 
-function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: string; style: string }[] {
+function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: string; style: string; hint: string }[] {
   const primary = "bg-sky-700 text-white hover:bg-sky-800";
   const secondary = "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
   const success = "bg-emerald-600 text-white hover:bg-emerald-700";
 
   switch (status) {
     case "pending":
-      return [{ next: "in_progress", label: "Start phase", style: primary }];
+      return [{
+        next: "in_progress",
+        label: "Start phase",
+        style: primary,
+        hint: "Mark this phase as actively under construction. The client portal shows it as in-progress.",
+      }];
     case "in_progress":
-      return [{ next: "awaiting_approval", label: "Mark complete (request draw)", style: primary }];
+      return [{
+        next: "awaiting_approval",
+        label: "Mark complete (request draw)",
+        style: primary,
+        hint: "Tell the client this phase is done. They'll see an approval button on their portal — once they approve, you can generate the draw / invoice.",
+      }];
     case "awaiting_approval":
       return [
-        { next: "approved", label: "Client approved", style: success },
-        { next: "in_progress", label: "Re-open", style: secondary },
-        { next: "disputed", label: "Mark disputed", style: secondary },
+        {
+          next: "approved",
+          label: "Client approved",
+          style: success,
+          hint: "Manually log client approval (use if the client confirmed by phone/email instead of clicking the portal button).",
+        },
+        {
+          next: "in_progress",
+          label: "Re-open",
+          style: secondary,
+          hint: "Pull the phase back to in-progress — use if you need to fix something the client flagged.",
+        },
+        {
+          next: "disputed",
+          label: "Mark disputed",
+          style: secondary,
+          hint: "Flag a payment dispute. Pauses the workflow until you reach resolution.",
+        },
       ];
     case "approved":
-      return [{ next: "released", label: "Mark paid", style: success }];
+      return [{
+        next: "released",
+        label: "Mark paid",
+        style: success,
+        hint: "Record that you received the draw payment from the client. Counts toward the project's paid total.",
+      }];
     case "released":
       return [];
     case "disputed":
       return [
-        { next: "in_progress", label: "Resolve & resume", style: primary },
+        {
+          next: "in_progress",
+          label: "Resolve & resume",
+          style: primary,
+          hint: "Mark the dispute settled and put the phase back into active work.",
+        },
       ];
   }
 }

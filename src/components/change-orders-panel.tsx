@@ -24,6 +24,7 @@ import {
   saveChangeOrder,
   deleteChangeOrder,
 } from "@/lib/store";
+import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
   `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -99,13 +100,19 @@ export default function ChangeOrdersPanel({ deal }: { deal: Deal }) {
             {totals.pendingCount > 0 && <> · {totals.pendingCount} pending client approval</>}
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+        <Tooltip
+          variant="directive"
+          label="Document a scope change mid-construction (added work, credit back, or schedule shift). The client signs it; the contract value updates automatically."
+          placement="left"
         >
-          <PlusIcon className="h-3.5 w-3.5" />
-          New change order
-        </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            New change order
+          </button>
+        </Tooltip>
       </div>
 
       {!loaded ? (
@@ -372,21 +379,29 @@ function ChangeOrderModal({
           </button>
           {existing?.status !== "approved" && existing?.status !== "rejected" && (
             <>
-              <button
-                onClick={() => onSave(buildCo(false))}
-                disabled={!title.trim()}
-                className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+              <Tooltip label="Save without sending. You can keep editing and send later.">
+                <button
+                  onClick={() => onSave(buildCo(false))}
+                  disabled={!title.trim()}
+                  className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Save draft
+                </button>
+              </Tooltip>
+              <Tooltip
+                variant="directive"
+                label="Push this CO to the client portal. They'll see it on their dashboard with an approve/reject prompt — once approved + signed, the contract value updates."
+                placement="top"
               >
-                Save draft
-              </button>
-              <button
-                onClick={() => onSave(buildCo(true))}
-                disabled={!title.trim()}
-                className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-                {existing?.status === "sent" ? "Save" : "Send for client approval"}
-              </button>
+                <button
+                  onClick={() => onSave(buildCo(true))}
+                  disabled={!title.trim()}
+                  className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                  {existing?.status === "sent" ? "Save" : "Send for client approval"}
+                </button>
+              </Tooltip>
             </>
           )}
           {(existing?.status === "approved" || existing?.status === "rejected") && (

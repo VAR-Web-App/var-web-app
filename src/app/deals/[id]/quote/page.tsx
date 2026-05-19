@@ -12,6 +12,7 @@ import {
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { useAuth } from "@/lib/auth-context";
 import {
   getDeal,
@@ -267,23 +268,28 @@ export default function DealQuotePage({
           <div className="flex items-center gap-3">
             {!dirty && !saving && lines.length > 0 && (
               <>
-                <button
-                  type="button"
-                  onClick={() => exportLinesCsv(deal, lines)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  title="Download as CSV (import into QuickBooks, Excel, etc)"
+                <Tooltip label="Download these line items as CSV. Opens in Excel / Numbers / Google Sheets, or imports into QuickBooks via Bulk Add.">
+                  <button
+                    type="button"
+                    onClick={() => exportLinesCsv(deal, lines)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Export CSV
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  variant="directive"
+                  label="Build the client-facing proposal document from these line items. The client never sees your costs or margin — just the bottom-line scope + total."
                 >
-                  <ArrowDownTrayIcon className="h-4 w-4" />
-                  Export CSV
-                </button>
-                <Link
-                  href={`/deals/${id}/proposal`}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
-                  title="Generate the client-facing proposal"
-                >
-                  <PaperAirplaneIcon className="h-4 w-4" />
-                  Generate proposal
-                </Link>
+                  <Link
+                    href={`/deals/${id}/proposal`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
+                  >
+                    <PaperAirplaneIcon className="h-4 w-4" />
+                    Generate proposal
+                  </Link>
+                </Tooltip>
               </>
             )}
             {!dirty && !saving ? (
@@ -459,14 +465,34 @@ function LineEditor({
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-3 text-left">#</th>
-              <th className="px-3 py-3 text-left">Phase</th>
+              <th className="px-3 py-3 text-left">
+                <Tooltip label="Group lines by construction phase (Foundation, Framing, Finishes, etc). Phases roll up into milestones on the project schedule.">
+                  <span>Phase</span>
+                </Tooltip>
+              </th>
               <th className="px-3 py-3 text-left">Description</th>
               <th className="px-3 py-3 text-right">Qty</th>
-              <th className="px-3 py-3 text-right">Unit Cost</th>
-              <th className="px-3 py-3 text-right">Markup %</th>
-              <th className="px-3 py-3 text-right">Unit Price</th>
+              <th className="px-3 py-3 text-right">
+                <Tooltip label="What you pay (sub bid, supplier invoice, internal labor cost). The client never sees this column.">
+                  <span>Unit Cost</span>
+                </Tooltip>
+              </th>
+              <th className="px-3 py-3 text-right">
+                <Tooltip label="Your markup over cost. Defaults to your settings markup (typically 15-25% for residential builders). Editable per line.">
+                  <span>Markup %</span>
+                </Tooltip>
+              </th>
+              <th className="px-3 py-3 text-right">
+                <Tooltip label="What the client pays per unit. Calculated as Unit Cost × (1 + Markup %). This is the only price the client sees.">
+                  <span>Unit Price</span>
+                </Tooltip>
+              </th>
               <th className="px-3 py-3 text-right">Line Total</th>
-              <th className="px-3 py-3 text-right">Margin</th>
+              <th className="px-3 py-3 text-right">
+                <Tooltip label="Profit margin on this line as a percentage of the client price. Green ≥ 15%, sky ≥ 5%, red below 5%.">
+                  <span>Margin</span>
+                </Tooltip>
+              </th>
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
