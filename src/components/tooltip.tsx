@@ -9,6 +9,10 @@ interface TooltipProps {
   variant?: "info" | "directive";
   delay?: number;
   className?: string;
+  /** Use a block-level wrapper instead of inline-flex. Set true when
+   *  wrapping a full-width trigger so the wrapper doesn't add line-box
+   *  height per row (matters in tight vertical layouts like sidebars). */
+  block?: boolean;
 }
 
 export default function Tooltip({
@@ -18,6 +22,7 @@ export default function Tooltip({
   variant = "info",
   delay = 150,
   className = "",
+  block = false,
 }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -51,9 +56,11 @@ export default function Tooltip({
       ? "bg-sky-900 ring-sky-700"
       : "bg-slate-900 ring-slate-800";
 
+  const wrapperDisplay = block ? "flex" : "inline-flex";
+
   return (
     <span
-      className={`relative inline-flex ${className}`}
+      className={`relative ${wrapperDisplay} ${className}`}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}

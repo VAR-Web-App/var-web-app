@@ -100,7 +100,7 @@ export default function Sidebar() {
               ? pathname === "/" || pathname.startsWith("/deals")
               : pathname.startsWith(item.href);
           return (
-            <Tooltip key={item.href} label={item.hint} placement="right" className="w-full">
+            <Tooltip key={item.href} label={item.hint} placement="right" block>
               <Link
                 href={item.href}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
