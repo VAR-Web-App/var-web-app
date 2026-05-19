@@ -16,7 +16,7 @@ export default function Tooltip({
   children,
   placement = "top",
   variant = "info",
-  delay = 400,
+  delay = 150,
   className = "",
 }: TooltipProps) {
   const id = useId();

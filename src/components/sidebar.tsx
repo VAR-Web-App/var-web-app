@@ -14,11 +14,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
+import Tooltip from "@/components/tooltip";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  hint: string;
 }
 
 // Builder app navigation — same routes as the VAR app underneath
@@ -26,12 +28,42 @@ interface NavItem {
 // labels and icons. Routes will be aliased once /projects + /clients
 // land. For now Pipeline still routes to /deals.
 const NAV: NavItem[] = [
-  { href: "/deals", label: "Projects", icon: RectangleStackIcon },
-  { href: "/schedule", label: "Schedule", icon: CalendarDaysIcon },
-  { href: "/accounts", label: "Clients", icon: HomeIcon },
-  { href: "/contacts", label: "Contacts", icon: UserGroupIcon },
-  { href: "/distributors", label: "Subs & Suppliers", icon: WrenchScrewdriverIcon },
-  { href: "/roadmap", label: "Add-ons", icon: SparklesIcon },
+  {
+    href: "/deals",
+    label: "Projects",
+    icon: RectangleStackIcon,
+    hint: "Your project pipeline — kanban view across stages from new lead through closeout. Click a card to open the project.",
+  },
+  {
+    href: "/schedule",
+    label: "Schedule",
+    icon: CalendarDaysIcon,
+    hint: "Calendar view of who's on which job and when. Assign subs to phases, see conflicts across projects.",
+  },
+  {
+    href: "/accounts",
+    label: "Clients",
+    icon: HomeIcon,
+    hint: "Your client roster — homeowners and the projects tied to each. Contact info, history, communication thread.",
+  },
+  {
+    href: "/contacts",
+    label: "Contacts",
+    icon: UserGroupIcon,
+    hint: "People you work with across clients and subs — architects, lenders, inspectors, designers. Searchable directory.",
+  },
+  {
+    href: "/distributors",
+    label: "Subs & Suppliers",
+    icon: WrenchScrewdriverIcon,
+    hint: "Your trade roster — framers, plumbers, electricians, lumberyards. Used by RFQs and milestone sub assignments.",
+  },
+  {
+    href: "/roadmap",
+    label: "Add-ons",
+    icon: SparklesIcon,
+    hint: "Optional features you can layer onto Builder — analytics, QuickBooks sync, AI walkthroughs, and more. Not required for launch.",
+  },
 ];
 
 export default function Sidebar() {
@@ -68,41 +100,54 @@ export default function Sidebar() {
               ? pathname === "/" || pathname.startsWith("/deals")
               : pathname.startsWith(item.href);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {item.label}
-            </Link>
+            <Tooltip key={item.href} label={item.hint} placement="right" className="w-full">
+              <Link
+                href={item.href}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {item.label}
+              </Link>
+            </Tooltip>
           );
         })}
       </nav>
 
       <div className="space-y-1 border-t border-slate-700 px-3 py-4">
-        <Link
-          href="/settings"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            pathname.startsWith("/settings")
-              ? "bg-blue-600 text-white"
-              : "text-slate-300 hover:bg-slate-800 hover:text-white"
-          }`}
+        <Tooltip
+          label="Your business profile, branding, default markup, payment terms, integrations (QuickBooks, Stripe). Sets the defaults that flow into every new project."
+          placement="right"
+          className="w-full"
         >
-          <Cog6ToothIcon className="h-5 w-5" />
-          Settings
-        </Link>
-        <button
-          onClick={onLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          <Link
+            href="/settings"
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              pathname.startsWith("/settings")
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <Cog6ToothIcon className="h-5 w-5" />
+            Settings
+          </Link>
+        </Tooltip>
+        <Tooltip
+          label="Sign out of your account on this device. Your data stays — sign back in any time."
+          placement="right"
+          className="w-full"
         >
-          <ArrowRightOnRectangleIcon className="h-5 w-5" />
-          Sign Out
-        </button>
+          <button
+            onClick={onLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <ArrowRightOnRectangleIcon className="h-5 w-5" />
+            Sign Out
+          </button>
+        </Tooltip>
         {profile?.email && (
           <p className="truncate px-3 py-1 text-[11px] text-slate-500">
             {profile.email}

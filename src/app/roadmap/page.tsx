@@ -15,7 +15,6 @@ import {
   ChartBarIcon,
   ScaleIcon,
   HomeModernIcon,
-  MegaphoneIcon,
   SparklesIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -137,21 +136,6 @@ const FEATURES: Feature[] = [
       "Optional 3D printed scale model add-on for high-end clients",
     ],
     preview: <WalkthroughPreview />,
-  },
-  {
-    id: "lead_gen",
-    title: "Lead Generation",
-    icon: MegaphoneIcon,
-    tagline: "Inbound leads that match your build profile.",
-    description:
-      "Referral tracking, automated follow-up, and (optional) marketplace placement on Houzz / GuildQuality / Angi-style platforms. We handle the integrations; you focus on the build.",
-    bullets: [
-      "Referral tracking + thank-you automation",
-      "Marketplace integrations (opt-in)",
-      "Lead scoring against your build profile (size, region, type)",
-      "Automated follow-up sequences for unconverted inquiries",
-    ],
-    preview: <LeadGenPreview />,
   },
 ];
 
@@ -482,28 +466,3 @@ function SchedulingPreview() {
   );
 }
 
-function LeadGenPreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="rounded border border-emerald-200 bg-emerald-50 p-2">
-        <div className="flex justify-between">
-          <span className="font-semibold text-emerald-900">New lead · 92% match</span>
-          <span className="text-[9px] text-emerald-600">2 hr ago</span>
-        </div>
-        <div className="mt-0.5 text-emerald-800">
-          Custom home, 4,200sqft, Boerne TX · referred by Maddox
-        </div>
-      </div>
-      <div className="rounded border border-slate-200 bg-white p-2">
-        <div className="flex justify-between text-slate-500">
-          <span>Maddox referral · auto-thanks sent</span>
-          <span>✓</span>
-        </div>
-      </div>
-      <div className="rounded border border-sky-200 bg-sky-50 p-2 text-sky-800">
-        <span className="font-semibold">Reminder:</span> Quote sent 6 days ago to Smith family,
-        no reply. Send nudge?
-      </div>
-    </div>
-  );
-}
