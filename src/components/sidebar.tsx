@@ -90,7 +90,7 @@ export default function Sidebar() {
         </p>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {NAV.map((item) => {
           // "/" matches Pipeline (deals list at root). Other paths use prefix
           // matching so deal detail pages (/deals/[id]) keep "Pipeline"
