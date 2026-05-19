@@ -12,6 +12,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -41,6 +43,9 @@ interface AuthContextValue {
     password: string,
     companyName: string,
   ) => Promise<void>;
+  /** Google OAuth sign-in. Creates org + profile on first sign-in.
+   *  Throws on failure (caller catches). */
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -118,12 +123,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(profileDoc);
   }
 
+  async function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    const uid = cred.user.uid;
+    // First-time Google sign-in: bootstrap the org + profile so the user
+    // doesn't land on a broken /deals waiting for a profile that never
+    // appears. Subsequent sign-ins skip this since the docs already exist.
+    const profileSnap = await getDoc(doc(db, "users", uid));
+    if (!profileSnap.exists()) {
+      const orgRef = uid;
+      const displayName = cred.user.displayName || cred.user.email || "My Builder";
+      await setDoc(doc(db, "orgs", orgRef), {
+        id: orgRef,
+        name: displayName,
+        owner_uid: uid,
+        created_at: serverTimestamp(),
+      });
+      const profileDoc: UserProfile = {
+        uid,
+        email: cred.user.email || "",
+        display_name: displayName,
+        org_ref: orgRef,
+        role: "owner",
+      };
+      await setDoc(doc(db, "users", uid), {
+        ...profileDoc,
+        created_at: serverTimestamp(),
+      });
+      setProfile(profileDoc);
+    }
+  }
+
   async function logout() {
     await signOut(auth);
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signInWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
