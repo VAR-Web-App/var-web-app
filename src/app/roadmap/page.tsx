@@ -449,10 +449,10 @@ function BidRow({
       ? "bg-sky-100 text-sky-800"
       : "bg-slate-100 text-slate-700";
   return (
-    <div className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1.5">
-      <span className="font-medium text-slate-900">{vendor}</span>
-      <span className="font-semibold tabular-nums text-slate-900">{price}</span>
-      <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${toneClass}`}>
+    <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1.5">
+      <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{vendor}</span>
+      <span className="w-16 text-right font-semibold tabular-nums text-slate-900">{price}</span>
+      <span className={`w-20 rounded px-1.5 py-0.5 text-center text-[9px] font-semibold ${toneClass}`}>
         {tag}
       </span>
     </div>
