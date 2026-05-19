@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, ArrowPathIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import NewDealModal from "@/components/new-deal-modal";
 import Tooltip from "@/components/tooltip";
@@ -29,6 +29,7 @@ export default function DealsPage() {
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -58,11 +59,9 @@ export default function DealsPage() {
     }
   }
 
-  async function onResetAndSeed() {
+  async function confirmResetAndSeed() {
     if (!profile || seeding) return;
-    if (!confirm(
-      "Replace all existing pipeline data (clients, subs, projects, milestones, photos, RFQs) with the builder sample fixtures?\n\nThis cannot be undone."
-    )) return;
+    setShowResetConfirm(false);
     setSeeding(true);
     try {
       await resetAndSeedBuilderDemo(profile.org_ref);
@@ -110,9 +109,9 @@ export default function DealsPage() {
         </div>
         <div className="flex items-center gap-2">
           {loaded && deals.length > 0 && (
-            <Tooltip label="Wipe all your projects, clients, subs, milestones, and photos — then reload a fresh set of demo fixtures. Useful for resetting a sales demo.">
+            <Tooltip label="Wipe everything in your pipeline (projects, clients, subs, milestones, photos, RFQs) and reload the sample fixtures. Use it to reset a demo — NOT on real data.">
               <button
-                onClick={onResetAndSeed}
+                onClick={() => setShowResetConfirm(true)}
                 disabled={seeding}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -224,7 +223,99 @@ export default function DealsPage() {
           }}
         />
       )}
+
+      {showResetConfirm && (
+        <ResetConfirmModal
+          dealCount={deals.length}
+          onCancel={() => setShowResetConfirm(false)}
+          onConfirm={() => void confirmResetAndSeed()}
+        />
+      )}
     </AppShell>
+  );
+}
+
+function ResetConfirmModal({
+  dealCount,
+  onCancel,
+  onConfirm,
+}: {
+  dealCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const armed = typed.trim().toUpperCase() === "RESET";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Reset to demo data?</h2>
+              <p className="mt-0.5 text-xs text-slate-500">This cannot be undone.</p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-3 px-6 py-5 text-sm text-slate-700">
+          <p>
+            This will permanently delete <strong>everything</strong> in your account and replace
+            it with the demo fixtures:
+          </p>
+          <ul className="space-y-1 rounded-md bg-slate-50 px-4 py-3 text-xs text-slate-600">
+            <li>• {dealCount} project{dealCount === 1 ? "" : "s"} + all milestones, draws, change orders, photos, RFQs</li>
+            <li>• All clients, contacts, subs &amp; suppliers</li>
+            <li>• All attachments and parsed floor-plan data</li>
+          </ul>
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+            <strong>Only use this on a demo account.</strong> If you have real client work in here,
+            cancel.
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Type <span className="font-mono font-bold text-red-700">RESET</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoFocus
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm uppercase tracking-wider focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-3">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!armed}
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            Yes, wipe and reset
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

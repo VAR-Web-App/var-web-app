@@ -18,6 +18,7 @@ import {
   SparklesIcon,
   CheckCircleIcon,
   ClockIcon,
+  BellAlertIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 
@@ -32,6 +33,21 @@ interface Feature {
 }
 
 const FEATURES: Feature[] = [
+  {
+    id: "notifications",
+    title: "Smart Notifications",
+    icon: BellAlertIcon,
+    tagline: "Know the moment a client signs, pays, or approves.",
+    description:
+      "Push + email + optional SMS the moment something happens. Client signs the proposal at 11pm — you know before the coffee's brewed. Sub bid lands, milestone gets approved, draw clears — surfaced in your inbox or pocket, never buried.",
+    bullets: [
+      "Per-event routing: email, push, SMS — pick what fires where",
+      "Client signed, deposit paid, milestone approved alerts",
+      "Sub bid received + RFQ closing-soon reminders",
+      "Quiet hours respected; daily digest fallback for low-priority events",
+    ],
+    preview: <NotificationsPreview />,
+  },
   {
     id: "email_digester",
     title: "Email Digester",
@@ -244,6 +260,35 @@ function FeatureCard({
 // Stylized non-functional UI. Each one shows the SHAPE of the feature
 // so the demo audience can imagine it working without us having to
 // actually build it.
+
+function NotificationsPreview() {
+  return (
+    <div className="w-72 space-y-1.5 text-[10px]">
+      <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5">
+        <div className="flex justify-between">
+          <span className="font-semibold text-emerald-900">Maddox signed the proposal</span>
+          <span className="text-[9px] text-emerald-600">just now</span>
+        </div>
+        <div className="mt-0.5 text-emerald-800">
+          Country Dream House · $1.2M · contract auto-advanced
+        </div>
+      </div>
+      <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5">
+        <div className="flex justify-between">
+          <span className="font-semibold text-sky-900">Foundation phase approved</span>
+          <span className="text-[9px] text-sky-600">8m ago</span>
+        </div>
+        <div className="mt-0.5 text-sky-800">$80k draw ready to generate · 1 tap</div>
+      </div>
+      <div className="rounded border border-slate-200 bg-white px-2 py-1.5 text-slate-600">
+        <div className="flex justify-between">
+          <span>Smith plumbing bid received</span>
+          <span className="text-slate-400">2h</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmailDigesterPreview() {
   return (

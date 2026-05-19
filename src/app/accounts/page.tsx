@@ -143,7 +143,7 @@ export default function AccountsPage() {
                 options={[
                   { value: "commercial", label: "Homeowner" },
                   { value: "federal", label: "Developer / Investor" },
-                  { value: "state", label: "Builder / GC (sub work)" },
+                  { value: "state", label: "General Contractor (sub work)" },
                 ]}
               />
               <Input
@@ -181,7 +181,7 @@ export default function AccountsPage() {
 // homeowner/developer/builder labels until we change the underlying
 // type union (kept stable so store + parsers don't break).
 function clientTypeLabel(t: Account["type"]): string {
-  return t === "commercial" ? "Homeowner" : t === "federal" ? "Developer" : "Builder/GC";
+  return t === "commercial" ? "Homeowner" : t === "federal" ? "Developer" : "General Contractor";
 }
 
 // ── shared form components ────────────────────────────────────────
