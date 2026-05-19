@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profileSnap = await getDoc(doc(db, "users", uid));
     if (!profileSnap.exists()) {
       const orgRef = uid;
-      const displayName = cred.user.displayName || cred.user.email || "My Builder";
+      const displayName = cred.user.displayName || cred.user.email || "My Company";
       await setDoc(doc(db, "orgs", orgRef), {
         id: orgRef,
         name: displayName,

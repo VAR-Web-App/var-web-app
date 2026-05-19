@@ -62,7 +62,7 @@ const NAV: NavItem[] = [
     href: "/roadmap",
     label: "Add-ons",
     icon: SparklesIcon,
-    hint: "Optional features you can layer onto Builder — analytics, QuickBooks sync, AI walkthroughs, and more. Not required for launch.",
+    hint: "Optional features you can layer onto Buildline — analytics, QuickBooks sync, AI walkthroughs, and more. Not required for launch.",
   },
 ];
 
@@ -83,7 +83,7 @@ export default function Sidebar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-sm font-bold">
             B
           </div>
-          <h1 className="text-lg font-bold tracking-tight">Builder</h1>
+          <h1 className="text-lg font-bold tracking-tight">Buildline</h1>
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">
           {profile?.display_name ?? "Custom home builder — Beta"}

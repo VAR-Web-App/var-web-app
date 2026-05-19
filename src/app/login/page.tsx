@@ -89,7 +89,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-600 text-base font-bold text-white">
             B
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Builder</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Buildline</h1>
           <p className="mt-1 text-sm text-slate-500">
             Custom home builder — project + estimate + draw management
           </p>
