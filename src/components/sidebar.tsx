@@ -82,10 +82,10 @@ export default function Sidebar() {
         <div className="flex items-center gap-2">
           <svg
             viewBox="0 0 64 64"
-            className="h-7 w-7 flex-shrink-0 rounded-full ring-1 ring-white/15"
+            className="h-7 w-7 flex-shrink-0"
             aria-label="Buildline logo"
           >
-            <circle cx="32" cy="32" r="32" fill="#0f172a" />
+            <circle cx="32" cy="32" r="32" fill="#0369a1" />
             <path
               d="M18 40 L32 24 L46 40"
               stroke="#ffffff"

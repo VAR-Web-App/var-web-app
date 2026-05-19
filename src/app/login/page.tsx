@@ -91,7 +91,7 @@ export default function LoginPage() {
             className="mx-auto mb-3 h-10 w-10"
             aria-label="Buildline logo"
           >
-            <circle cx="32" cy="32" r="32" fill="#0f172a" />
+            <circle cx="32" cy="32" r="32" fill="#0369a1" />
             <path
               d="M18 40 L32 24 L46 40"
               stroke="#ffffff"
