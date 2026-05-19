@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { Distributor } from "@/types";
 import { listDistributors, saveDistributor, deleteDistributor, newId } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -53,13 +54,19 @@ export default function DistributorsPage() {
             Subcontractors and material suppliers — your trade partners and vendor list for RFQs.
           </p>
         </div>
-        <button
-          onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+        <Tooltip
+          variant="directive"
+          label="Add a subcontractor (framer, plumber, electrician, etc.) or material supplier. Used by RFQs to invite bids and by milestones to assign work."
+          placement="left"
         >
-          <PlusIcon className="h-4 w-4" />
-          New Sub / Supplier
-        </button>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New Sub / Supplier
+          </button>
+        </Tooltip>
       </div>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

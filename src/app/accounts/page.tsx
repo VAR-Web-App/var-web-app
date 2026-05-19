@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { Account } from "@/types";
 import { listAccounts, saveAccount, deleteAccount, newId } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -58,13 +59,19 @@ export default function AccountsPage() {
             Homeowners, developers, and other clients tied to your projects.
           </p>
         </div>
-        <button
-          onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+        <Tooltip
+          variant="directive"
+          label="Add a new client (homeowner, developer, or other party who owns the project). You'll be able to pick them when starting a new project."
+          placement="left"
         >
-          <PlusIcon className="h-4 w-4" />
-          New Client
-        </button>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New Client
+          </button>
+        </Tooltip>
       </div>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

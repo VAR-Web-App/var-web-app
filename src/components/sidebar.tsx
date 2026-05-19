@@ -105,7 +105,7 @@ export default function Sidebar() {
                 href={item.href}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-blue-600 text-white"
+                    ? "bg-sky-700 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`}
               >
@@ -121,13 +121,13 @@ export default function Sidebar() {
         <Tooltip
           label="Your business profile, branding, default markup, payment terms, integrations (QuickBooks, Stripe). Sets the defaults that flow into every new project."
           placement="right"
-          className="w-full"
+          block
         >
           <Link
             href="/settings"
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               pathname.startsWith("/settings")
-                ? "bg-blue-600 text-white"
+                ? "bg-sky-700 text-white"
                 : "text-slate-300 hover:bg-slate-800 hover:text-white"
             }`}
           >
@@ -138,7 +138,7 @@ export default function Sidebar() {
         <Tooltip
           label="Sign out of your account on this device. Your data stays — sign back in any time."
           placement="right"
-          className="w-full"
+          block
         >
           <button
             onClick={onLogout}

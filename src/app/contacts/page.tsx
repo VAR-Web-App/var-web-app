@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { Account, Contact, Distributor } from "@/types";
 import {
   listContacts,
@@ -76,13 +77,19 @@ export default function ContactsPage() {
             People at your customer agencies, distributors, and manufacturer reps.
           </p>
         </div>
-        <button
-          onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        <Tooltip
+          variant="directive"
+          label="Add an architect, lender, inspector, designer, or anyone else you work with across projects. Searchable directory shared across all your clients."
+          placement="left"
         >
-          <PlusIcon className="h-4 w-4" />
-          New Contact
-        </button>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New Contact
+          </button>
+        </Tooltip>
       </div>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

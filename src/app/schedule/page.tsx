@@ -15,6 +15,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { Deal, Distributor } from "@/types";
 import { ProjectMilestone, MILESTONE_STATUS_STYLES, MILESTONE_STATUS_LABELS } from "@/types/builder";
 import {
@@ -454,14 +455,17 @@ function SubRow({
             <p className="truncate text-[11px] text-slate-500">{sub.account_number}</p>
           )}
         </div>
-        <button
-          onClick={onAssignClick}
-          className="flex-shrink-0 rounded p-1 text-slate-300 opacity-0 hover:bg-sky-50 hover:text-sky-700 group-hover:opacity-100 focus:opacity-100"
-          title="Assign this sub to a project phase"
-          aria-label="Assign work"
+        <Tooltip
+          label="Assign this sub to a project phase. Opens the picker to choose which project, which milestone, and which start/end dates."
         >
-          <PlusIcon className="h-4 w-4" />
-        </button>
+          <button
+            onClick={onAssignClick}
+            className="flex-shrink-0 rounded p-1 text-slate-300 opacity-0 hover:bg-sky-50 hover:text-sky-700 group-hover:opacity-100 focus:opacity-100"
+            aria-label="Assign work"
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </div>
       <div className={`relative h-14 flex-1 ${idle ? "bg-slate-50/60" : ""}`}>
         {/* Week column dividers */}
