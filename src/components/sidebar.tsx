@@ -80,9 +80,21 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 z-50 flex h-full w-56 flex-col bg-slate-900 text-white">
       <div className="border-b border-slate-700 px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-sm font-bold">
-            B
-          </div>
+          <svg
+            viewBox="0 0 64 64"
+            className="h-7 w-7 flex-shrink-0 rounded-full ring-1 ring-white/15"
+            aria-label="Buildline logo"
+          >
+            <circle cx="32" cy="32" r="32" fill="#0f172a" />
+            <path
+              d="M18 40 L32 24 L46 40"
+              stroke="#ffffff"
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
           <h1 className="text-lg font-bold tracking-tight">Buildline</h1>
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">

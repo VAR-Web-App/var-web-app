@@ -86,9 +86,21 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-600 text-base font-bold text-white">
-            B
-          </div>
+          <svg
+            viewBox="0 0 64 64"
+            className="mx-auto mb-3 h-10 w-10"
+            aria-label="Buildline logo"
+          >
+            <circle cx="32" cy="32" r="32" fill="#0f172a" />
+            <path
+              d="M18 40 L32 24 L46 40"
+              stroke="#ffffff"
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Buildline</h1>
           <p className="mt-1 text-sm text-slate-500">
             Custom home builder — project + estimate + draw management
