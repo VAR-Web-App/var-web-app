@@ -76,6 +76,7 @@ export default function DistributorsPage() {
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Trade / Account #</th>
               <th className="px-4 py-3 text-left">Primary Contact</th>
+              <th className="px-4 py-3 text-left">Mobile</th>
               <th className="px-4 py-3 text-left">Address</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -86,6 +87,7 @@ export default function DistributorsPage() {
                 <td className="px-4 py-3 font-medium text-slate-900">{d.name}</td>
                 <td className="px-4 py-3 font-mono text-xs text-slate-700">{d.account_number || "—"}</td>
                 <td className="px-4 py-3 text-xs text-slate-700">{d.order_poc_name || "—"}</td>
+                <td className="px-4 py-3 text-xs text-slate-700">{d.phone || "—"}</td>
                 <td className="px-4 py-3 whitespace-pre-line text-xs text-slate-700">{d.address || "—"}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
@@ -101,7 +103,7 @@ export default function DistributorsPage() {
             ))}
             {distributors.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">
                   No subs or suppliers yet.
                 </td>
               </tr>
@@ -118,6 +120,19 @@ export default function DistributorsPage() {
               <Input label="Trade or Account #" value={editing.account_number} onChange={(v) => setEditing({ ...editing, account_number: v })} placeholder="Plumber, Electrician, Lumber yard…" />
               <Input label="Primary contact" value={editing.order_poc_name ?? ""} onChange={(v) => setEditing({ ...editing, order_poc_name: v })} />
             </div>
+            <Input label="Mobile number" value={editing.phone ?? ""} onChange={(v) => setEditing({ ...editing, phone: v })} placeholder="(210) 555-0142 — for schedule text alerts" />
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={editing.sms_consent ?? false}
+                onChange={(e) => setEditing({ ...editing, sms_consent: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-sky-700"
+              />
+              <span>
+                This sub agreed to receive schedule text notifications.
+                FrameFlow won&apos;t text a sub until this is checked.
+              </span>
+            </label>
             <TextArea label="Address" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} />
             <TextArea label="Notes" value={editing.notes} onChange={(v) => setEditing({ ...editing, notes: v })} />
           </div>

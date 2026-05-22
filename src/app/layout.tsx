@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Buildline — Project + estimate + draw management for custom home builders",
+  title: "FrameFlow — Project + estimate + draw management for custom home builders",
   description:
     "AI-assisted estimating, draw schedule + lender-ready requests, sub coordination, customer portal — the custom-home builder workflow in one app.",
 };

@@ -62,7 +62,7 @@ const NAV: NavItem[] = [
     href: "/roadmap",
     label: "Add-ons",
     icon: SparklesIcon,
-    hint: "Optional features you can layer onto Buildline — analytics, QuickBooks sync, AI walkthroughs, and more. Not required for launch.",
+    hint: "Optional features you can layer onto FrameFlow — analytics, QuickBooks sync, AI walkthroughs, and more. Not required for launch.",
   },
 ];
 
@@ -83,7 +83,7 @@ export default function Sidebar() {
           <svg
             viewBox="0 0 64 64"
             className="h-7 w-7 flex-shrink-0"
-            aria-label="Buildline logo"
+            aria-label="FrameFlow logo"
           >
             <circle cx="32" cy="32" r="32" fill="#0369a1" />
             <path
@@ -95,7 +95,7 @@ export default function Sidebar() {
               fill="none"
             />
           </svg>
-          <h1 className="text-lg font-bold tracking-tight">Buildline</h1>
+          <h1 className="text-lg font-bold tracking-tight">FrameFlow</h1>
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">
           {profile?.display_name ?? "Custom home builder — Beta"}
