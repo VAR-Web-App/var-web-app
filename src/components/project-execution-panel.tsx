@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   CheckCircleIcon,
@@ -35,9 +35,13 @@ import {
   saveDeal,
   listDistributors,
   listChangeOrders,
+  getSettings,
+  refreshSubScheduleLink,
   effectiveContractValue,
 } from "@/lib/store";
+import { toE164, sendSms, composeAssignmentSms, composeRescheduleSms } from "@/lib/sms";
 import Tooltip from "@/components/tooltip";
+import WeatherBanner from "@/components/weather-banner";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -50,6 +54,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -58,13 +63,15 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       listQuoteLines(deal.id),
       listDistributors(deal.org_ref),
       listChangeOrders(deal.id),
+      getSettings(deal.org_ref),
     ]).then(
-      ([m, lines, subList, cos]) => {
+      ([m, lines, subList, cos, settings]) => {
         if (!active) return;
         setMilestones(m);
         setSubs(subList);
         setChangeOrders(cos);
         setQuoteLines(lines);
+        setCompanyName(settings?.company_name || "");
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
         // floor-plan apply-to-estimate save lines but not the deal record).
@@ -257,6 +264,65 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     };
     setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
     await saveMilestone(updated);
+    // Text any sub newly added to this phase (removals don't notify).
+    const added = subRefs.filter((id) => !(m.assigned_subs || []).includes(id));
+    void notifyAssignedSubs(updated, added);
+  }
+
+  // Fire-and-forget SMS to subs newly assigned to a phase. Silent if the
+  // sub has no mobile on file, the number is unparseable, or Twilio
+  // isn't configured server-side — never blocks the assignment save.
+  async function notifyAssignedSubs(m: ProjectMilestone, subIds: string[]) {
+    for (const subId of subIds) {
+      const sub = subs.find((s) => s.id === subId);
+      if (!sub?.phone || !sub.sms_consent) continue;
+      const to = toE164(sub.phone);
+      if (!to) continue;
+      void sendSms(
+        to,
+        composeAssignmentSms({
+          builderName: companyName,
+          projectName: deal.name,
+          phaseName: m.name,
+          address: deal.ship_to_address,
+          startDate: m.planned_start_date,
+          endDate: m.planned_end_date,
+          scheduleLink: await subScheduleLink(sub.id),
+        })
+      );
+    }
+  }
+
+  // Fire-and-forget SMS to every sub on a phase whose dates just changed.
+  async function notifyRescheduledSubs(m: ProjectMilestone) {
+    for (const subId of m.assigned_subs || []) {
+      const sub = subs.find((s) => s.id === subId);
+      if (!sub?.phone || !sub.sms_consent) continue;
+      const to = toE164(sub.phone);
+      if (!to) continue;
+      void sendSms(
+        to,
+        composeRescheduleSms({
+          builderName: companyName,
+          projectName: deal.name,
+          phaseName: m.name,
+          startDate: m.planned_start_date,
+          endDate: m.planned_end_date,
+          scheduleLink: await subScheduleLink(sub.id),
+        })
+      );
+    }
+  }
+
+  // Refresh + return the sub's no-login schedule URL, or undefined if the
+  // snapshot write fails (e.g. Firestore rules not yet deployed).
+  async function subScheduleLink(subId: string): Promise<string | undefined> {
+    try {
+      const token = await refreshSubScheduleLink(subId, companyName);
+      return `${location.origin}/s/${token}`;
+    } catch {
+      return undefined;
+    }
   }
 
   async function transition(m: ProjectMilestone, next: MilestoneStatus) {
@@ -348,7 +414,9 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-4">
+      <WeatherBanner deal={deal} milestones={milestones} />
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Project Schedule + Draws</h2>
@@ -383,6 +451,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       <GanttChart
         milestones={milestones}
         onChangeDates={updateMilestoneDates}
+        onReschedule={notifyRescheduledSubs}
       />
 
       <ul className="divide-y divide-slate-100">
@@ -411,6 +480,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         <Stat label="Paid" value={fmtMoney(totals.released)} accent="emerald" />
       </div>
     </section>
+    </div>
   );
 }
 
@@ -488,9 +558,10 @@ function MilestoneRow({
   onRemove: () => void;
 }) {
   const statusStyle = MILESTONE_STATUS_STYLES[m.status];
-  // Show the draw-request link once we've started the phase (i.e. once
-  // the GC actually has something to bill). Pending phases get no link.
-  const hasDrawRequest = m.status !== "pending";
+  // Show the draw-request link once the GC marks the phase complete
+  // (awaiting_approval onward) — that's the point a draw can be billed.
+  // Pending + in-progress phases get no link.
+  const hasDrawRequest = m.status !== "pending" && m.status !== "in_progress";
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const assignedRefs = m.assigned_subs || [];
@@ -709,7 +780,7 @@ function nextActions(status: MilestoneStatus): { next: MilestoneStatus; label: s
         next: "awaiting_approval",
         label: "Mark complete (request draw)",
         style: primary,
-        hint: "Tell the client this phase is done. They'll see an approval button on their portal — once they approve, you can generate the draw / invoice.",
+        hint: "Tell the client this phase is done. This unlocks the draw / invoice for this phase, and the client sees an approval-and-pay button on their portal.",
       }];
     case "awaiting_approval":
       return [
@@ -783,9 +854,11 @@ function Stat({
 function GanttChart({
   milestones,
   onChangeDates,
+  onReschedule,
 }: {
   milestones: ProjectMilestone[];
   onChangeDates: (m: ProjectMilestone, patch: { planned_start_date?: string; planned_end_date?: string }) => void;
+  onReschedule: (m: ProjectMilestone) => void;
 }) {
   // Today is captured once on mount via useEffect — calling Date.now()
   // during render violates React's purity rules and triggers a lint
@@ -879,6 +952,7 @@ function GanttChart({
                 left={left}
                 width={width}
                 onChangeDates={(patch) => onChangeDates(m, patch)}
+                onReschedule={() => onReschedule(m)}
               />
             );
           })}
@@ -893,20 +967,46 @@ function GanttBar({
   left,
   width,
   onChangeDates,
+  onReschedule,
 }: {
   milestone: ProjectMilestone;
   left: number;
   width: number;
   onChangeDates: (patch: { planned_start_date?: string; planned_end_date?: string }) => void;
+  onReschedule: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const color = ganttBarColor(m.status);
+
+  // Snapshot the dates when the editor opens so closing it can tell
+  // whether anything actually changed — date <input>s fire onChange per
+  // keystroke, so we notify the assigned subs once, on close, not on
+  // every edit.
+  const datesAtOpen = useRef<{ start?: string; end?: string } | null>(null);
+  function openEditor() {
+    datesAtOpen.current = {
+      start: m.planned_start_date,
+      end: m.planned_end_date,
+    };
+    setEditing(true);
+  }
+  function closeEditor() {
+    const snap = datesAtOpen.current;
+    if (
+      snap &&
+      (snap.start !== m.planned_start_date || snap.end !== m.planned_end_date)
+    ) {
+      onReschedule();
+    }
+    datesAtOpen.current = null;
+    setEditing(false);
+  }
 
   return (
     <div className="relative h-7">
       <div className="absolute inset-y-0 left-0 right-0 rounded bg-slate-100" />
       <button
-        onClick={() => setEditing((v) => !v)}
+        onClick={() => (editing ? closeEditor() : openEditor())}
         className={`absolute inset-y-0 flex items-center overflow-hidden rounded text-[10px] font-medium text-white shadow-sm transition-opacity hover:opacity-90 ${color}`}
         style={{ left: `${left}%`, width: `${width}%` }}
         title={`${m.name} · ${m.planned_start_date} → ${m.planned_end_date}`}
@@ -939,7 +1039,7 @@ function GanttBar({
           </div>
           <div className="mt-2 flex justify-end">
             <button
-              onClick={() => setEditing(false)}
+              onClick={closeEditor}
               className="rounded bg-slate-800 px-3 py-1 text-[11px] font-medium text-white hover:bg-slate-900"
             >
               Done

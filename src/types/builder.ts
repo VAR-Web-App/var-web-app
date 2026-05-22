@@ -230,6 +230,34 @@ export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
   disputed: "bg-red-100 text-red-800 ring-red-200",
 };
 
+// ── Sub schedule link (public, no-login) ─────────────────────────
+// A no-login page a sub opens from their schedule text — lives at the
+// top-level sub_schedule_links/{token} doc, public-read, gated only by
+// the unguessable token (same pattern as ClientSignLink). The builder
+// writes a fresh snapshot of the sub's assignments whenever they're
+// assigned or rescheduled; the page renders purely from this snapshot.
+
+export interface SubScheduleAssignment {
+  project_name: string;
+  project_address?: string;
+  phase_name: string;
+  status: MilestoneStatus;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface SubScheduleLink {
+  /** Random unguessable token; also the doc ID. */
+  token: string;
+  sub_ref: string;
+  org_ref: string;
+  sub_name: string;
+  builder_name: string;
+  assignments: SubScheduleAssignment[];
+  /** ISO timestamp of the last snapshot refresh. */
+  updated_at: string;
+}
+
 export interface ProjectPhoto {
   id: string;
   deal_ref: string;

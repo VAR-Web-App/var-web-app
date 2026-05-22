@@ -102,6 +102,22 @@ service cloud.firestore {
         && resource.data.signed_at == null;
     }
 
+    // Sub schedule links: PUBLIC collection, same trust model as
+    // client_sign_links. The token (doc ID) is the trust boundary — a
+    // sub opens /s/{token} from their schedule text with no account.
+    // The doc holds a read-only snapshot of that sub's assignments.
+    //
+    // - allow read: public
+    // - allow create/update/delete: only the authed builder, own org
+    match /sub_schedule_links/{token} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.token == token
+        && request.resource.data.org_ref == callerOrgRef();
+      allow update, delete: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
+    }
+
     // Settings: keyed by org_ref directly. Each user can only access their
     // own org's settings doc.
     match /settings/{orgRef} {

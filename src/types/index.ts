@@ -182,6 +182,15 @@ export interface Distributor {
   name: string;
   account_number: string;
   address: string;
+  /** Mobile number for SMS schedule notifications. Stored as entered;
+   *  normalized to E.164 at send time. */
+  phone?: string;
+  /** The sub confirmed they agree to receive schedule text messages.
+   *  Gates every SMS send — recorded consent for A2P 10DLC compliance. */
+  sms_consent?: boolean;
+  /** Stable token for this sub's no-login schedule page (/s/{token}).
+   *  Generated on first schedule notification. */
+  schedule_token?: string;
   order_poc_ref?: string;
   order_poc_name?: string;
   notes: string;

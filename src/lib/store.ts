@@ -208,7 +208,12 @@ export async function deleteAttachment(id: string): Promise<void> {
 // One milestone == one draw. Schema in src/types/builder.ts mirrors
 // ProjectPulse's MilestoneRecord so behaviors transfer.
 
-import type { ProjectMilestone, ProjectPhoto } from "@/types/builder";
+import type {
+  ProjectMilestone,
+  ProjectPhoto,
+  SubScheduleLink,
+  SubScheduleAssignment,
+} from "@/types/builder";
 
 export async function listMilestones(dealRef: string): Promise<ProjectMilestone[]> {
   const q = query(collection(db, "project_milestones"), where("deal_ref", "==", dealRef));
@@ -339,6 +344,75 @@ export async function markSignLinkSynced(token: string): Promise<void> {
 
 export async function deleteRFQ(id: string): Promise<void> {
   await removeFromCollection("project_rfqs", id);
+}
+
+// ── sub schedule links (public, no-login sub schedule page) ──────
+//
+// Top-level sub_schedule_links/{token} doc — public read, gated by the
+// unguessable token (see firestore.rules). Stores a denormalized
+// snapshot of one sub's assignments so the /s/{token} page renders
+// without auth and without reading org-scoped collections.
+
+export async function getSubScheduleLink(
+  token: string,
+): Promise<SubScheduleLink | undefined> {
+  const snap = await getDoc(doc(db, "sub_schedule_links", token));
+  return snap.exists() ? (snap.data() as SubScheduleLink) : undefined;
+}
+
+/**
+ * Recompute and persist a sub's schedule snapshot, returning the stable
+ * token for their /s/{token} page. Generates + stores the token on the
+ * distributor doc on first call. Re-reads the distributor fresh so a
+ * stale caller-side copy can't orphan a second token.
+ */
+export async function refreshSubScheduleLink(
+  subId: string,
+  builderName: string,
+): Promise<string> {
+  const subSnap = await getDoc(doc(db, "distributors", subId));
+  if (!subSnap.exists()) throw new Error("Sub not found");
+  const sub = { id: subSnap.id, ...(subSnap.data() as Omit<Distributor, "id">) };
+
+  let token = sub.schedule_token;
+  if (!token) {
+    token = crypto.randomUUID();
+    await saveDistributor({ ...sub, schedule_token: token });
+  }
+
+  // Snapshot the sub's assignments across every project in the org.
+  const deals = await listDeals(sub.org_ref);
+  const assignments: SubScheduleAssignment[] = [];
+  for (const d of deals) {
+    const milestones = await listMilestones(d.id);
+    for (const m of milestones) {
+      if ((m.assigned_subs || []).includes(subId)) {
+        assignments.push({
+          project_name: d.name,
+          project_address: d.ship_to_address,
+          phase_name: m.name,
+          status: m.status,
+          start_date: m.planned_start_date,
+          end_date: m.planned_end_date,
+        });
+      }
+    }
+  }
+  assignments.sort((a, b) =>
+    (a.start_date || "").localeCompare(b.start_date || ""),
+  );
+
+  const link: SubScheduleLink = {
+    token,
+    sub_ref: subId,
+    org_ref: sub.org_ref,
+    sub_name: sub.name,
+    builder_name: builderName,
+    assignments,
+    updated_at: new Date().toISOString(),
+  };
+  await setDoc(doc(db, "sub_schedule_links", token), link, { merge: false });
+  return token;
 }
 
 // ── seeding (called once per new org on first deal page load) ────

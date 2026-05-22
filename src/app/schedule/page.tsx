@@ -23,7 +23,10 @@ import {
   listDistributors,
   listMilestones,
   saveMilestone,
+  getSettings,
+  refreshSubScheduleLink,
 } from "@/lib/store";
+import { toE164, sendSms, composeAssignmentSms } from "@/lib/sms";
 import { useAuth } from "@/lib/auth-context";
 
 interface SubAssignment {
@@ -51,6 +54,7 @@ export default function SchedulePage() {
   const [loaded, setLoaded] = useState(false);
   const [todayMs, setTodayMs] = useState<number | null>(null);
   const [assignSubId, setAssignSubId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
     setTodayMs(Date.now());
@@ -68,6 +72,31 @@ export default function SchedulePage() {
     };
     setMilestones((prev) => prev.map((x) => (x.id === milestoneId ? updated : x)));
     await saveMilestone(updated);
+    // Text the sub that they've been scheduled on this phase.
+    const sub = subs.find((s) => s.id === subId);
+    const deal = deals.find((d) => d.id === m.deal_ref);
+    const to = sub?.phone && sub.sms_consent ? toE164(sub.phone) : null;
+    if (to && sub && deal) {
+      let scheduleLink: string | undefined;
+      try {
+        const linkToken = await refreshSubScheduleLink(sub.id, companyName);
+        scheduleLink = `${location.origin}/s/${linkToken}`;
+      } catch {
+        scheduleLink = undefined;
+      }
+      void sendSms(
+        to,
+        composeAssignmentSms({
+          builderName: companyName,
+          projectName: deal.name,
+          phaseName: m.name,
+          address: deal.ship_to_address,
+          startDate: m.planned_start_date,
+          endDate: m.planned_end_date,
+          scheduleLink,
+        })
+      );
+    }
   }
 
   async function unassignSubFromMilestone(subId: string, milestoneId: string) {
@@ -86,9 +115,10 @@ export default function SchedulePage() {
     if (!profile) return;
     let active = true;
     async function load() {
-      const [d, s] = await Promise.all([
+      const [d, s, settings] = await Promise.all([
         listDeals(profile!.org_ref),
         listDistributors(profile!.org_ref),
+        getSettings(profile!.org_ref),
       ]);
       if (!active) return;
       // Pull milestones for every project. With small N this is fine; if
@@ -103,6 +133,7 @@ export default function SchedulePage() {
       setDeals(d);
       setMilestones(allMilestones);
       setSubs(s);
+      setCompanyName(settings?.company_name || "");
       setLoaded(true);
     }
     void load();
