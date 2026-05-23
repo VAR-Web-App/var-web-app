@@ -43,9 +43,10 @@ The core of FrameFlow's differentiator vs JobTread / Buildxact: quantity-based e
 Sub-facing functionality. Some pieces already coded (uncommitted on `builder-app`), most not.
 
 - **🚧 Sub schedule notifications (SMS)** — `lib/sms.ts`, `/api/sms` route, sub-schedule public page `/s/[token]`, weather banner, A2P 10DLC consent checkbox. Currently in the working tree on `builder-app`, also committed onto `estimate-upgrade`.
+- **📋 Sub re-notify on schedule change** *(Barry)* — when a phase date moves (weather, materials delay, etc.), auto-trigger an SMS to the assigned sub with the new date. The notify plumbing already exists; this is the change-detection trigger on top of it.
 - **📋 Subcontractor portal** *(Barry)* — sub-facing UI where a sub can see their assigned phases, dates, draws, RFQ status without logging into the GC's account. Likely a token-based no-login page (`/sub/[token]`), separate from the client portal we already have.
 - **📋 Sub bidding portal** *(Barry)* — RFQ out to multiple subs of the same trade simultaneously, collect bids in one place, side-by-side compare. Pairs naturally with Sub Bid Intelligence (below).
-- **💡 Sub Scheduling — Auto-notify & Conflicts** *(roadmap)* — T-7 / T-2 day SMS to subs, conflict detection across projects, weather-aware date shifts, per-sub performance scoring. Builds on the in-flight SMS work.
+- **💡 Sub Scheduling — Auto-notify & Conflicts** *(roadmap)* — T-7 / T-2 day SMS to subs, conflict detection across projects, weather-aware date shifts, per-sub performance scoring. Builds on the in-flight SMS work + the re-notify item above.
 - **💡 Sub Bid Intelligence** *(roadmap)* — industry-benchmark comparison (RSMeans-style), historical-bid comparison, sub performance scoring, auto-flag bids missing scope. Pairs with the bidding portal.
 
 ---
@@ -58,6 +59,7 @@ Banks process construction draws differently — some want email + invoice PDF, 
 - **📋 Bank-process library** *(implied)* — knowledge base of common bank draw workflows (email vs portal upload vs in-person inspection), updatable as we hit more banks.
 - **📋 Per-bank templates** *(implied)* — pre-built email bodies, attachment bundles, line-item summaries shaped to each bank's requirements.
 - **📋 Lien waiver generation** *(implied)* — many banks require waivers with draws; auto-generate from sub bids + payment status.
+- **📋 Photo / scan upload for invoices + receipts on a draw** *(Barry)* — mobile camera input (`<input type="file" capture="environment">`) on the draw page so subs' invoices and supplier receipts can be attached directly from the phone. Open question: just attach, or OCR the dollar amount / vendor / date with the existing Textract pipeline so it auto-fills a payment record.
 
 > *Note: Barry said "a bank wanted me to send an email with invoice attachments and the total" — "me" = Barry, from his own experience.*
 
@@ -76,8 +78,19 @@ Things that surface what's happening in projects without Barry having to dig.
 ## E. Financial intelligence
 
 - **💡 Dynamic Finance Forecasting** *(roadmap)* — phase-level cost-vs-actuals, cash flow projection (when cash hits, when bills clear), cost overrun alerts, profit margin by phase/sub/project type.
-- **📋 Projected vs. actual budget variance on invoices** *(older note)* — was an item on the historical TODO list; should be folded into finance forecasting or built standalone.
-- **🚧 QuickBooks sync** — mentioned in FrameFlow's project notes as "mock/preview only." Real QB integration is open.
+- **📋 Project-level overall budget tracking** *(Barry)* — budget vs. committed vs. actual at the project level (not just line-item totals). Today each Deal carries roll-up totals from QuoteLines (`total_quote_value`, `total_cost`, `margin_percent`); a real budget view comparing original budget → commitments via sub awards → actual spend is missing. Foundation for the forecasting feature above.
+- **📋 Projected vs. actual budget variance on invoices** *(older note)* — was an item on the historical TODO list; folded into the project-level budget tracking above.
+- **🚧 QuickBooks sync — *mock today*** — the draw page has a "Sync to QuickBooks" button that generates fake invoice numbers; the code comments say "real QB sync is Q3 (OAuth flow + invoice push API)." Real integration needs Intuit OAuth, invoice/customer push via QBO API, and two-way payment sync. Open project; high value because QB is where most builders' books live.
+
+## I. Payments & receipts (Barry's new ask)
+
+Money in, money out, and the proof. Today FrameFlow has draws (outbound to client) and sub bids, but no actual *payment* records — checks written, cards run, deposits received are not tracked yet.
+
+- **📋 Outgoing sub / supplier payment log** *(Barry)* — record each payment with method (check + check #, CC, ACH, cash), date, against which sub or supplier invoice. Lets the project show "Framer paid $18k via check #1247 on 3/14." Pairs with QB sync.
+- **📋 Incoming client payment log** *(Barry)* — record received payments: deposits, draw releases, retainers. Method + date. Drives the cash-flow projection in the forecasting feature.
+- **📋 AR / AP rollup** *(implied)* — at-a-glance view: what subs/suppliers we owe, what clients owe us, aging buckets. Naturally rolls up from the two logs above.
+- **📋 Receipt / invoice photo capture** *(Barry — see also Section C)* — mobile camera attach for invoices, receipts, packing slips. Same pipeline whether it's a draw attachment or a sub-payment receipt.
+- **📋 Optional OCR auto-fill** — feed photographed receipts through the existing Textract pipeline to extract vendor / amount / date and pre-fill a payment record. Half the typing eliminated.
 
 ---
 
