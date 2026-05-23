@@ -12,6 +12,14 @@
  * without touching the UI or the formula evaluator.
  */
 
+/** A labeled option for property `kind === "option"`. */
+export interface AssemblyPropertyOption {
+  /** Display label, e.g. "Vinyl" or "Casement". */
+  label: string;
+  /** Numeric value the formula sees, often a cost multiplier. */
+  value: number;
+}
+
 /** A named property of an Assembly — e.g. "Wall Length" in linear feet. */
 export interface AssemblyProperty {
   /** Property name as referenced in formulas, e.g. "Wall Length". */
@@ -23,11 +31,15 @@ export interface AssemblyProperty {
   /**
    * How the property is entered.
    * - "number" (default): free-form number input.
-   * - "choice": dropdown of preset values, e.g. stud spacing 12/16/24.
+   * - "choice": dropdown of numeric values (e.g. stud spacing 12/16/24).
+   * - "option": dropdown of labeled options (e.g. "Vinyl" → 1.0, "Wood" → 2.3).
+   *   Formulas see the numeric value; the UI shows the label.
    */
-  kind?: "number" | "choice";
+  kind?: "number" | "choice" | "option";
   /** Allowed values when `kind === "choice"`. */
   choices?: number[];
+  /** Labeled options when `kind === "option"`. */
+  options?: AssemblyPropertyOption[];
 }
 
 /** A material that makes up an Assembly, with a quantity formula. */
@@ -46,10 +58,19 @@ export interface AssemblyMaterial {
    * the 1build API's format ("({Wall Length}*{Wall Height}) + 1 LF").
    */
   quantityFormula: string;
-  /** Material unit cost in USD. Replaced by 1build's localized rate later. */
+  /** Fixed material unit cost (USD). Used when unitCostFormula is absent. */
   unitCostUsd: number;
-  /** Labor cost per unit installed, in USD. */
+  /**
+   * Optional cost formula evaluated against the same property bag as
+   * quantityFormula. When present, this overrides unitCostUsd — useful
+   * when the unit cost varies with options (e.g. "Vinyl" vs "Wood"
+   * window frames, where the same line scales by a material multiplier).
+   */
+  unitCostFormula?: string;
+  /** Fixed labor cost per unit (USD). */
   laborCostUsd?: number;
+  /** Optional labor cost formula, overrides laborCostUsd when present. */
+  laborCostFormula?: string;
   /** Optional CSI division code for grouping ("06" = Wood/Composites, etc.). */
   csiDivision?: string;
 }
@@ -67,6 +88,8 @@ export interface Assembly {
     | "drywall"
     | "flooring"
     | "exterior"
+    | "millwork"
+    | "finishes"
     | "other";
   properties: AssemblyProperty[];
   materials: AssemblyMaterial[];

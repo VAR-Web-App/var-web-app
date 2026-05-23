@@ -341,6 +341,198 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       },
     ],
   },
+  {
+    id: "stub-window-unit",
+    name: "Window — single unit (installed)",
+    description:
+      "Standard residential window. Cost scales with size, frame material, " +
+      "and style — change the dropdowns live with the client.",
+    trade: "exterior",
+    properties: [
+      { name: "Width", uom: "IN", defaultValue: 30 },
+      { name: "Height", uom: "IN", defaultValue: 48 },
+      {
+        name: "Frame Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Vinyl", value: 1.0 },
+          { label: "Fiberglass", value: 1.85 },
+          { label: "Wood", value: 2.3 },
+          { label: "Aluminum-clad wood", value: 2.7 },
+        ],
+      },
+      {
+        name: "Window Style",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Picture (fixed)", value: 0.85 },
+          { label: "Double-hung", value: 1.0 },
+          { label: "Slider", value: 1.05 },
+          { label: "Awning", value: 1.15 },
+          { label: "Casement", value: 1.2 },
+        ],
+      },
+      { name: "Quantity", uom: "EA", defaultValue: 1 },
+    ],
+    materials: [
+      {
+        name: "Window unit + flashing + trim (installed)",
+        uom: "EA",
+        quantityFormula: "{Quantity}",
+        // Vinyl double-hung baseline: ~$265 mat + ~$105 labor for 30×48.
+        // Formulas scale with size and the chosen frame/style.
+        unitCostUsd: 0,
+        unitCostFormula:
+          "(120 + {Width} * {Height} * 0.10) * {Frame Material} * {Window Style}",
+        laborCostUsd: 0,
+        laborCostFormula:
+          "(55 + {Width} * {Height} * 0.022) * {Window Style}",
+        csiDivision: "08",
+      },
+    ],
+  },
+  {
+    id: "stub-door-interior",
+    name: "Door — interior, single unit (installed)",
+    description: "Pre-hung interior door with casing and hardware.",
+    trade: "millwork",
+    properties: [
+      { name: "Width", uom: "IN", defaultValue: 30 },
+      { name: "Height", uom: "IN", defaultValue: 80 },
+      {
+        name: "Door Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Hollow-core flat", value: 1.0 },
+          { label: "Hollow-core 6-panel", value: 1.2 },
+          { label: "Solid-core", value: 1.6 },
+          { label: "Glass panel", value: 2.1 },
+        ],
+      },
+      { name: "Quantity", uom: "EA", defaultValue: 1 },
+    ],
+    materials: [
+      {
+        name: "Pre-hung interior door + casing + hardware",
+        uom: "EA",
+        quantityFormula: "{Quantity}",
+        unitCostUsd: 0,
+        unitCostFormula: "(110 + {Width} * {Height} * 0.06) * {Door Type}",
+        laborCostUsd: 85.0,
+        csiDivision: "08",
+      },
+    ],
+  },
+  {
+    id: "stub-door-exterior",
+    name: "Door — exterior, single unit (installed)",
+    description: "Pre-hung exterior door with threshold, weather-strip, and lockset.",
+    trade: "exterior",
+    properties: [
+      { name: "Width", uom: "IN", defaultValue: 36 },
+      { name: "Height", uom: "IN", defaultValue: 80 },
+      {
+        name: "Door Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Steel, insulated", value: 1.0 },
+          { label: "Fiberglass", value: 1.6 },
+          { label: "Wood", value: 2.5 },
+        ],
+      },
+      { name: "Quantity", uom: "EA", defaultValue: 1 },
+    ],
+    materials: [
+      {
+        name: "Pre-hung exterior door + lockset + threshold",
+        uom: "EA",
+        quantityFormula: "{Quantity}",
+        unitCostUsd: 0,
+        unitCostFormula:
+          "(280 + {Width} * {Height} * 0.10) * {Door Material}",
+        laborCostUsd: 0,
+        laborCostFormula: "135 + {Width} * {Height} * 0.04",
+        csiDivision: "08",
+      },
+    ],
+  },
+  {
+    id: "stub-interior-paint",
+    name: "Interior paint — walls (primer + 2 coats)",
+    description:
+      "Interior wall paint, primer plus two finish coats. Use total wall area " +
+      "(LF wall × ceiling height) for the surface count.",
+    trade: "finishes",
+    properties: [
+      { name: "Wall Area", uom: "SF", defaultValue: 800 },
+      {
+        name: "Paint Grade",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder", value: 1.0 },
+          { label: "Mid (eggshell, washable)", value: 1.25 },
+          { label: "Premium (low-VOC, designer)", value: 1.7 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Paint + primer + sundries (per SF, 2 coats)",
+        uom: "SF",
+        quantityFormula: "{Wall Area}",
+        unitCostUsd: 0,
+        unitCostFormula: "0.42 * {Paint Grade}",
+        laborCostUsd: 0,
+        laborCostFormula: "0.65 * {Paint Grade}",
+        csiDivision: "09",
+      },
+    ],
+  },
+  {
+    id: "stub-hardwood-floor",
+    name: 'Hardwood flooring — 3/4" solid (installed)',
+    description:
+      "Solid 3/4-inch tongue-and-groove hardwood with sanding and finish. " +
+      "Wood species drives the material cost.",
+    trade: "flooring",
+    properties: [
+      { name: "Floor Area", uom: "SF", defaultValue: 500 },
+      {
+        name: "Wood Species",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Red oak", value: 1.0 },
+          { label: "White oak", value: 1.3 },
+          { label: "Maple", value: 1.4 },
+          { label: "Hickory", value: 1.7 },
+          { label: "Walnut", value: 2.8 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Hardwood flooring + underlayment + finish",
+        uom: "SF",
+        quantityFormula: "{Floor Area}",
+        unitCostUsd: 0,
+        unitCostFormula: "7.50 * {Wood Species}",
+        laborCostUsd: 4.5,
+        csiDivision: "09",
+      },
+    ],
+  },
 ];
 
 /** Find a stub assembly by id, or null if not in the catalog. */

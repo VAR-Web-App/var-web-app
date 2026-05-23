@@ -112,7 +112,26 @@ export default function AssemblyForm({
                 <span className="mb-1 block text-sm font-medium text-slate-700">
                   {p.name}
                 </span>
-                {p.kind === "choice" && p.choices ? (
+                {p.kind === "option" && p.options ? (
+                  <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-300 focus-within:border-sky-500">
+                    <select
+                      value={value}
+                      onChange={(e) => setValue(parseFloat(e.target.value))}
+                      className="w-full bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none"
+                    >
+                      {p.options.map((opt) => (
+                        <option key={opt.label} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {p.uom ? (
+                      <span className="flex items-center bg-slate-50 px-3 text-xs font-medium text-slate-500">
+                        {p.uom}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : p.kind === "choice" && p.choices ? (
                   <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-300 focus-within:border-sky-500">
                     <select
                       value={value}

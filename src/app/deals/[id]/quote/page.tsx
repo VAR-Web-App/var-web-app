@@ -330,6 +330,88 @@ export default function DealQuotePage({
     );
   }
 
+  /**
+   * Duplicate an existing assembly instance — same properties, fresh id,
+   * label suffixed with "(copy)". Enables side-by-side what-ifs in a
+   * live client conversation: keep the current spec on one card and
+   * tweak the duplicate to compare.
+   */
+  function duplicateInstance(instanceId: string) {
+    const source = assemblyInstances.find((i) => i.id === instanceId);
+    if (!source) return;
+    const newId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const copy: AssemblyInstance = {
+      ...source,
+      id: newId,
+      instanceLabel: `${source.instanceLabel} (copy)`,
+      propertyValues: source.propertyValues.map((p) => ({ ...p })),
+    };
+
+    // Insert the copy directly after the source instance in the panel.
+    setAssemblyInstances((prev) => {
+      const idx = prev.findIndex((i) => i.id === instanceId);
+      if (idx === -1) return [...prev, copy];
+      return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
+    });
+
+    // Insert the new derived lines right after the source's lines, so
+    // the line items table mirrors the panel order.
+    setLines((prev) => {
+      let lastIdx = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].instance_id === source.id) {
+          lastIdx = i;
+          break;
+        }
+      }
+      const newDerived = instanceToQuoteLines(copy, 0);
+      const combined =
+        lastIdx === -1
+          ? [...prev, ...newDerived]
+          : [
+              ...prev.slice(0, lastIdx + 1),
+              ...newDerived,
+              ...prev.slice(lastIdx + 1),
+            ];
+      return combined.map((l, i) => ({ ...l, line_number: i + 1 }));
+    });
+  }
+
+  /**
+   * Swap an instance to a different assembly definition. Property values
+   * with matching names carry over (e.g. "Width" / "Height" stay when
+   * swapping vinyl → wood window); new properties use defaults.
+   */
+  function swapInstance(instanceId: string, newAssemblyId: string) {
+    const next = findStubAssembly(newAssemblyId);
+    if (!next) return;
+    const current = assemblyInstances.find((i) => i.id === instanceId);
+    if (!current) return;
+    const oldByName = Object.fromEntries(
+      current.propertyValues.map((p) => [p.name, p.value]),
+    );
+    const newPropertyValues = next.properties.map((p) => {
+      const carried = oldByName[p.name];
+      if (carried != null) return { name: p.name, value: carried };
+      // Fall back to the new property's default for its kind.
+      const fallback =
+        p.defaultValue ??
+        (p.kind === "option" ? p.options?.[0]?.value : undefined) ??
+        (p.kind === "choice" ? p.choices?.[0] : undefined) ??
+        0;
+      return { name: p.name, value: fallback };
+    });
+    updateInstance({
+      ...current,
+      assemblyId: next.id,
+      assemblyName: next.name,
+      propertyValues: newPropertyValues,
+    });
+  }
+
   async function onSave() {
     if (!profile || !deal) return;
     setSaving(true);
@@ -448,6 +530,8 @@ export default function DealQuotePage({
           instances={assemblyInstances}
           onChange={updateInstance}
           onRemove={removeInstance}
+          onSwap={swapInstance}
+          onDuplicate={duplicateInstance}
         />
 
         {lines.length === 0 ? (

@@ -1,8 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
-import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
+import {
+  DocumentDuplicateIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import {
+  findStubAssembly,
+  STUB_ASSEMBLIES,
+} from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import type {
   Assembly,
@@ -25,10 +31,16 @@ export default function AssemblyInstancesPanel({
   instances,
   onChange,
   onRemove,
+  onSwap,
+  onDuplicate,
 }: {
   instances: AssemblyInstance[];
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
+  /** Swap an instance to a different assembly definition (e.g. vinyl → wood window family). */
+  onSwap: (instanceId: string, newAssemblyId: string) => void;
+  /** Clone an instance into a sibling for side-by-side what-if comparison. */
+  onDuplicate: (instanceId: string) => void;
 }) {
   if (instances.length === 0) return null;
 
@@ -49,6 +61,8 @@ export default function AssemblyInstancesPanel({
             instance={instance}
             onChange={onChange}
             onRemove={() => onRemove(instance.id)}
+            onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
+            onDuplicate={() => onDuplicate(instance.id)}
           />
         ))}
       </div>
@@ -60,10 +74,14 @@ function AssemblyInstanceCard({
   instance,
   onChange,
   onRemove,
+  onSwap,
+  onDuplicate,
 }: {
   instance: AssemblyInstance;
   onChange: (next: AssemblyInstance) => void;
   onRemove: () => void;
+  onSwap: (newAssemblyId: string) => void;
+  onDuplicate: () => void;
 }) {
   const assembly: Assembly | null = useMemo(
     () => findStubAssembly(instance.assemblyId),
@@ -123,10 +141,29 @@ function AssemblyInstanceCard({
           placeholder="Phase label"
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-slate-900 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
         />
-        <span className="text-xs text-slate-500">{assembly.name}</span>
+        <select
+          value={instance.assemblyId}
+          onChange={(e) => onSwap(e.target.value)}
+          className="rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
+          title="Swap to a different assembly — properties with matching names carry over."
+        >
+          {STUB_ASSEMBLIES.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
         <span className="text-sm font-semibold tabular-nums text-slate-900">
           ${computed ? computed.total.toFixed(2) : "—"}
         </span>
+        <button
+          onClick={onDuplicate}
+          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-sky-700"
+          aria-label="Duplicate assembly"
+          title="Duplicate this assembly to compare a what-if side by side"
+        >
+          <DocumentDuplicateIcon className="h-4 w-4" />
+        </button>
         <button
           onClick={onRemove}
           className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
@@ -178,7 +215,19 @@ function PropertyEditor({
         {property.name}
       </span>
       <div className="flex items-stretch overflow-hidden rounded-md border border-slate-300 focus-within:border-sky-500">
-        {property.kind === "choice" && property.choices ? (
+        {property.kind === "option" && property.options ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
+          >
+            {property.options.map((opt) => (
+              <option key={opt.label} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : property.kind === "choice" && property.choices ? (
           <select
             value={value}
             onChange={(e) => onChange(parseFloat(e.target.value))}
@@ -203,9 +252,11 @@ function PropertyEditor({
             className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
           />
         )}
-        <span className="flex items-center bg-slate-50 px-2.5 text-xs font-medium text-slate-500">
-          {property.uom}
-        </span>
+        {property.uom ? (
+          <span className="flex items-center bg-slate-50 px-2.5 text-xs font-medium text-slate-500">
+            {property.uom}
+          </span>
+        ) : null}
       </div>
     </label>
   );

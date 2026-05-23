@@ -26,13 +26,21 @@ export function computeMaterials(
   for (const m of assembly.materials) {
     try {
       const quantity = evaluateFormula(m.quantityFormula, propertyValues);
-      const labor = m.laborCostUsd ?? 0;
-      const lineTotal = (m.unitCostUsd + labor) * quantity;
+      // Cost formulas override the fixed unit costs when present. This lets
+      // an assembly express e.g. "vinyl vs wood frame" as a multiplier in
+      // the formula instead of forcing one assembly per material grade.
+      const unitCost = m.unitCostFormula
+        ? evaluateFormula(m.unitCostFormula, propertyValues)
+        : m.unitCostUsd;
+      const labor = m.laborCostFormula
+        ? evaluateFormula(m.laborCostFormula, propertyValues)
+        : (m.laborCostUsd ?? 0);
+      const lineTotal = (unitCost + labor) * quantity;
       lines.push({
         name: m.name,
         uom: m.uom,
         quantity,
-        unitCostUsd: m.unitCostUsd,
+        unitCostUsd: unitCost,
         laborCostUsd: labor,
         lineTotalUsd: lineTotal,
       });
