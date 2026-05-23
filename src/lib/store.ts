@@ -32,6 +32,7 @@ import {
   Distributor,
   OrgSettings,
   Attachment,
+  Payment,
   QuoteLine,
   newId,
 } from "@/types";
@@ -186,6 +187,24 @@ export async function saveQuoteLines(
     await setDoc(doc(db, "quote_lines", line.id), stored, { merge: false });
   }
   void existingIds; // for grep clarity, not actually used
+}
+
+// ── payments ─────────────────────────────────────────────────────
+
+export async function listPayments(dealRef: string): Promise<Payment[]> {
+  const q = query(collection(db, "payments"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Payment, "id">) }))
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+}
+
+export async function savePayment(p: Payment): Promise<void> {
+  await setDoc(doc(db, "payments", p.id), p, { merge: false });
+}
+
+export async function deletePayment(id: string): Promise<void> {
+  await removeFromCollection("payments", id);
 }
 
 // ── attachments ──────────────────────────────────────────────────

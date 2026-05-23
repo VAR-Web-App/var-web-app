@@ -20,6 +20,7 @@ import PhotoGallery from "@/components/photo-gallery";
 import ProjectAIChat from "@/components/project-ai-chat";
 import RFQPanel from "@/components/rfq-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
+import PaymentsSection from "@/components/payments-section";
 import Tooltip from "@/components/tooltip";
 import {
   ATTACHMENT_CATEGORIES,
@@ -301,6 +302,8 @@ export default function DealDetailPage({
             </div>
 
             <ChangeOrdersPanel deal={deal} />
+
+            <PaymentsSection deal={deal} />
 
             <div id="photo-gallery" className="scroll-mt-6">
               <PhotoGallery dealId={deal.id} orgRef={deal.org_ref} />

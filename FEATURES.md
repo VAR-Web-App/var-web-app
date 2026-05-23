@@ -88,9 +88,9 @@ Things that surface what's happening in projects without Barry having to dig.
 
 Money in, money out, and the proof. Today FrameFlow has draws (outbound to client) and sub bids, but no actual *payment* records — checks written, cards run, deposits received are not tracked yet.
 
-- **📋 Outgoing sub / supplier payment log** *(Barry)* — record each payment with method (check + check #, CC, ACH, cash), date, against which sub or supplier invoice. Lets the project show "Framer paid $18k via check #1247 on 3/14." Pairs with QB sync.
-- **📋 Incoming client payment log** *(Barry)* — record received payments: deposits, draw releases, retainers. Method + date. Drives the cash-flow projection in the forecasting feature.
-- **📋 AR / AP rollup** *(implied)* — at-a-glance view: what subs/suppliers we owe, what clients owe us, aging buckets. Naturally rolls up from the two logs above.
+- **✅ Outgoing sub / supplier payment log** *(Barry)* — `PaymentsSection` on the deal page, "Record money out" button. Tags the party (Distributor lookup + free-text fallback), method (check + check #, CC, ACH, cash, other), date, optional milestone, optional notes. Lets the project show "Cano Concrete paid $32k via check #1247 on 4/16."
+- **✅ Incoming client payment log** *(Barry)* — same panel, "Record money in" button. Tracks deposits / draw releases / retainers with method + date + optional milestone tie. Cash flow feed for forecasting.
+- **✅ AR / AP basic rollup** *(implied)* — four tiles at the top of the panel: Money in, Money out, Net cash on project, "% collected of contract" (using `deal.award_total` or `deal.total_quote_value`). Per-sub aging buckets are a follow-up.
 - **📋 Receipt / invoice photo capture** *(Barry — see also Section C)* — mobile camera attach for invoices, receipts, packing slips. Same pipeline whether it's a draw attachment or a sub-payment receipt.
 - **📋 Optional OCR auto-fill** — feed photographed receipts through the existing Textract pipeline to extract vendor / amount / date and pre-fill a payment record. Half the typing eliminated.
 

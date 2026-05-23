@@ -257,6 +257,37 @@ export interface Attachment {
   milestone_ref?: string;
 }
 
+/**
+ * One payment in or out on a project. Outgoing payments go to a sub
+ * or supplier (`party_ref` → Distributor); incoming come from the
+ * client (typically against a milestone draw release).
+ *
+ * Method covers the common builder workflows — check (with number),
+ * credit card, ACH, cash, or other. Notes captures anything that
+ * doesn't fit a column.
+ */
+export interface Payment {
+  id: string;
+  deal_ref: string;
+  direction: "in" | "out";
+  /** Distributor id when direction === "out" and party is a sub/supplier. */
+  party_ref?: string;
+  /** Display name snapshot — works for both "Cano Concrete" and "Client (Maddox)". */
+  party_name: string;
+  amount: number;
+  method: "check" | "cc" | "ach" | "cash" | "other";
+  /** Populated when method === "check". */
+  check_number?: string;
+  /** Optional FK to the milestone this payment applies to — typically the
+   *  draw whose release funded the outgoing sub payment, or the draw
+   *  whose release came in from the bank. */
+  milestone_ref?: string;
+  /** ISO yyyy-mm-dd date the payment was made / received. */
+  date: string;
+  notes?: string;
+  created_at: string;
+}
+
 // Builder-side category list, in the order they render on the project page.
 // Trimmed of the VAR labels (Distributor Quote / Award Document / Vendor PO
 // / Shipping) — those keys still exist on the type for back-compat with
