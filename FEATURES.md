@@ -43,7 +43,7 @@ The core of FrameFlow's differentiator vs JobTread / Buildxact: quantity-based e
 Sub-facing functionality. Some pieces already coded (uncommitted on `builder-app`), most not.
 
 - **🚧 Sub schedule notifications (SMS)** — `lib/sms.ts`, `/api/sms` route, sub-schedule public page `/s/[token]`, weather banner, A2P 10DLC consent checkbox. Currently in the working tree on `builder-app`, also committed onto `estimate-upgrade`.
-- **📋 Sub re-notify on schedule change** *(Barry)* — when a phase date moves (weather, materials delay, etc.), auto-trigger an SMS to the assigned sub with the new date. The notify plumbing already exists; this is the change-detection trigger on top of it.
+- **✅ Sub re-notify on schedule change** *(Barry)* — when a phase date moves (weather, materials delay, etc.), every assigned sub with SMS consent is auto-texted with the new dates. Date-change detection lives in `project-execution-panel.updateMilestoneDates`; the SMS body is composed by `composeRescheduleSms` and dispatched fire-and-forget.
 - **📋 Subcontractor portal** *(Barry)* — sub-facing UI where a sub can see their assigned phases, dates, draws, RFQ status without logging into the GC's account. Likely a token-based no-login page (`/sub/[token]`), separate from the client portal we already have.
 - **📋 Sub bidding portal** *(Barry)* — RFQ out to multiple subs of the same trade simultaneously, collect bids in one place, side-by-side compare. Pairs naturally with Sub Bid Intelligence (below).
 - **💡 Sub Scheduling — Auto-notify & Conflicts** *(roadmap)* — T-7 / T-2 day SMS to subs, conflict detection across projects, weather-aware date shifts, per-sub performance scoring. Builds on the in-flight SMS work + the re-notify item above.
@@ -59,7 +59,9 @@ Banks process construction draws differently — some want email + invoice PDF, 
 - **📋 Bank-process library** *(implied)* — knowledge base of common bank draw workflows (email vs portal upload vs in-person inspection), updatable as we hit more banks.
 - **📋 Per-bank templates** *(implied)* — pre-built email bodies, attachment bundles, line-item summaries shaped to each bank's requirements.
 - **📋 Lien waiver generation** *(implied)* — many banks require waivers with draws; auto-generate from sub bids + payment status.
-- **📋 Photo / scan upload for invoices + receipts on a draw** *(Barry)* — mobile camera input (`<input type="file" capture="environment">`) on the draw page so subs' invoices and supplier receipts can be attached directly from the phone. Open question: just attach, or OCR the dollar amount / vendor / date with the existing Textract pipeline so it auto-fills a payment record.
+- **✅ Photo / scan upload for invoices + receipts on a draw** *(Barry)* — `DrawAttachmentsSection` on the draw page: "Take photo" opens the phone's camera, "Upload file" accepts images or PDFs, each attachment is tagged Invoice or Receipt and linked to this milestone (`Attachment.milestone_ref`). Bytes are object-URL only today, persistent storage via Firebase Storage is the next layer.
+- **📋 Persist attachment bytes via Firebase Storage** — wires the upload flow above to durable cloud storage so files survive sessions and device switches. Storage bucket env var already configured; needs SDK init + upload helper.
+- **📋 Receipt OCR auto-fill (vendor / amount / date)** — see also Section I. Textract pipeline already in repo; bolts onto the upload flow.
 
 > *Note: Barry said "a bank wanted me to send an email with invoice attachments and the total" — "me" = Barry, from his own experience.*
 

@@ -247,6 +247,12 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     m: ProjectMilestone,
     patch: { planned_start_date?: string; planned_end_date?: string }
   ) {
+    // Did dates actually move? Don't text subs on a no-op save.
+    const datesChanged =
+      (patch.planned_start_date !== undefined &&
+        patch.planned_start_date !== m.planned_start_date) ||
+      (patch.planned_end_date !== undefined &&
+        patch.planned_end_date !== m.planned_end_date);
     const updated: ProjectMilestone = {
       ...m,
       ...patch,
@@ -254,6 +260,11 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     };
     setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
     await saveMilestone(updated);
+    // Auto-text every consenting sub on this phase that the dates moved.
+    // Silent no-op if nobody has SMS consent or if Twilio is unconfigured.
+    if (datesChanged && (updated.assigned_subs?.length ?? 0) > 0) {
+      void notifyRescheduledSubs(updated);
+    }
   }
 
   async function updateAssignedSubs(m: ProjectMilestone, subRefs: string[]) {

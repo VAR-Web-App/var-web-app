@@ -31,6 +31,7 @@ import {
   effectiveContractValue,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import DrawAttachmentsSection from "@/components/draw-attachments-section";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -235,6 +236,11 @@ export default function DrawRequestPage({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Attachments — hidden on print; only the operator sees these on screen. */}
+      <div className="mx-auto max-w-5xl px-6 pt-6 print:hidden">
+        <DrawAttachmentsSection dealId={id} milestoneId={milestoneId} />
       </div>
 
       {/* Document */}

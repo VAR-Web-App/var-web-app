@@ -235,6 +235,10 @@ export interface Attachment {
     | "contract"
     | "sub_bid"
     | "email"
+    // Draw-tied attachments — sub/supplier invoices + receipts uploaded
+    // against a specific milestone for the draw package.
+    | "draw_invoice"
+    | "draw_receipt"
     // Legacy VAR keys — kept in the union so existing data still parses.
     | "distributor_quote"
     | "customer_quote"
@@ -247,6 +251,10 @@ export interface Attachment {
   url: string;
   size: number;
   uploaded_at: string;
+  /** Optional foreign key into ProjectMilestone — set on draw_invoice /
+   *  draw_receipt uploads so the draw page can show only the docs tied
+   *  to that milestone. */
+  milestone_ref?: string;
 }
 
 // Builder-side category list, in the order they render on the project page.
