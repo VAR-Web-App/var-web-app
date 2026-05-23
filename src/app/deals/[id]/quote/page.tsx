@@ -13,6 +13,9 @@ import {
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import Tooltip from "@/components/tooltip";
+import AddAssemblyModal, {
+  type AddAssemblyResult,
+} from "@/components/add-assembly-modal";
 import { useAuth } from "@/lib/auth-context";
 import {
   getDeal,
@@ -56,6 +59,7 @@ export default function DealQuotePage({
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
+  const [showAssemblyModal, setShowAssemblyModal] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -209,6 +213,39 @@ export default function DealQuotePage({
     setLines((prev) => [...prev, ...newLines]);
   }
 
+  function importFromAssembly(result: AddAssemblyResult) {
+    const markup = settings?.default_markup_percent ?? 20;
+    const newLines: QuoteLine[] = result.materials.map((m, i) =>
+      recomputeLine({
+        id: newId("ql"),
+        line_number: lines.length + i + 1,
+        // product_code is the builder UI's "Phase" column. The modal's
+        // instance label groups every material from this assembly under
+        // the same phase, which carries through to milestones and draws.
+        product_code: result.instanceLabel,
+        description: `${m.name} (from ${result.assemblyName})`,
+        manufacturer: "",
+        is_service: false,
+        qty: m.quantity,
+        // The builder pricing model uses a single cost per line, so
+        // we bundle material + labor into the unit cost. Markup is
+        // applied on top to produce the customer price.
+        list_price: m.unitCostUsd + m.laborCostUsd,
+        discount_percent: 0,
+        markup_percent: markup,
+        customer_unit_price: 0,
+        customer_extended: 0,
+        cost_unit_price: 0,
+        cost_extended: 0,
+        margin_percent: 0,
+        subscription_term_months: 0,
+        notes: "",
+      }),
+    );
+    setLines((prev) => [...prev, ...newLines]);
+    setShowAssemblyModal(false);
+  }
+
   async function onSave() {
     if (!profile || !deal) return;
     setSaving(true);
@@ -332,13 +369,22 @@ export default function DealQuotePage({
         )}
 
         <div className="flex justify-between">
-          <button
-            onClick={addBlankLine}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add blank line
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={addBlankLine}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add blank line
+            </button>
+            <button
+              onClick={() => setShowAssemblyModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add assembly
+            </button>
+          </div>
           <button
             disabled
             className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm text-slate-400"
@@ -349,6 +395,12 @@ export default function DealQuotePage({
           </button>
         </div>
       </div>
+
+      <AddAssemblyModal
+        open={showAssemblyModal}
+        onClose={() => setShowAssemblyModal(false)}
+        onConfirm={importFromAssembly}
+      />
     </AppShell>
   );
 }

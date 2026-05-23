@@ -9,6 +9,9 @@
  */
 import type { Assembly } from "@/types/assembly";
 
+/** Stud/joist spacing options used by several assemblies (inches OC). */
+const SPACING_CHOICES = [12, 16, 24];
+
 export const STUB_ASSEMBLIES: Assembly[] = [
   {
     id: "stub-ext-wall-2x6-16oc",
@@ -20,7 +23,13 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     properties: [
       { name: "Wall Length", uom: "LF", defaultValue: 30 },
       { name: "Wall Height", uom: "FT", defaultValue: 9 },
-      { name: "Stud Spacing", uom: "IN", defaultValue: 16 },
+      {
+        name: "Stud Spacing",
+        uom: "IN",
+        defaultValue: 16,
+        kind: "choice",
+        choices: SPACING_CHOICES,
+      },
     ],
     materials: [
       {
@@ -90,7 +99,13 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     properties: [
       { name: "Wall Length", uom: "LF", defaultValue: 12 },
       { name: "Wall Height", uom: "FT", defaultValue: 9 },
-      { name: "Stud Spacing", uom: "IN", defaultValue: 16 },
+      {
+        name: "Stud Spacing",
+        uom: "IN",
+        defaultValue: 16,
+        kind: "choice",
+        choices: SPACING_CHOICES,
+      },
     ],
     materials: [
       {
@@ -136,11 +151,17 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     properties: [
       { name: "Floor Length", uom: "LF", defaultValue: 30 },
       { name: "Floor Width", uom: "LF", defaultValue: 24 },
-      { name: "Joist Spacing", uom: "IN", defaultValue: 16 },
+      {
+        name: "Joist Spacing",
+        uom: "IN",
+        defaultValue: 16,
+        kind: "choice",
+        choices: SPACING_CHOICES,
+      },
     ],
     materials: [
       {
-        name: "2×10 joist, full length (SPF)",
+        name: "2×10 joist (SPF)",
         uom: "EA",
         quantityFormula: "{Floor Length} * (12 / {Joist Spacing}) + 1",
         unitCostUsd: 24.0,
@@ -162,6 +183,161 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 52.0,
         laborCostUsd: 9.0,
         csiDivision: "06",
+      },
+    ],
+  },
+  {
+    id: "stub-footing-strip",
+    name: "Strip Footing — concrete + rebar",
+    description:
+      "Continuous concrete strip footing with two #5 rebar runs and form lumber. " +
+      "Sized for typical residential bearing walls.",
+    trade: "foundation",
+    properties: [
+      { name: "Footing Length", uom: "LF", defaultValue: 80 },
+      { name: "Footing Width", uom: "IN", defaultValue: 16 },
+      { name: "Footing Depth", uom: "IN", defaultValue: 8 },
+    ],
+    materials: [
+      {
+        name: "Ready-mix concrete (3000 PSI)",
+        uom: "CY",
+        // (LF × in × in) → CF via (/12)(/12), CF → CY via /27.
+        quantityFormula:
+          "({Footing Length} * ({Footing Width} / 12) * ({Footing Depth} / 12)) / 27",
+        unitCostUsd: 195.0,
+        laborCostUsd: 35.0,
+        csiDivision: "03",
+      },
+      {
+        name: "#5 rebar (two continuous runs)",
+        uom: "LF",
+        quantityFormula: "{Footing Length} * 2",
+        unitCostUsd: 1.4,
+        laborCostUsd: 0.5,
+        csiDivision: "03",
+      },
+      {
+        name: "Form lumber (2×8) + stakes",
+        uom: "LF",
+        quantityFormula: "{Footing Length} * 2",
+        unitCostUsd: 1.1,
+        laborCostUsd: 0.7,
+        csiDivision: "03",
+      },
+    ],
+  },
+  {
+    id: "stub-slab-on-grade",
+    name: "Slab on Grade — concrete + rebar grid",
+    description:
+      "Concrete slab on grade with 6-mil vapor barrier and #4 rebar on " +
+      "approx. 24\" grid. Thickness configurable.",
+    trade: "foundation",
+    properties: [
+      { name: "Slab Length", uom: "LF", defaultValue: 40 },
+      { name: "Slab Width", uom: "LF", defaultValue: 30 },
+      {
+        name: "Slab Thickness",
+        uom: "IN",
+        defaultValue: 4,
+        kind: "choice",
+        choices: [4, 5, 6],
+      },
+    ],
+    materials: [
+      {
+        name: "Ready-mix concrete (4000 PSI)",
+        uom: "CY",
+        quantityFormula:
+          "({Slab Length} * {Slab Width} * ({Slab Thickness} / 12)) / 27",
+        unitCostUsd: 215.0,
+        laborCostUsd: 28.0,
+        csiDivision: "03",
+      },
+      {
+        name: '#4 rebar (24" grid both ways)',
+        uom: "LF",
+        // L runs across width spaced by 2 ft + W runs across length spaced by 2 ft.
+        quantityFormula:
+          "({Slab Width} / 2) * {Slab Length} + ({Slab Length} / 2) * {Slab Width}",
+        unitCostUsd: 0.9,
+        laborCostUsd: 0.4,
+        csiDivision: "03",
+      },
+      {
+        name: "6-mil poly vapor barrier",
+        uom: "SF",
+        quantityFormula: "{Slab Length} * {Slab Width} * 1.10",
+        unitCostUsd: 0.22,
+        laborCostUsd: 0.18,
+        csiDivision: "07",
+      },
+    ],
+  },
+  {
+    id: "stub-roof-2x8-16oc",
+    name: 'Roof — 2×8 rafters @ 16" OC, asphalt shingles',
+    description:
+      "Conventional 2×8 rafter roof with ridge board, OSB sheathing, " +
+      "felt, and 3-tab asphalt shingles. Sheet/shingle areas bumped 15% " +
+      "for pitch (use Roof Run = horizontal eave length).",
+    trade: "roofing",
+    properties: [
+      { name: "Roof Run", uom: "LF", defaultValue: 40 },
+      { name: "Roof Width", uom: "LF", defaultValue: 28 },
+      {
+        name: "Rafter Spacing",
+        uom: "IN",
+        defaultValue: 16,
+        kind: "choice",
+        choices: SPACING_CHOICES,
+      },
+    ],
+    materials: [
+      {
+        name: "2×8 rafter (SPF)",
+        uom: "EA",
+        // Two slopes × rafter count + 4 extras for gable ends.
+        quantityFormula:
+          "{Roof Run} * (12 / {Rafter Spacing}) * 2 + 4",
+        unitCostUsd: 14.5,
+        laborCostUsd: 5.5,
+        csiDivision: "06",
+      },
+      {
+        name: "2×8 ridge board",
+        uom: "LF",
+        quantityFormula: "{Roof Run}",
+        unitCostUsd: 3.1,
+        laborCostUsd: 1.2,
+        csiDivision: "06",
+      },
+      {
+        name: '5/8" OSB roof sheathing, 4×8 sheet',
+        uom: "SHEET",
+        // Plan area / 32 SF per sheet × 1.15 pitch overage.
+        quantityFormula:
+          "{Roof Run} * {Roof Width} / 32 * 1.15",
+        unitCostUsd: 32.0,
+        laborCostUsd: 9.5,
+        csiDivision: "06",
+      },
+      {
+        name: "30-lb roofing felt",
+        uom: "SF",
+        quantityFormula: "{Roof Run} * {Roof Width} * 1.15",
+        unitCostUsd: 0.14,
+        laborCostUsd: 0.18,
+        csiDivision: "07",
+      },
+      {
+        name: "Asphalt shingles (3-tab) — SQ = 100 SF",
+        uom: "SQ",
+        quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.15",
+        unitCostUsd: 95.0,
+        laborCostUsd: 55.0,
+        csiDivision: "07",
       },
     ],
   },

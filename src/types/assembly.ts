@@ -20,6 +20,14 @@ export interface AssemblyProperty {
   uom: string;
   /** Default pre-filled in the UI so the assembly shows a sensible breakdown out of the box. */
   defaultValue?: number;
+  /**
+   * How the property is entered.
+   * - "number" (default): free-form number input.
+   * - "choice": dropdown of preset values, e.g. stud spacing 12/16/24.
+   */
+  kind?: "number" | "choice";
+  /** Allowed values when `kind === "choice"`. */
+  choices?: number[];
 }
 
 /** A material that makes up an Assembly, with a quantity formula. */
