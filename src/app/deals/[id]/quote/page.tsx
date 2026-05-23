@@ -16,6 +16,10 @@ import Tooltip from "@/components/tooltip";
 import AddAssemblyModal, {
   type AddAssemblyResult,
 } from "@/components/add-assembly-modal";
+import AssemblyInstancesPanel from "@/components/assembly-instances-panel";
+import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
+import { computeMaterials } from "@/lib/assemblies/compute";
+import type { AssemblyInstance } from "@/types/assembly";
 import { useAuth } from "@/lib/auth-context";
 import {
   getDeal,
@@ -60,6 +64,12 @@ export default function DealQuotePage({
   const [loaded, setLoaded] = useState(false);
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
   const [showAssemblyModal, setShowAssemblyModal] = useState(false);
+  const [assemblyInstances, setAssemblyInstances] = useState<
+    AssemblyInstance[]
+  >([]);
+  const [savedInstancesSnapshot, setSavedInstancesSnapshot] = useState<string>(
+    "",
+  );
 
   useEffect(() => {
     if (!profile) return;
@@ -80,6 +90,9 @@ export default function DealQuotePage({
       setDeal(d);
       setLines(theLines);
       setSavedLinesSnapshot(JSON.stringify(theLines));
+      const instances = d.assembly_instances ?? [];
+      setAssemblyInstances(instances);
+      setSavedInstancesSnapshot(JSON.stringify(instances));
       setSettings(theSettings);
       // Pull parsed BOM cache from sessionStorage (set by the deal detail
       // page when a PDF was uploaded + parsed). Filter to attachments that
@@ -114,7 +127,9 @@ export default function DealQuotePage({
     return { customer, cost, margin };
   }, [lines]);
 
-  const dirty = JSON.stringify(lines) !== savedLinesSnapshot;
+  const dirty =
+    JSON.stringify(lines) !== savedLinesSnapshot ||
+    JSON.stringify(assemblyInstances) !== savedInstancesSnapshot;
 
   function recomputeLine(line: QuoteLine): QuoteLine {
     // Builder pricing model: the user types their cost directly into the
@@ -213,37 +228,106 @@ export default function DealQuotePage({
     setLines((prev) => [...prev, ...newLines]);
   }
 
-  function importFromAssembly(result: AddAssemblyResult) {
+  function makeInstanceLine(
+    instance: AssemblyInstance,
+    material: {
+      name: string;
+      uom: string;
+      quantity: number;
+      unitCostUsd: number;
+      laborCostUsd: number;
+    },
+    lineNumber: number,
+    markup: number,
+  ): QuoteLine {
+    return recomputeLine({
+      id: newId("ql"),
+      line_number: lineNumber,
+      // product_code is the builder UI's "Phase" column. Every line
+      // from one assembly instance shares the same label so it groups
+      // cleanly into milestones / draws downstream.
+      product_code: instance.instanceLabel,
+      description: `${material.name} (from ${instance.assemblyName})`,
+      // The link to the persistent instance — editing the instance
+      // regenerates every line carrying this id.
+      instance_id: instance.id,
+      manufacturer: "",
+      is_service: false,
+      qty: material.quantity,
+      // Builder pricing is single-cost-per-line; material + labor are
+      // bundled into list_price and markup is applied on top.
+      list_price: material.unitCostUsd + material.laborCostUsd,
+      discount_percent: 0,
+      markup_percent: markup,
+      customer_unit_price: 0,
+      customer_extended: 0,
+      cost_unit_price: 0,
+      cost_extended: 0,
+      margin_percent: 0,
+      subscription_term_months: 0,
+      notes: "",
+    });
+  }
+
+  /** Derive a fresh QuoteLine block from an instance's current properties. */
+  function instanceToQuoteLines(
+    instance: AssemblyInstance,
+    startingLineNumber: number,
+  ): QuoteLine[] {
+    const assembly = findStubAssembly(instance.assemblyId);
+    if (!assembly) return [];
+    const propertyValues = Object.fromEntries(
+      instance.propertyValues.map((p) => [p.name, p.value]),
+    );
+    const result = computeMaterials(assembly, propertyValues);
     const markup = settings?.default_markup_percent ?? 20;
-    const newLines: QuoteLine[] = result.materials.map((m, i) =>
-      recomputeLine({
-        id: newId("ql"),
-        line_number: lines.length + i + 1,
-        // product_code is the builder UI's "Phase" column. The modal's
-        // instance label groups every material from this assembly under
-        // the same phase, which carries through to milestones and draws.
-        product_code: result.instanceLabel,
-        description: `${m.name} (from ${result.assemblyName})`,
-        manufacturer: "",
-        is_service: false,
-        qty: m.quantity,
-        // The builder pricing model uses a single cost per line, so
-        // we bundle material + labor into the unit cost. Markup is
-        // applied on top to produce the customer price.
-        list_price: m.unitCostUsd + m.laborCostUsd,
-        discount_percent: 0,
-        markup_percent: markup,
-        customer_unit_price: 0,
-        customer_extended: 0,
-        cost_unit_price: 0,
-        cost_extended: 0,
-        margin_percent: 0,
-        subscription_term_months: 0,
-        notes: "",
-      }),
+    return result.lines.map((m, i) =>
+      makeInstanceLine(instance, m, startingLineNumber + i, markup),
+    );
+  }
+
+  function importFromAssembly(result: AddAssemblyResult) {
+    const { instance, materials } = result;
+    const markup = settings?.default_markup_percent ?? 20;
+    const newLines: QuoteLine[] = materials.map((m, i) =>
+      makeInstanceLine(instance, m, lines.length + i + 1, markup),
     );
     setLines((prev) => [...prev, ...newLines]);
+    setAssemblyInstances((prev) => [...prev, instance]);
     setShowAssemblyModal(false);
+  }
+
+  /** Live-edit handler from the AssemblyInstancesPanel. */
+  function updateInstance(next: AssemblyInstance) {
+    setAssemblyInstances((prev) =>
+      prev.map((i) => (i.id === next.id ? next : i)),
+    );
+    setLines((prev) => {
+      const firstIdx = prev.findIndex((l) => l.instance_id === next.id);
+      const derived = instanceToQuoteLines(next, 0);
+      let combined: QuoteLine[];
+      if (firstIdx === -1) {
+        combined = [...prev, ...derived];
+      } else {
+        // Splice the new block in where the first old line was; drop
+        // any subsequent lines tagged with this instance id.
+        const before = prev.slice(0, firstIdx);
+        const after = prev
+          .slice(firstIdx)
+          .filter((l) => l.instance_id !== next.id);
+        combined = [...before, ...derived, ...after];
+      }
+      return combined.map((l, i) => ({ ...l, line_number: i + 1 }));
+    });
+  }
+
+  function removeInstance(instanceId: string) {
+    setAssemblyInstances((prev) => prev.filter((i) => i.id !== instanceId));
+    setLines((prev) =>
+      prev
+        .filter((l) => l.instance_id !== instanceId)
+        .map((l, i) => ({ ...l, line_number: i + 1 })),
+    );
   }
 
   async function onSave() {
@@ -260,12 +344,14 @@ export default function DealQuotePage({
         total_quote_value: totals.customer,
         total_cost: totals.cost,
         margin_percent: totals.margin,
+        assembly_instances: assemblyInstances,
         updated_at: new Date().toISOString(),
       };
       await saveDeal(updatedDeal);
       setDeal(updatedDeal);
       setLines(renumbered);
       setSavedLinesSnapshot(JSON.stringify(renumbered));
+      setSavedInstancesSnapshot(JSON.stringify(assemblyInstances));
       // Once saved, dirty becomes false → resting state shows the green
       // "Saved" pill automatically. No need for a transient flash.
     } finally {
@@ -357,6 +443,12 @@ export default function DealQuotePage({
         )}
 
         <TotalsBar totals={totals} lineCount={lines.length} />
+
+        <AssemblyInstancesPanel
+          instances={assemblyInstances}
+          onChange={updateInstance}
+          onRemove={removeInstance}
+        />
 
         {lines.length === 0 ? (
           <EmptyState onAddBlank={addBlankLine} hasParsedBoms={parsedDistributorBoms.length > 0} />

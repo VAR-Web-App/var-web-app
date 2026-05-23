@@ -75,6 +75,11 @@ export interface Deal {
    *  extraction so resolution survives navigation. Reset to []
    *  whenever a new extraction lands. */
   resolved_ambiguity_indices?: number[];
+  /** Editable parametric assemblies the builder has dropped onto the
+   *  estimate. Each instance owns a contiguous block of QuoteLines
+   *  (matched via QuoteLine.instance_id) that regenerate live as the
+   *  builder tweaks properties during a client conversation. */
+  assembly_instances?: import("./assembly").AssemblyInstance[];
 }
 
 export interface QuoteLine {
@@ -98,6 +103,10 @@ export interface QuoteLine {
   end_date?: string;
   notes: string;
   manual_override?: boolean;
+  /** Set when this line was generated from an Assembly instance.
+   *  Edits to the instance's properties regenerate every line sharing
+   *  this id. Plain ad-hoc lines leave this undefined. */
+  instance_id?: string;
 }
 
 export interface AwardBomLine {

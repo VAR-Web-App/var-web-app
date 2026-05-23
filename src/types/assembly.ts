@@ -90,17 +90,25 @@ export interface AssemblyMaterialLine {
 }
 
 /**
- * An Assembly placed on an estimate with concrete property values and the
- * resulting materials breakdown. The materials snapshot is preserved so
- * the estimate stays reproducible even if the upstream Assembly changes.
+ * An Assembly instance placed on an estimate — the editable record we
+ * persist on the Deal. Materials are NOT snapshotted here; they're
+ * derived on demand from the Assembly definition + propertyValues so
+ * tweaking a property (live during a client conversation) regenerates
+ * the cost lines without any reconciliation.
+ *
+ * Each instance owns a contiguous block of derived QuoteLines, linked
+ * via QuoteLine.instance_id. Editing the instance regenerates that
+ * block in place.
  */
 export interface AssemblyInstance {
+  /** Stable id within the deal. Used to tag derived QuoteLines. */
+  id: string;
   /** Reference to the Assembly definition this was built from. */
   assemblyId: string;
   /** Snapshot of the assembly's name at the time it was added. */
   assemblyName: string;
+  /** Phase label — shows in the panel + on every derived QuoteLine. */
+  instanceLabel: string;
+  /** Property values that feed the assembly's formulas. */
   propertyValues: AssemblyPropertyValue[];
-  materials: AssemblyMaterialLine[];
-  /** Sum of every line's lineTotalUsd. */
-  totalCostUsd: number;
 }

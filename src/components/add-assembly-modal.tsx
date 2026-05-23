@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import AssemblyForm, { type AssemblyFormState } from "@/components/assembly-form";
-import type { AssemblyMaterialLine } from "@/types/assembly";
+import type {
+  AssemblyInstance,
+  AssemblyMaterialLine,
+} from "@/types/assembly";
 
 export interface AddAssemblyResult {
-  assemblyId: string;
-  assemblyName: string;
-  /** Phase label — what gets written into each derived QuoteLine's product_code. */
-  instanceLabel: string;
+  /** New persistent instance — gets stored on the Deal and tags its derived lines. */
+  instance: AssemblyInstance;
+  /** Material lines computed from the instance, ready to become QuoteLines. */
   materials: AssemblyMaterialLine[];
 }
 
@@ -63,12 +65,20 @@ export default function AddAssemblyModal({
 
   function handleConfirm() {
     if (!state || !canConfirm) return;
-    onConfirm({
+    const label = instanceLabel.trim() || state.assembly.name;
+    const instance: AssemblyInstance = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       assemblyId: state.assembly.id,
       assemblyName: state.assembly.name,
-      instanceLabel: instanceLabel.trim() || state.assembly.name,
-      materials: state.result.lines,
-    });
+      instanceLabel: label,
+      propertyValues: Object.entries(state.propertyValues).map(
+        ([name, value]) => ({ name, value }),
+      ),
+    };
+    onConfirm({ instance, materials: state.result.lines });
   }
 
   return (
