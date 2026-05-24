@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// Multi-tenant Storage rules — same shape as firestore.rules.
+//
+// Storage paths are organized by deal id:
+//   attachments/{dealId}/{filename}   — sub invoices, receipts, plans, etc.
+//   photos/{dealId}/{filename}        — phase-tagged build photos
+//
+// Gate every read/write on the caller's org_ref matching the parent
+// deal's org_ref. The auth lookup goes through Firestore (same pattern
+// firestore.rules uses) so user → org_ref → deal.org_ref is one chain.
+//
+// Deploy: firebase deploy --only storage:rules
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function callerOrgRef() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data.org_ref;
+    }
+
+    function dealOrg(dealId) {
+      return firestore.get(
+        /databases/(default)/documents/deals/$(dealId)
+      ).data.org_ref;
+    }
+
+    function ownsDeal(dealId) {
+      return request.auth != null && dealOrg(dealId) == callerOrgRef();
+    }
+
+    // Per-deal attachment bucket — invoices, receipts, plans, permits.
+    match /attachments/{dealId}/{filename=**} {
+      allow read, write: if ownsDeal(dealId);
+    }
+
+    // Per-deal photo bucket — phase-tagged progress photos.
+    match /photos/{dealId}/{filename=**} {
+      allow read, write: if ownsDeal(dealId);
+    }
+
+    // Default-deny: anything else under the bucket is unreachable.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
