@@ -21,6 +21,7 @@ import ProjectAIChat from "@/components/project-ai-chat";
 import RFQPanel from "@/components/rfq-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
 import PaymentsSection from "@/components/payments-section";
+import BudgetPanel from "@/components/budget-panel";
 import Tooltip from "@/components/tooltip";
 import {
   ATTACHMENT_CATEGORIES,
@@ -308,6 +309,8 @@ export default function DealDetailPage({
             </div>
 
             <ChangeOrdersPanel deal={deal} />
+
+            <BudgetPanel dealId={deal.id} />
 
             <PaymentsSection deal={deal} />
 
