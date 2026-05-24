@@ -38,17 +38,25 @@ export default function BudgetPanel({ dealId }: { dealId: string }) {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [ql, rq, co, pay] = await Promise.all([
+      // Settle independently so a hiccup on one collection (missing
+      // index, permission edge case) doesn't strand the panel on
+      // "Loading…". Each failed source defaults to empty + logs.
+      const [qlR, rqR, coR, payR] = await Promise.allSettled([
         listQuoteLines(dealId),
         listRFQs(dealId),
         listChangeOrders(dealId),
         listPayments(dealId),
       ]);
       if (!active) return;
-      setLines(ql);
-      setRfqs(rq);
-      setCos(co);
-      setPayments(pay);
+      function unwrap<T>(r: PromiseSettledResult<T[]>, label: string): T[] {
+        if (r.status === "fulfilled") return r.value;
+        console.warn(`[budget-panel] ${label} failed`, r.reason);
+        return [];
+      }
+      setLines(unwrap(qlR, "listQuoteLines"));
+      setRfqs(unwrap(rqR, "listRFQs"));
+      setCos(unwrap(coR, "listChangeOrders"));
+      setPayments(unwrap(payR, "listPayments"));
       setLoaded(true);
     })();
     return () => {
