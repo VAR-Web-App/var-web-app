@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
+  CameraIcon,
   PencilSquareIcon,
+  SparklesIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -360,11 +362,117 @@ function PaymentForm({
   function patch(p: Partial<Payment>) {
     onChange({ ...value, ...p });
   }
+
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{
+    confidence: "high" | "medium" | "low";
+    fields: string[];
+  } | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  async function handleScanFile(file: File) {
+    setScanError(null);
+    setScanResult(null);
+    setScanning(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ocr/receipt", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setScanError(data.error || "OCR failed");
+        return;
+      }
+      const filled: string[] = [];
+      const patch_: Partial<Payment> = {};
+      if (typeof data.amount === "number" && data.amount > 0) {
+        patch_.amount = data.amount;
+        filled.push("amount");
+      }
+      if (typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        patch_.date = data.date;
+        filled.push("date");
+      }
+      // Vendor only auto-fills the free-text party name. We never overwrite
+      // a sub the user already picked from the dropdown — party_ref stays.
+      if (
+        typeof data.vendor === "string" &&
+        data.vendor.length > 1 &&
+        !value.party_ref
+      ) {
+        patch_.party_name = data.vendor;
+        filled.push("vendor");
+      }
+      if (Object.keys(patch_).length > 0) onChange({ ...value, ...patch_ });
+      setScanResult({ confidence: data.confidence ?? "low", fields: filled });
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanning(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
+  function pickFile(mode: "upload" | "camera") {
+    const el = fileInput.current;
+    if (!el) return;
+    if (mode === "camera") el.setAttribute("capture", "environment");
+    else el.removeAttribute("capture");
+    el.click();
+  }
+
   return (
     <div className="mt-4 rounded-lg border border-slate-300 bg-slate-50 p-4">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-        {value.direction === "in" ? "Record money in" : "Record money out"}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          {value.direction === "in" ? "Record money in" : "Record money out"}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleScanFile(f);
+            }}
+            className="hidden"
+            aria-label="Scan receipt"
+          />
+          <button
+            type="button"
+            onClick={() => pickFile("upload")}
+            disabled={scanning}
+            className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+            title="Upload a receipt image or PDF — auto-fills amount, date, and vendor"
+          >
+            <SparklesIcon className="h-3.5 w-3.5" />
+            {scanning ? "Reading…" : "Scan receipt"}
+          </button>
+          <button
+            type="button"
+            onClick={() => pickFile("camera")}
+            disabled={scanning}
+            className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+            title="Snap a photo of the receipt (phone)"
+          >
+            <CameraIcon className="h-3.5 w-3.5" />
+            Photo
+          </button>
+        </div>
       </div>
+      {scanResult ? (
+        <ScanResultBanner
+          result={scanResult}
+          onDismiss={() => setScanResult(null)}
+        />
+      ) : null}
+      {scanError ? (
+        <p className="mb-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {scanError}
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Party */}
         <Field label={value.direction === "in" ? "Paid by" : "Paid to"}>
@@ -507,6 +615,57 @@ function PaymentForm({
           {saving ? "Saving…" : "Save payment"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ScanResultBanner({
+  result,
+  onDismiss,
+}: {
+  result: { confidence: "high" | "medium" | "low"; fields: string[] };
+  onDismiss: () => void;
+}) {
+  if (result.fields.length === 0) {
+    return (
+      <div className="mb-3 flex items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <span>
+          Couldn&apos;t read the receipt clearly. Enter the fields manually.
+        </span>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-amber-700 hover:underline"
+        >
+          dismiss
+        </button>
+      </div>
+    );
+  }
+  const palette = {
+    high: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    medium: "border-sky-200 bg-sky-50 text-sky-800",
+    low: "border-amber-200 bg-amber-50 text-amber-800",
+  }[result.confidence];
+  return (
+    <div
+      className={`mb-3 flex items-center justify-between gap-2 rounded border px-3 py-2 text-xs ${palette}`}
+    >
+      <span>
+        Filled <strong>{result.fields.join(", ")}</strong> from the receipt
+        {result.confidence === "low"
+          ? " — double-check the values."
+          : result.confidence === "medium"
+            ? " (medium confidence)."
+            : "."}
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="hover:underline opacity-70"
+      >
+        dismiss
+      </button>
     </div>
   );
 }
