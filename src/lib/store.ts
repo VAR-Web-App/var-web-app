@@ -24,6 +24,7 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { deleteUploadedFile } from "./storage";
 import {
   Deal,
   Account,
@@ -220,7 +221,14 @@ export async function saveAttachment(a: Attachment): Promise<void> {
 }
 
 export async function deleteAttachment(id: string): Promise<void> {
+  // Look up the storage_path before deleting the doc, so we can clean up
+  // the Storage object too. Object-not-found is swallowed by the helper.
+  const snap = await getDoc(doc(db, "attachments", id));
+  const storagePath = snap.exists()
+    ? (snap.data() as Attachment).storage_path
+    : undefined;
   await removeFromCollection("attachments", id);
+  if (storagePath) await deleteUploadedFile(storagePath);
 }
 
 // ── project milestones (Builder vertical) ────────────────────────
@@ -269,7 +277,12 @@ export async function savePhoto(p: ProjectPhoto): Promise<void> {
 }
 
 export async function deletePhoto(id: string): Promise<void> {
+  const snap = await getDoc(doc(db, "project_photos", id));
+  const storagePath = snap.exists()
+    ? (snap.data() as ProjectPhoto).storage_path
+    : undefined;
   await removeFromCollection("project_photos", id);
+  if (storagePath) await deleteUploadedFile(storagePath);
 }
 
 // ── project RFQs (Builder vertical) ──────────────────────────────

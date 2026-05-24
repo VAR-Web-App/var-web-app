@@ -247,7 +247,8 @@ export interface Attachment {
     | "shipping"
     | "other";
   name: string;
-  /** Object URL or external link. Demo uses object URLs from in-browser uploads. */
+  /** Permanent Storage download URL when uploaded via Firebase Storage,
+   *  or an in-browser object URL on legacy/demo records. */
   url: string;
   size: number;
   uploaded_at: string;
@@ -255,6 +256,10 @@ export interface Attachment {
    *  draw_receipt uploads so the draw page can show only the docs tied
    *  to that milestone. */
   milestone_ref?: string;
+  /** Storage object path (e.g. "attachments/deal_abc/att_xyz-name.pdf").
+   *  When set, deleteAttachment also removes the Storage object. Absent
+   *  on legacy records that never went through the Storage pipeline. */
+  storage_path?: string;
 }
 
 /**

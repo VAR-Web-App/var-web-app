@@ -12,6 +12,7 @@ import {
   newId,
   saveAttachment,
 } from "@/lib/store";
+import { uploadAttachmentFile } from "@/lib/storage";
 import type { Attachment } from "@/types";
 
 type DrawCategory = "draw_invoice" | "draw_receipt";
@@ -65,14 +66,20 @@ export default function DrawAttachmentsSection({
     try {
       const created: Attachment[] = [];
       for (const file of Array.from(files)) {
-        const url = URL.createObjectURL(file);
+        const attId = newId("att");
+        const { url, storagePath } = await uploadAttachmentFile(
+          file,
+          dealId,
+          attId,
+        );
         const att: Attachment = {
-          id: newId("att"),
+          id: attId,
           deal_ref: dealId,
           milestone_ref: milestoneId,
           category: defaultCategory,
           name: file.name || "attachment",
           url,
+          storage_path: storagePath,
           size: file.size,
           uploaded_at: new Date().toISOString(),
         };

@@ -14,6 +14,7 @@ import {
   ProjectPhase,
 } from "@/types/builder";
 import { listPhotos, savePhoto, deletePhoto } from "@/lib/store";
+import { uploadPhotoFile } from "@/lib/storage";
 
 export default function PhotoGallery({
   dealId,
@@ -45,28 +46,52 @@ export default function PhotoGallery({
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (arr.length === 0) return;
     const now = new Date().toISOString();
-    const newPhotos: ProjectPhoto[] = arr.map((f) => ({
+    // Optimistic add: show local object URLs immediately so the grid
+    // doesn't sit empty during the upload. Persistent Storage URL + path
+    // swap in once each upload resolves; if upload fails, the optimistic
+    // record is rolled back.
+    const optimistic: ProjectPhoto[] = arr.map((f) => ({
       id: newId("photo"),
       deal_ref: dealId,
       org_ref: orgRef,
-      // Object URL — survives this session only. For real persistence we'd
-      // upload to Firebase Storage; not needed for the demo flow.
       url: URL.createObjectURL(f),
       phase: uploadPhase,
       caption: "",
       size: f.size,
       uploaded_at: now,
     }));
-    // Optimistic add then persist.
-    setPhotos((prev) => [...newPhotos, ...prev]);
-    for (const p of newPhotos) await savePhoto(p);
+    setPhotos((prev) => [...optimistic, ...prev]);
+
+    for (let i = 0; i < optimistic.length; i++) {
+      const placeholder = optimistic[i];
+      try {
+        const { url, storagePath } = await uploadPhotoFile(
+          arr[i],
+          dealId,
+          placeholder.id,
+        );
+        const persisted: ProjectPhoto = {
+          ...placeholder,
+          url,
+          storage_path: storagePath,
+        };
+        await savePhoto(persisted);
+        setPhotos((prev) =>
+          prev.map((x) => (x.id === placeholder.id ? persisted : x)),
+        );
+        URL.revokeObjectURL(placeholder.url);
+      } catch (e) {
+        console.warn("[photo-gallery] upload failed", e);
+        setPhotos((prev) => prev.filter((x) => x.id !== placeholder.id));
+        URL.revokeObjectURL(placeholder.url);
+      }
+    }
   }
 
   async function onRemove(p: ProjectPhoto) {
     if (!confirm("Delete this photo?")) return;
     setPhotos((prev) => prev.filter((x) => x.id !== p.id));
     await deletePhoto(p.id);
-    URL.revokeObjectURL(p.url);
   }
 
   async function updateCaption(p: ProjectPhoto, caption: string) {

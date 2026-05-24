@@ -40,6 +40,7 @@ import {
   newId,
   deleteAttachment,
 } from "@/lib/store";
+import { uploadAttachmentFile } from "@/lib/storage";
 import type { QuoteLine } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import type { BomLine } from "@/lib/parsers";
@@ -151,14 +152,19 @@ export default function DealDetailPage({
 
   async function onUploadFile(category: Attachment["category"], file: File) {
     if (!deal) return;
+    const attId = newId("att");
+    const { url, storagePath } = await uploadAttachmentFile(
+      file,
+      deal.id,
+      attId,
+    );
     const att: Attachment = {
-      id: newId("att"),
+      id: attId,
       deal_ref: deal.id,
       category,
       name: file.name,
-      // Object URL — survives this session only. For real persistence we'd
-      // upload to Firebase Storage; not needed for the demo.
-      url: URL.createObjectURL(file),
+      url,
+      storage_path: storagePath,
       size: file.size,
       uploaded_at: new Date().toISOString(),
     };

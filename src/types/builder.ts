@@ -262,7 +262,8 @@ export interface ProjectPhoto {
   id: string;
   deal_ref: string;
   org_ref: string;
-  /** Object URL or persistent URL — demo uses object URLs. */
+  /** Permanent Storage download URL when uploaded via Firebase Storage,
+   *  or an in-browser object URL on legacy/demo records. */
   url: string;
   /** Phase the photo documents (e.g. "Foundation", "Framing"). */
   phase: string;
@@ -270,6 +271,8 @@ export interface ProjectPhoto {
   /** Upload size in bytes (for display only). */
   size: number;
   uploaded_at: string;
+  /** Storage object path; when set, deletePhoto also removes the file. */
+  storage_path?: string;
 }
 
 /** The phases used to organize photos + schedule blocks. Mirrors the
