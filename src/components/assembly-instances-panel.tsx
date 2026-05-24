@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   DocumentDuplicateIcon,
   TrashIcon,
@@ -15,6 +15,16 @@ import type {
   AssemblyInstance,
   AssemblyProperty,
 } from "@/types/assembly";
+
+/** Roll up an instance to a single dollar total via the shared compute. */
+function instanceTotal(instance: AssemblyInstance): number {
+  const assembly = findStubAssembly(instance.assemblyId);
+  if (!assembly) return 0;
+  const propertyMap = Object.fromEntries(
+    instance.propertyValues.map((p) => [p.name, p.value]),
+  );
+  return computeMaterials(assembly, propertyMap).total;
+}
 
 /**
  * Live-editable list of assembly instances on a quote.
@@ -54,6 +64,7 @@ export default function AssemblyInstancesPanel({
           Live edits regenerate the linked line items below.
         </span>
       </header>
+      <AssemblyComparisonHeader instances={instances} />
       <div className="space-y-3">
         {instances.map((instance) => (
           <AssemblyInstanceCard
@@ -67,6 +78,136 @@ export default function AssemblyInstancesPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * "Option A vs Option B" delta widget. Shown above the instance cards when
+ * 2+ assemblies are on the quote. Defaults A and B to the first two
+ * instances so the comparison populates as soon as Barry duplicates one;
+ * either side can be repointed from the dropdown.
+ */
+function AssemblyComparisonHeader({
+  instances,
+}: {
+  instances: AssemblyInstance[];
+}) {
+  const [aId, setAId] = useState<string | null>(null);
+  const [bId, setBId] = useState<string | null>(null);
+
+  const a = useMemo(() => {
+    const picked = instances.find((i) => i.id === aId);
+    return picked ?? instances[0] ?? null;
+  }, [instances, aId]);
+
+  const b = useMemo(() => {
+    const picked = instances.find((i) => i.id === bId);
+    if (picked) return picked;
+    // Default B to the next-different instance after A.
+    const fallback = instances.find((i) => i.id !== a?.id) ?? instances[1];
+    return fallback ?? null;
+  }, [instances, bId, a]);
+
+  const aTotal = useMemo(() => (a ? instanceTotal(a) : 0), [a]);
+  const bTotal = useMemo(() => (b ? instanceTotal(b) : 0), [b]);
+
+  if (instances.length < 2 || !a || !b) return null;
+
+  const delta = bTotal - aTotal;
+  const deltaPct = aTotal > 0 ? (delta / aTotal) * 100 : 0;
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  const absDelta = Math.abs(delta);
+
+  // Cheaper-than-A is the typical "good news" outcome when Barry's
+  // exploring a budget alternative — color it green. More expensive lands
+  // amber so it reads as a tradeoff, not an error.
+  const deltaColor =
+    delta < -0.005
+      ? "text-emerald-700"
+      : delta > 0.005
+        ? "text-amber-700"
+        : "text-slate-500";
+  const deltaBg =
+    delta < -0.005
+      ? "bg-emerald-50 border-emerald-200"
+      : delta > 0.005
+        ? "bg-amber-50 border-amber-200"
+        : "bg-slate-50 border-slate-200";
+
+  return (
+    <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold text-sky-900">Option compare</h3>
+        <span className="text-xs text-sky-700">
+          Pick any two assemblies — totals update live as you edit
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <ComparisonSide
+          label="Option A"
+          instances={instances}
+          selectedId={a.id}
+          onChange={setAId}
+          total={aTotal}
+        />
+        <ComparisonSide
+          label="Option B"
+          instances={instances}
+          selectedId={b.id}
+          onChange={setBId}
+          total={bTotal}
+        />
+        <div className={`rounded-lg border ${deltaBg} px-3 py-2`}>
+          <div className="text-xs font-medium text-slate-600">Difference</div>
+          <div
+            className={`mt-1 text-lg font-semibold tabular-nums ${deltaColor}`}
+          >
+            {absDelta < 0.005
+              ? "Same price"
+              : `${sign}$${absDelta.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </div>
+          <div className={`text-xs tabular-nums ${deltaColor}`}>
+            {aTotal > 0 && absDelta >= 0.005
+              ? `${sign}${Math.abs(deltaPct).toFixed(1)}% vs Option A`
+              : "—"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonSide({
+  label,
+  instances,
+  selectedId,
+  onChange,
+  total,
+}: {
+  label: string;
+  instances: AssemblyInstance[];
+  selectedId: string;
+  onChange: (id: string) => void;
+  total: number;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <label className="block text-xs font-medium text-slate-600">{label}</label>
+      <select
+        value={selectedId}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+      >
+        {instances.map((i) => (
+          <option key={i.id} value={i.id}>
+            {i.instanceLabel?.trim() ? i.instanceLabel : i.assemblyName}
+          </option>
+        ))}
+      </select>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+        ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </div>
+    </div>
   );
 }
 
