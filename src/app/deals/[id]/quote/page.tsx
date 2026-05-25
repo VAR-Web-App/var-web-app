@@ -4,7 +4,9 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDownIcon,
   ChevronLeftIcon,
+  ChevronRightIcon,
   PlusIcon,
   TrashIcon,
   ArrowDownTrayIcon,
@@ -537,14 +539,15 @@ export default function DealQuotePage({
         {lines.length === 0 ? (
           <EmptyState onAddBlank={addBlankLine} hasParsedBoms={parsedDistributorBoms.length > 0} />
         ) : (
-          <LineEditor
+          <CollapsibleLineEditor
             lines={lines}
+            assemblyCount={assemblyInstances.length}
             onUpdate={updateLine}
             onRemove={removeLine}
           />
         )}
 
-        <div className="flex justify-between">
+        <div className="flex flex-wrap justify-between gap-2 pb-24 sm:pb-0">
           <div className="flex gap-2">
             <button
               onClick={addBlankLine}
@@ -577,7 +580,91 @@ export default function DealQuotePage({
         onClose={() => setShowAssemblyModal(false)}
         onConfirm={importFromAssembly}
       />
+
+      {/* Sticky mobile-only bottom bar — phone real estate is precious,
+       *  keep the running total + Save action thumb-reachable while the
+       *  builder scrolls long assembly + line lists. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white px-4 py-2 shadow-lg sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-[10px] uppercase tracking-wider text-slate-500">
+              Estimate to client
+            </div>
+            <div className="text-sm font-bold tabular-nums text-emerald-700">
+              {fmtMoney(totals.customer)}
+            </div>
+          </div>
+          {!dirty && !saving ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+              <CheckIcon className="h-4 w-4" />
+              Saved
+            </span>
+          ) : (
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:bg-sky-400"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          )}
+        </div>
+      </div>
     </AppShell>
+  );
+}
+
+/**
+ * Wraps the LineEditor in a collapsible section. Default-collapsed when
+ * there are assembly instances on the quote AND more than 5 derived
+ * lines — the assemblies already show their materials inline, so the
+ * full table is duplicate info most of the time. Ad-hoc-only quotes
+ * (no assemblies) start expanded.
+ */
+function CollapsibleLineEditor({
+  lines,
+  assemblyCount,
+  onUpdate,
+  onRemove,
+}: {
+  lines: QuoteLine[];
+  assemblyCount: number;
+  onUpdate: (idx: number, patch: Partial<QuoteLine>) => void;
+  onRemove: (idx: number) => void;
+}) {
+  const [open, setOpen] = useState<boolean>(
+    !(assemblyCount > 0 && lines.length > 5),
+  );
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDownIcon className="h-4 w-4 text-slate-500" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 text-slate-500" />
+        )}
+        <span className="text-sm font-semibold text-slate-900">Line items</span>
+        <span className="text-xs text-slate-500">
+          {lines.length} line{lines.length === 1 ? "" : "s"}
+        </span>
+        {!open && assemblyCount > 0 ? (
+          <span className="ml-auto hidden text-xs text-slate-500 sm:inline">
+            Derived from {assemblyCount} assembl
+            {assemblyCount === 1 ? "y" : "ies"} above
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="border-t border-slate-200">
+          <LineEditor lines={lines} onUpdate={onUpdate} onRemove={onRemove} />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -686,8 +773,10 @@ function LineEditor({
   onUpdate: (idx: number, patch: Partial<QuoteLine>) => void;
   onRemove: (idx: number) => void;
 }) {
+  // Outer chrome (rounded, border, shadow) is provided by the parent
+  // CollapsibleLineEditor wrapper — keep this as a plain container.
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="bg-white">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -801,7 +890,7 @@ function LineEditor({
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
   );
 }
 

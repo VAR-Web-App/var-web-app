@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
+  ChevronDownIcon,
+  ChevronRightIcon,
   DocumentDuplicateIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -66,7 +68,7 @@ export default function AssemblyInstancesPanel({
       </header>
       <AssemblyComparisonHeader instances={instances} />
       <div className="space-y-3">
-        {instances.map((instance) => (
+        {instances.map((instance, idx) => (
           <AssemblyInstanceCard
             key={instance.id}
             instance={instance}
@@ -74,6 +76,10 @@ export default function AssemblyInstancesPanel({
             onRemove={() => onRemove(instance.id)}
             onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
             onDuplicate={() => onDuplicate(instance.id)}
+            // Smart default: keep all open with 3 or fewer instances;
+            // beyond that, start everything collapsed so a 13-assembly
+            // floor-plan import doesn't blow out the scroll height.
+            defaultCollapsed={instances.length > 3 && idx > 0}
           />
         ))}
       </div>
@@ -94,6 +100,11 @@ function AssemblyComparisonHeader({
 }) {
   const [aId, setAId] = useState<string | null>(null);
   const [bId, setBId] = useState<string | null>(null);
+  // Open by default when there are exactly 2 instances (the "Barry just
+  // duplicated one" case where compare is what the user wants). Closed
+  // when there are many instances — opening eats screen real estate and
+  // is only situationally useful in that mode.
+  const [open, setOpen] = useState<boolean>(instances.length === 2);
 
   const a = useMemo(() => {
     const picked = instances.find((i) => i.id === aId);
@@ -103,7 +114,6 @@ function AssemblyComparisonHeader({
   const b = useMemo(() => {
     const picked = instances.find((i) => i.id === bId);
     if (picked) return picked;
-    // Default B to the next-different instance after A.
     const fallback = instances.find((i) => i.id !== a?.id) ?? instances[1];
     return fallback ?? null;
   }, [instances, bId, a]);
@@ -118,9 +128,6 @@ function AssemblyComparisonHeader({
   const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
   const absDelta = Math.abs(delta);
 
-  // Cheaper-than-A is the typical "good news" outcome when Barry's
-  // exploring a budget alternative — color it green. More expensive lands
-  // amber so it reads as a tradeoff, not an error.
   const deltaColor =
     delta < -0.005
       ? "text-emerald-700"
@@ -134,13 +141,37 @@ function AssemblyComparisonHeader({
         ? "bg-amber-50 border-amber-200"
         : "bg-slate-50 border-slate-200";
 
+  // Collapsed header — single row with the delta peek-through so the
+  // builder can decide whether to expand without losing the info.
+  const collapsedSummary =
+    absDelta < 0.005
+      ? "Same price"
+      : `${sign}$${absDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}${aTotal > 0 ? ` (${sign}${Math.abs(deltaPct).toFixed(0)}%)` : ""}`;
+
   return (
-    <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold text-sky-900">Option compare</h3>
-        <span className="text-xs text-sky-700">
-          Pick any two assemblies — totals update live as you edit
+    <div className="rounded-xl border border-sky-200 bg-sky-50/60">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-sky-100/50"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDownIcon className="h-4 w-4 text-sky-700" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 text-sky-700" />
+        )}
+        <span className="text-sm font-semibold text-sky-900">
+          Option compare
         </span>
+        <span className={`ml-auto text-xs tabular-nums ${deltaColor}`}>
+          A vs B: {collapsedSummary}
+        </span>
+      </button>
+      {open ? (
+    <div className="border-t border-sky-200 p-4">
+      <div className="mb-3 text-xs text-sky-700 sm:hidden">
+        Pick any two assemblies — totals update live as you edit
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <ComparisonSide
@@ -173,6 +204,8 @@ function AssemblyComparisonHeader({
           </div>
         </div>
       </div>
+    </div>
+      ) : null}
     </div>
   );
 }
@@ -217,13 +250,16 @@ function AssemblyInstanceCard({
   onRemove,
   onSwap,
   onDuplicate,
+  defaultCollapsed = false,
 }: {
   instance: AssemblyInstance;
   onChange: (next: AssemblyInstance) => void;
   onRemove: () => void;
   onSwap: (newAssemblyId: string) => void;
   onDuplicate: () => void;
+  defaultCollapsed?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
   const assembly: Assembly | null = useMemo(
     () => findStubAssembly(instance.assemblyId),
     [instance.assemblyId],
@@ -271,10 +307,42 @@ function AssemblyInstanceCard({
     );
   }
 
+  // Compact property summary shown in the collapsed-card header — gives
+  // the GC enough info to recognize the assembly without expanding it.
+  // Skips long string options ("Vinyl") and zero/empty values, joins with
+  // dots so the line stays short.
+  const propSummary = instance.propertyValues
+    .map(({ name, value }) => {
+      const p = assembly.properties.find((x) => x.name === name);
+      if (!p) return null;
+      if (p.kind === "option" && p.options) {
+        const opt = p.options.find((o) => o.value === value);
+        return opt?.label ?? null;
+      }
+      if (!Number.isFinite(value) || value === 0) return null;
+      const uom = p.uom ? ` ${p.uom}` : "";
+      return `${value}${uom}`;
+    })
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2.5">
+      <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          aria-label={collapsed ? "Expand assembly" : "Collapse assembly"}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? (
+            <ChevronRightIcon className="h-4 w-4" />
+          ) : (
+            <ChevronDownIcon className="h-4 w-4" />
+          )}
+        </button>
         <input
           type="text"
           value={instance.instanceLabel}
@@ -282,18 +350,20 @@ function AssemblyInstanceCard({
           placeholder="Phase label"
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-slate-900 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
         />
-        <select
-          value={instance.assemblyId}
-          onChange={(e) => onSwap(e.target.value)}
-          className="rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
-          title="Swap to a different assembly — properties with matching names carry over."
-        >
-          {STUB_ASSEMBLIES.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
+        {!collapsed ? (
+          <select
+            value={instance.assemblyId}
+            onChange={(e) => onSwap(e.target.value)}
+            className="hidden rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-300 focus:border-sky-500 focus:outline-none sm:block"
+            title="Swap to a different assembly — properties with matching names carry over."
+          >
+            {STUB_ASSEMBLIES.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <span className="text-sm font-semibold tabular-nums text-slate-900">
           ${computed ? computed.total.toFixed(2) : "—"}
         </span>
@@ -315,28 +385,38 @@ function AssemblyInstanceCard({
         </button>
       </header>
 
-      {/* Property inputs */}
-      <div className="grid gap-3 px-4 py-3 sm:grid-cols-3">
-        {assembly.properties.map((p) => (
-          <PropertyEditor
-            key={p.name}
-            property={p}
-            value={propertyMap[p.name] ?? 0}
-            onChange={(v) => updateProperty(p.name, v)}
-          />
-        ))}
-      </div>
+      {collapsed ? (
+        // Collapsed: one-line property summary so the GC can see what
+        // configuration this instance is at without expanding.
+        propSummary ? (
+          <div className="px-4 py-2 text-xs text-slate-500">{propSummary}</div>
+        ) : null
+      ) : (
+        <>
+          {/* Property inputs */}
+          <div className="grid gap-3 px-4 py-3 sm:grid-cols-3">
+            {assembly.properties.map((p) => (
+              <PropertyEditor
+                key={p.name}
+                property={p}
+                value={propertyMap[p.name] ?? 0}
+                onChange={(v) => updateProperty(p.name, v)}
+              />
+            ))}
+          </div>
 
-      {/* Footer summary */}
-      <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
-        <span>
-          {computed?.lines.length ?? 0} material line
-          {computed?.lines.length === 1 ? "" : "s"} regenerated on every edit
-        </span>
-        {computed?.error ? (
-          <span className="text-rose-600">{computed.error}</span>
-        ) : null}
-      </footer>
+          {/* Footer summary */}
+          <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
+            <span>
+              {computed?.lines.length ?? 0} material line
+              {computed?.lines.length === 1 ? "" : "s"} regenerated on every edit
+            </span>
+            {computed?.error ? (
+              <span className="text-rose-600">{computed.error}</span>
+            ) : null}
+          </footer>
+        </>
+      )}
     </article>
   );
 }
