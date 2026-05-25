@@ -21,15 +21,31 @@ export function toE164(raw: string): string | null {
   return null;
 }
 
+/** Optional per-call overrides — primarily the per-org from-number used
+ *  when a builder graduates to their own Twilio Option C phone line. */
+export interface SmsOptions {
+  /** E.164 number to send from. Falls back to platform TWILIO_FROM_NUMBER
+   *  when undefined. Source: caller's OrgSettings.sms_config.from_number. */
+  fromNumberHint?: string;
+}
+
 /** Fire-and-forget SMS send. Never throws — failures resolve to
  *  { ok: false } so a notification problem can't break the caller's
  *  primary action (assigning a sub, saving a milestone, etc.). */
-export async function sendSms(to: string, body: string): Promise<SmsResult> {
+export async function sendSms(
+  to: string,
+  body: string,
+  opts?: SmsOptions,
+): Promise<SmsResult> {
   try {
     const res = await fetch("/api/sms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, body }),
+      body: JSON.stringify({
+        to,
+        body,
+        from: opts?.fromNumberHint,
+      }),
     });
     const data = (await res.json()) as Partial<SmsResult>;
     return {

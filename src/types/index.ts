@@ -220,6 +220,27 @@ export interface OrgSettings {
   default_manufacturer: string;
   prepared_by_name: string;
   prepared_by_phone: string;
+  /**
+   * Per-org SMS configuration. Lets the platform run Twilio Option A
+   * today (one shared platform number) while leaving a clean migration
+   * path to Option C (a dedicated phone number per builder) — when an
+   * org graduates to a dedicated number, populate `from_number` here
+   * and the /api/sms route picks it up over the platform default.
+   *
+   * `subaccount_*` fields are reserved for the eventual Twilio
+   * Subaccount split; they aren't read by the current route.
+   */
+  sms_config?: {
+    /** "platform" = shared number (Option A). "dedicated" = this org has
+     *  its own number provisioned (Option C / Phase 2). */
+    mode?: "platform" | "dedicated";
+    /** E.164 dedicated number for this org. Falls back to TWILIO_FROM_NUMBER. */
+    from_number?: string;
+    /** A2P 10DLC brand registration status, when this org has its own brand. */
+    brand_status?: "pending" | "approved" | "rejected";
+    /** Reserved for future Twilio Subaccount split (Phase 3). */
+    subaccount_sid?: string;
+  };
 }
 
 export interface Attachment {

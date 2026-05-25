@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  let body: { to?: string; body?: string };
+  let body: { to?: string; body?: string; from?: string };
   try {
     body = await req.json();
   } catch {
@@ -32,7 +32,22 @@ export async function POST(req: NextRequest) {
 
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
+  // Per-org dedicated number (Option C / Phase 2) wins when provided;
+  // otherwise we fall back to the platform shared number (Option A).
+  // The whitelist is intentionally simple — TWILIO_ALLOWED_FROM_NUMBERS
+  // is a comma-separated list of E.164 numbers under our account, used
+  // to prevent a malicious client from impersonating an arbitrary number.
+  const platformFrom = process.env.TWILIO_FROM_NUMBER;
+  const allowedExtra = (process.env.TWILIO_ALLOWED_FROM_NUMBERS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const requestedFrom = (body.from || "").trim();
+  const from =
+    requestedFrom &&
+    (requestedFrom === platformFrom || allowedExtra.includes(requestedFrom))
+      ? requestedFrom
+      : platformFrom;
 
   if (!sid || !token || !from) {
     console.warn("[sms] TWILIO_* env vars not set — skipping send", { to });
