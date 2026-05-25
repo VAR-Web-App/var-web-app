@@ -609,22 +609,14 @@ export default function DealQuotePage({
         )}
 
         <div className="flex flex-wrap justify-between gap-2 pb-24 sm:pb-0">
-          <div className="flex gap-2">
-            <button
-              onClick={addBlankLine}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Add blank line
-            </button>
-            <button
-              onClick={() => setShowAssemblyModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Add assembly
-            </button>
-          </div>
+          <button
+            onClick={addBlankLine}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            title="Add a one-off line not tied to an assembly — for materials or labor that don't come from an assembly's formula."
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add blank line
+          </button>
           <Link
             href={`/deals/${id}/takeoff`}
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -1289,20 +1281,23 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
-              <strong>Duplicate</strong> — clone an assembly to compare
-              options (vinyl vs wood windows, 16&quot; vs 24&quot; stud
-              spacing). The <em>Option compare</em> bar at the top shows
-              the dollar + percent delta.
+              <strong>+ Add variant</strong> — inside an assembly card,
+              compare options (vinyl vs wood windows, 16&quot; vs 24&quot;
+              stud spacing). Pick a curated preset from the menu or
+              clone the current setup. The active variant&apos;s chip is
+              filled; inactive chips show their price + delta vs active.
+              Click a chip to switch the active variant.
             </li>
             <li>
               <strong>Swap</strong> — change an assembly&apos;s type from
               the dropdown in its header; matching property names carry
-              over to the new assembly.
+              over to the new assembly. Swap operates on the active
+              variant only.
             </li>
             <li>
               <strong>Collapse</strong> — shrink an assembly card with the
-              chevron in its header; the one-line property summary stays
-              visible.
+              chevron in its header; the one-line property summary
+              (including the active variant&apos;s label) stays visible.
             </li>
           </ul>
         </section>
