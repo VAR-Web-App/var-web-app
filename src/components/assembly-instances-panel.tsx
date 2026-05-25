@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  DocumentDuplicateIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
   TrashIcon,
@@ -118,7 +117,6 @@ export default function AssemblyInstancesPanel({
   onChange,
   onRemove,
   onSwap,
-  onDuplicate,
   onAddAssembly,
 }: {
   instances: AssemblyInstance[];
@@ -126,8 +124,6 @@ export default function AssemblyInstancesPanel({
   onRemove: (instanceId: string) => void;
   /** Swap an instance to a different assembly definition (e.g. vinyl → wood window family). */
   onSwap: (instanceId: string, newAssemblyId: string) => void;
-  /** Clone an instance into a sibling for side-by-side what-if comparison. */
-  onDuplicate: (instanceId: string) => void;
   /** Opens the Add Assembly modal. Optional — when absent the header
    *  button is hidden (e.g. sandbox / read-only embeds). */
   onAddAssembly?: () => void;
@@ -169,7 +165,6 @@ export default function AssemblyInstancesPanel({
           onChange={onChange}
           onRemove={onRemove}
           onSwap={onSwap}
-          onDuplicate={onDuplicate}
         />
       ))}
     </section>
@@ -186,7 +181,6 @@ function TradeGroup({
   onChange,
   onRemove,
   onSwap,
-  onDuplicate,
 }: {
   group: TradeBucket;
   accentIdx: number;
@@ -194,7 +188,6 @@ function TradeGroup({
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
   onSwap: (instanceId: string, newAssemblyId: string) => void;
-  onDuplicate: (instanceId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const subtotal = useMemo(
@@ -238,7 +231,6 @@ function TradeGroup({
               onChange={onChange}
               onRemove={() => onRemove(instance.id)}
               onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
-              onDuplicate={() => onDuplicate(instance.id)}
               // Smart default: keep cards open when the project has 3
               // or fewer assemblies total; otherwise start collapsed
               // (except the first of the first group) so a 13-assembly
@@ -479,14 +471,12 @@ function AssemblyInstanceCard({
   onChange,
   onRemove,
   onSwap,
-  onDuplicate,
   defaultCollapsed = false,
 }: {
   instance: AssemblyInstance;
   onChange: (next: AssemblyInstance) => void;
   onRemove: () => void;
   onSwap: (newAssemblyId: string) => void;
-  onDuplicate: () => void;
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
@@ -707,14 +697,6 @@ function AssemblyInstanceCard({
         <span className="text-sm font-semibold tabular-nums text-slate-900">
           ${activeTotal.toFixed(2)}
         </span>
-        <button
-          onClick={onDuplicate}
-          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-sky-700"
-          aria-label="Duplicate this card"
-          title="Duplicate the entire card (a separate sibling assembly — for compare options within the same assembly, use + Add variant below instead)"
-        >
-          <DocumentDuplicateIcon className="h-4 w-4" />
-        </button>
         <button
           onClick={onRemove}
           className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"

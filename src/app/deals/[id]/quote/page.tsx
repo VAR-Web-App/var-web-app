@@ -350,66 +350,6 @@ export default function DealQuotePage({
   }
 
   /**
-   * Duplicate an existing assembly instance — same properties, fresh id,
-   * label suffixed with "(copy)". Enables side-by-side what-ifs in a
-   * live client conversation: keep the current spec on one card and
-   * tweak the duplicate to compare.
-   */
-  function duplicateInstance(instanceId: string) {
-    const source = assemblyInstances.find((i) => i.id === instanceId);
-    if (!source) return;
-    const mintId = () =>
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `id_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    // Deep-copy variants so editing the duplicate doesn't mutate the
-    // original's property values.
-    const dupVariants = source.variants.map((v) => ({
-      ...v,
-      id: mintId(),
-      propertyValues: v.propertyValues.map((p) => ({ ...p })),
-    }));
-    const sourceActiveIdx = source.variants.findIndex(
-      (v) => v.id === source.activeVariantId,
-    );
-    const copy: AssemblyInstance = {
-      id: mintId(),
-      instanceLabel: `${source.instanceLabel} (copy)`,
-      variants: dupVariants,
-      activeVariantId: dupVariants[Math.max(0, sourceActiveIdx)].id,
-    };
-
-    // Insert the copy directly after the source instance in the panel.
-    setAssemblyInstances((prev) => {
-      const idx = prev.findIndex((i) => i.id === instanceId);
-      if (idx === -1) return [...prev, copy];
-      return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
-    });
-
-    // Insert the new derived lines right after the source's lines, so
-    // the line items table mirrors the panel order.
-    setLines((prev) => {
-      let lastIdx = -1;
-      for (let i = prev.length - 1; i >= 0; i--) {
-        if (prev[i].instance_id === source.id) {
-          lastIdx = i;
-          break;
-        }
-      }
-      const newDerived = instanceToQuoteLines(copy, 0);
-      const combined =
-        lastIdx === -1
-          ? [...prev, ...newDerived]
-          : [
-              ...prev.slice(0, lastIdx + 1),
-              ...newDerived,
-              ...prev.slice(lastIdx + 1),
-            ];
-      return combined.map((l, i) => ({ ...l, line_number: i + 1 }));
-    });
-  }
-
-  /**
    * Swap an instance to a different assembly definition. Property values
    * with matching names carry over (e.g. "Width" / "Height" stay when
    * swapping vinyl → wood window); new properties use defaults.
@@ -600,7 +540,6 @@ export default function DealQuotePage({
           onChange={updateInstance}
           onRemove={removeInstance}
           onSwap={swapInstance}
-          onDuplicate={duplicateInstance}
           onAddAssembly={() => setShowAssemblyModal(true)}
         />
 
@@ -1055,7 +994,7 @@ function LineEditor({
                   <CellInput
                     value={line.product_code}
                     onChange={(v) => onUpdate(origIdx, { product_code: v })}
-                    className="w-40 text-xs"
+                    className="w-48 text-xs"
                     placeholder="Foundation"
                   />
                 </td>
@@ -1089,13 +1028,22 @@ function LineEditor({
                     decimals
                   />
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                <td
+                  className="cursor-default px-3 py-2 text-right tabular-nums text-slate-500"
+                  title="Calculated — Unit Cost × (1 + Markup %)"
+                >
                   {fmtMoney(line.customer_unit_price)}
                 </td>
-                <td className="px-3 py-2 text-right font-medium tabular-nums text-slate-900">
+                <td
+                  className="cursor-default px-3 py-2 text-right font-medium tabular-nums text-slate-700"
+                  title="Calculated — Qty × Unit Price"
+                >
                   {fmtMoney(line.customer_extended)}
                 </td>
-                <td className="px-3 py-2 text-right text-xs">
+                <td
+                  className="cursor-default px-3 py-2 text-right text-xs"
+                  title="Calculated margin"
+                >
                   <span
                     className={
                       line.margin_percent >= 15
