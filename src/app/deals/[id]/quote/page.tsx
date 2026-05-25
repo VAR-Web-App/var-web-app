@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   MagnifyingGlassIcon,
   PlusIcon,
+  PrinterIcon,
   QuestionMarkCircleIcon,
   TrashIcon,
   ArrowDownTrayIcon,
@@ -624,14 +625,14 @@ export default function DealQuotePage({
               Add assembly
             </button>
           </div>
-          <button
-            disabled
-            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm text-slate-400"
-            title="Coming soon"
+          <Link
+            href={`/deals/${id}/takeoff`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            title="Open the printable takeoff document — internal/lumber-yard facing with full cost + markup detail. Print to PDF from the browser."
           >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            Export to Excel / PDF (soon)
-          </button>
+            <PrinterIcon className="h-4 w-4" />
+            Takeoff PDF
+          </Link>
         </div>
       </div>
 
