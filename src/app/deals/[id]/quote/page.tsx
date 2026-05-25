@@ -936,6 +936,21 @@ function LineEditor({
     (l.notes ?? "").toLowerCase().includes(q);
   const visibleCount = q ? lines.filter(matches).length : lines.length;
 
+  // Stable color per Phase label — first phase encountered gets
+  // slate, second sky, then alternates. Same two-color rotation the
+  // trade groups in the assembly panel use, so the visual language
+  // stays consistent across both surfaces.
+  const phaseDotClass = useMemo(() => {
+    const palette = ["bg-slate-400", "bg-sky-500"];
+    const map = new Map<string, string>();
+    for (const line of lines) {
+      const phase = line.product_code?.trim();
+      if (!phase) continue;
+      if (!map.has(phase)) map.set(phase, palette[map.size % palette.length]);
+    }
+    return map;
+  }, [lines]);
+
   // Outer chrome (rounded, border, shadow) is provided by the parent
   // CollapsibleLineEditor wrapper — keep this as a plain container.
   return (
@@ -1005,12 +1020,26 @@ function LineEditor({
               >
                 <td className="px-3 py-2 text-xs text-slate-500">{line.line_number}</td>
                 <td className="px-2 py-1.5">
-                  <CellInput
-                    value={line.product_code}
-                    onChange={(v) => onUpdate(i, { product_code: v })}
-                    className="w-40 text-xs"
-                    placeholder="Foundation"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                        phaseDotClass.get(line.product_code?.trim()) ??
+                        "bg-transparent ring-1 ring-slate-200"
+                      }`}
+                      aria-hidden
+                      title={
+                        line.product_code?.trim()
+                          ? `Phase: ${line.product_code}`
+                          : "No phase set"
+                      }
+                    />
+                    <CellInput
+                      value={line.product_code}
+                      onChange={(v) => onUpdate(i, { product_code: v })}
+                      className="w-36 text-xs"
+                      placeholder="Foundation"
+                    />
+                  </div>
                 </td>
                 <td className="px-2 py-1.5">
                   <CellInput
