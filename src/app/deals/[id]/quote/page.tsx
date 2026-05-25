@@ -8,10 +8,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
+  QuestionMarkCircleIcon,
   TrashIcon,
   ArrowDownTrayIcon,
   CheckIcon,
   PaperAirplaneIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import Tooltip from "@/components/tooltip";
@@ -19,6 +21,7 @@ import AddAssemblyModal, {
   type AddAssemblyResult,
 } from "@/components/add-assembly-modal";
 import AssemblyInstancesPanel from "@/components/assembly-instances-panel";
+import NumberInput from "@/components/number-input";
 import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import type { AssemblyInstance } from "@/types/assembly";
@@ -66,6 +69,8 @@ export default function DealQuotePage({
   const [loaded, setLoaded] = useState(false);
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
   const [showAssemblyModal, setShowAssemblyModal] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [saveProgress, setSaveProgress] = useState(0);
   const [assemblyInstances, setAssemblyInstances] = useState<
     AssemblyInstance[]
   >([]);
@@ -417,6 +422,18 @@ export default function DealQuotePage({
   async function onSave() {
     if (!profile || !deal) return;
     setSaving(true);
+    setSaveProgress(0);
+    // Eased progress simulation matching the apply / extract UX — saves
+    // take 1-3 seconds in practice, so the progress bar gives the user
+    // something to watch instead of a flat "Saving…" label.
+    const start = performance.now();
+    const targetMs = 1500;
+    const tick = window.setInterval(() => {
+      const elapsed = performance.now() - start;
+      const t = Math.min(1, elapsed / targetMs);
+      const eased = 1 - Math.pow(1 - t, 2.2);
+      setSaveProgress(Math.min(95, eased * 95));
+    }, 60);
     try {
       const renumbered = lines.map((l, i) => ({ ...l, line_number: i + 1 }));
       await saveQuoteLines(id, profile.org_ref, renumbered);
@@ -436,9 +453,12 @@ export default function DealQuotePage({
       setLines(renumbered);
       setSavedLinesSnapshot(JSON.stringify(renumbered));
       setSavedInstancesSnapshot(JSON.stringify(assemblyInstances));
-      // Once saved, dirty becomes false → resting state shows the green
-      // "Saved" pill automatically. No need for a transient flash.
+      setSaveProgress(100);
+      // Hold at 100% briefly so the user sees completion before the
+      // "Saved" pill swaps in.
+      await new Promise((r) => setTimeout(r, 250));
     } finally {
+      clearInterval(tick);
       setSaving(false);
     }
   }
@@ -466,7 +486,21 @@ export default function DealQuotePage({
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Project Estimate</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Project Estimate
+              </h1>
+              <button
+                type="button"
+                onClick={() => setHelpOpen((v) => !v)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-sky-700"
+                aria-expanded={helpOpen}
+                aria-label={helpOpen ? "Close help" : "Open help"}
+                title="How this page works"
+              >
+                <QuestionMarkCircleIcon className="h-5 w-5" />
+              </button>
+            </div>
             <p className="mt-1 text-sm text-slate-500">
               Build the estimate you&apos;ll send your client. Cost + markup feeds the
               project totals on save.
@@ -508,16 +542,18 @@ export default function DealQuotePage({
                 Saved
               </span>
             ) : (
-              <button
+              <SaveButton
                 onClick={onSave}
-                disabled={saving}
-                className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
-              >
-                {saving ? "Saving…" : "Save estimate"}
-              </button>
+                saving={saving}
+                progress={saveProgress}
+              />
             )}
           </div>
         </div>
+
+        {helpOpen ? (
+          <HelpPanel onClose={() => setHelpOpen(false)} />
+        ) : null}
 
         {parsedDistributorBoms.length > 0 && (
           <ImportBanner
@@ -534,6 +570,7 @@ export default function DealQuotePage({
           onRemove={removeInstance}
           onSwap={swapInstance}
           onDuplicate={duplicateInstance}
+          onAddAssembly={() => setShowAssemblyModal(true)}
         />
 
         {lines.length === 0 ? (
@@ -600,13 +637,12 @@ export default function DealQuotePage({
               Saved
             </span>
           ) : (
-            <button
+            <SaveButton
               onClick={onSave}
-              disabled={saving}
-              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:bg-sky-400"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+              saving={saving}
+              progress={saveProgress}
+              compact
+            />
           )}
         </div>
       </div>
@@ -777,9 +813,9 @@ function LineEditor({
   // CollapsibleLineEditor wrapper — keep this as a plain container.
   return (
     <div className="bg-white">
-      <div className="overflow-x-auto">
+      <div className="max-h-[640px] overflow-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500 shadow-sm">
             <tr>
               <th className="px-3 py-3 text-left">#</th>
               <th className="px-3 py-3 text-left">
@@ -821,7 +857,7 @@ function LineEditor({
                   <CellInput
                     value={line.product_code}
                     onChange={(v) => onUpdate(i, { product_code: v })}
-                    className="w-32 text-xs"
+                    className="w-40 text-xs"
                     placeholder="Foundation"
                   />
                 </td>
@@ -829,21 +865,21 @@ function LineEditor({
                   <CellInput
                     value={line.description}
                     onChange={(v) => onUpdate(i, { description: v })}
-                    className="w-full min-w-[200px]"
+                    className="w-full min-w-[320px]"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <NumInput
                     value={line.qty}
                     onChange={(v) => onUpdate(i, { qty: v })}
-                    width="w-16"
+                    width="w-20"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <NumInput
                     value={line.list_price}
                     onChange={(v) => onUpdate(i, { list_price: v })}
-                    width="w-24"
+                    width="w-28"
                     decimals
                   />
                 </td>
@@ -851,7 +887,7 @@ function LineEditor({
                   <NumInput
                     value={line.markup_percent}
                     onChange={(v) => onUpdate(i, { markup_percent: v })}
-                    width="w-16"
+                    width="w-20"
                     decimals
                   />
                 </td>
@@ -894,6 +930,170 @@ function LineEditor({
   );
 }
 
+/**
+ * Save button that morphs into a progress bar while a save is in flight.
+ * Same eased curve as the apply/extract progress UX — saves take a couple
+ * seconds and the bar gives the user something concrete to watch instead
+ * of a flat "Saving…" label.
+ */
+function SaveButton({
+  onClick,
+  saving,
+  progress,
+  compact = false,
+}: {
+  onClick: () => void;
+  saving: boolean;
+  progress: number;
+  compact?: boolean;
+}) {
+  if (saving) {
+    const widthClass = compact ? "min-w-[80px]" : "min-w-[140px]";
+    return (
+      <div
+        className={`relative ${widthClass} overflow-hidden rounded-md bg-sky-700 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm`}
+        role="progressbar"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="absolute inset-y-0 left-0 bg-sky-500 transition-[width] duration-150"
+          style={{ width: `${progress}%` }}
+        />
+        <span className="relative tabular-nums">
+          {progress >= 99 ? "Saved ✓" : `Saving ${Math.round(progress)}%`}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      className={
+        compact
+          ? "rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+          : "rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+      }
+    >
+      {compact ? "Save" : "Save estimate"}
+    </button>
+  );
+}
+
+/**
+ * Inline help panel — toggled by the question-mark icon next to the page
+ * title. Explains the column model and the assembly/line-item split so
+ * a first-time builder isn't stuck guessing what each input does.
+ */
+function HelpPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="relative rounded-xl border border-sky-200 bg-sky-50/60 p-5 text-sm text-slate-800">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        aria-label="Close help"
+      >
+        <XMarkIcon className="h-4 w-4" />
+      </button>
+      <h3 className="text-sm font-semibold text-slate-900">
+        How this page works
+      </h3>
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Two ways to build the estimate
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              <strong>Add assembly</strong> — pick a pre-built component
+              (Exterior Wall, Roof, Slab, Window, etc.), set its properties
+              (length, height, material, style) and it generates a block of
+              material lines automatically. Edit any property later and the
+              lines regenerate live.
+            </li>
+            <li>
+              <strong>Add blank line</strong> — for anything that isn&apos;t
+              covered by an assembly. Type the description, qty, unit cost,
+              and markup directly.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Column meanings
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              <strong>Phase</strong> — group label (Foundation, Framing,
+              Finishes…) that rolls up into milestones / draws downstream.
+            </li>
+            <li>
+              <strong>Unit Cost</strong> — what you pay (sub bid, supplier
+              invoice, labor cost). Client never sees this column.
+            </li>
+            <li>
+              <strong>Markup %</strong> — your margin on top of cost. Default
+              comes from settings; editable per line.
+            </li>
+            <li>
+              <strong>Unit Price</strong> = Unit Cost × (1 + Markup %). What
+              the client pays per unit.
+            </li>
+            <li>
+              <strong>Line Total</strong> = Qty × Unit Price. Margin column
+              colors green ≥15%, sky ≥5%, red below 5%.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Live decisions at the kitchen table
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              <strong>Duplicate</strong> an assembly to compare options —
+              vinyl vs wood windows, 16&quot; vs 24&quot; stud spacing, etc.
+              An <em>Option compare</em> bar at the top shows the dollar +
+              percent delta.
+            </li>
+            <li>
+              <strong>Swap</strong> an assembly type from the dropdown in
+              its header — matching property names carry over.
+            </li>
+            <li>
+              <strong>Collapse</strong> an assembly card (chevron in the
+              header) to shorten the page once it&apos;s set; the one-line
+              property summary stays visible.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Saving + sending
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              <strong>Save</strong> commits the current state. The deal&apos;s
+              roll-up totals + margin update at the same time.
+            </li>
+            <li>
+              <strong>Export CSV</strong> downloads a spreadsheet of the
+              line items.
+            </li>
+            <li>
+              <strong>Generate proposal</strong> builds the client-facing
+              document (the client never sees cost or margin — just the
+              scope and total).
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function CellInput({
   value,
   onChange,
@@ -927,22 +1127,11 @@ function NumInput({
   width: string;
   decimals?: boolean;
 }) {
-  const [raw, setRaw] = useState<string>(decimals ? value.toFixed(2) : String(value));
-  useEffect(() => {
-    setRaw(decimals ? value.toFixed(2) : String(value));
-  }, [value, decimals]);
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={raw}
-      onChange={(e) => {
-        const v = e.target.value;
-        setRaw(v);
-        const n = parseFloat(v);
-        if (Number.isFinite(n)) onChange(n);
-      }}
-      onBlur={() => setRaw(decimals ? value.toFixed(2) : String(value))}
+    <NumberInput
+      value={value}
+      onChange={onChange}
+      decimals={decimals}
       className={`rounded border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-slate-200 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 ${width}`}
     />
   );

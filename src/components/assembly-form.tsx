@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { STUB_ASSEMBLIES } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials, type ComputeResult } from "@/lib/assemblies/compute";
 import type { Assembly } from "@/types/assembly";
+import NumberInput from "@/components/number-input";
 
 /** Build a property-name → value map from an assembly's defaults. */
 function defaultsFor(a: Assembly): Record<string, number> {
@@ -150,15 +151,9 @@ export default function AssemblyForm({
                   </div>
                 ) : (
                   <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-300 focus-within:border-sky-500">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="any"
+                    <NumberInput
                       value={value}
-                      onChange={(e) => {
-                        const next = parseFloat(e.target.value);
-                        setValue(Number.isFinite(next) ? next : 0);
-                      }}
+                      onChange={setValue}
                       className="w-full bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none"
                     />
                     <span className="flex items-center bg-slate-50 px-3 text-xs font-medium text-slate-500">

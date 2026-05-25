@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   DocumentDuplicateIcon,
+  PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -12,6 +13,7 @@ import {
   STUB_ASSEMBLIES,
 } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
+import NumberInput from "@/components/number-input";
 import type {
   Assembly,
   AssemblyInstance,
@@ -45,6 +47,7 @@ export default function AssemblyInstancesPanel({
   onRemove,
   onSwap,
   onDuplicate,
+  onAddAssembly,
 }: {
   instances: AssemblyInstance[];
   onChange: (next: AssemblyInstance) => void;
@@ -53,21 +56,36 @@ export default function AssemblyInstancesPanel({
   onSwap: (instanceId: string, newAssemblyId: string) => void;
   /** Clone an instance into a sibling for side-by-side what-if comparison. */
   onDuplicate: (instanceId: string) => void;
+  /** Opens the Add Assembly modal. Optional — when absent the header
+   *  button is hidden (e.g. sandbox / read-only embeds). */
+  onAddAssembly?: () => void;
 }) {
   if (instances.length === 0) return null;
 
   return (
     <section className="space-y-3">
-      <header className="flex items-baseline justify-between">
-        <h2 className="text-base font-semibold text-slate-900">
-          Assemblies on this quote
-        </h2>
-        <span className="text-xs text-slate-500">
-          Live edits regenerate the linked line items below.
-        </span>
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-base font-semibold text-slate-900">
+            Assemblies on this quote
+          </h2>
+          <span className="text-xs text-slate-500">
+            {instances.length} assembl{instances.length === 1 ? "y" : "ies"}
+          </span>
+        </div>
+        {onAddAssembly ? (
+          <button
+            type="button"
+            onClick={onAddAssembly}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Add assembly
+          </button>
+        ) : null}
       </header>
       <AssemblyComparisonHeader instances={instances} />
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {instances.map((instance, idx) => (
           <AssemblyInstanceCard
             key={instance.id}
@@ -149,7 +167,15 @@ function AssemblyComparisonHeader({
       : `${sign}$${absDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}${aTotal > 0 ? ` (${sign}${Math.abs(deltaPct).toFixed(0)}%)` : ""}`;
 
   return (
-    <div className="rounded-xl border border-sky-200 bg-sky-50/60">
+    // When expanded, stick to the top of the viewport so the GC can keep
+    // an eye on the running A/B delta while scrolling through the
+    // assembly cards below. Collapsed state stays in normal flow.
+    <div
+      className={
+        "rounded-xl border border-sky-200 bg-sky-50/95 backdrop-blur " +
+        (open ? "sticky top-2 z-20 shadow-md" : "")
+      }
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -393,8 +419,8 @@ function AssemblyInstanceCard({
         ) : null
       ) : (
         <>
-          {/* Property inputs */}
-          <div className="grid gap-3 px-4 py-3 sm:grid-cols-3">
+          {/* Property inputs — 2-col fits the now-half-width card on md+. */}
+          <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
@@ -461,15 +487,9 @@ function PropertyEditor({
             ))}
           </select>
         ) : (
-          <input
-            type="number"
-            inputMode="decimal"
-            step="any"
+          <NumberInput
             value={value}
-            onChange={(e) => {
-              const next = parseFloat(e.target.value);
-              onChange(Number.isFinite(next) ? next : 0);
-            }}
+            onChange={onChange}
             className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
           />
         )}
