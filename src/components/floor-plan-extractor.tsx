@@ -10,7 +10,8 @@ import {
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { QuoteLine } from "@/types";
-import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, newId } from "@/lib/store";
+import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, getSettings, newId } from "@/lib/store";
+import { instancesAndLinesFromFloorPlan } from "@/lib/assemblies/from-floorplan";
 
 // Shape returned by /api/floorplan-extract. Mirrors the schema in the
 // route's system prompt; null-allowed for fields Claude couldn't read.
@@ -252,6 +253,60 @@ export default function FloorPlanExtractor({
     }
   }
 
+  /**
+   * Newer path — instead of flat $/sqft category lines, generate
+   * live-editable AssemblyInstance records from the extraction and the
+   * derived QuoteLines they explode into. Lands the builder on /quote
+   * with the assemblies panel populated, ready to tweak properties at
+   * the kitchen table.
+   */
+  async function applyAssemblies() {
+    if (!extraction) return;
+    setApplying(true);
+    try {
+      const deal = await getDeal(dealId);
+      if (!deal) throw new Error("Project no longer exists");
+      const settings = await getSettings(orgRef);
+      const markup = settings?.default_markup_percent ?? 20;
+
+      const existingLines = await listQuoteLines(dealId);
+      const existingInstances = deal.assembly_instances ?? [];
+
+      const { instances, lines } = instancesAndLinesFromFloorPlan(
+        extraction as unknown as Parameters<typeof instancesAndLinesFromFloorPlan>[0],
+        markup,
+        existingLines.length + 1,
+        () => newId("ql"),
+      );
+
+      const combinedLines: QuoteLine[] = [
+        ...existingLines,
+        ...lines.map((l, i) => ({ ...l, line_number: existingLines.length + i + 1 })),
+      ];
+      await saveQuoteLines(dealId, orgRef, combinedLines);
+
+      const combinedInstances = [...existingInstances, ...instances];
+      const customer = combinedLines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+      const cost = combinedLines.reduce((s, l) => s + (l.cost_extended || 0), 0);
+      const margin = customer > 0 ? ((customer - cost) / customer) * 100 : 0;
+
+      await saveDeal({
+        ...deal,
+        assembly_instances: combinedInstances,
+        total_quote_value: customer,
+        total_cost: cost,
+        margin_percent: margin,
+        updated_at: new Date().toISOString(),
+      });
+
+      router.push(`/deals/${dealId}/quote`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplying(false);
+    }
+  }
+
   async function applyToEstimate() {
     if (!extraction) return;
     setApplying(true);
@@ -431,6 +486,7 @@ export default function FloorPlanExtractor({
             onToggleFlag={toggleFlag}
             onUpdate={setExtraction}
             onApply={applyToEstimate}
+            onApplyAssemblies={applyAssemblies}
             onReset={startReupload}
             applying={applying}
           />
@@ -446,6 +502,7 @@ function ExtractionResults({
   onToggleFlag,
   onUpdate,
   onApply,
+  onApplyAssemblies,
   onReset,
   applying,
 }: {
@@ -454,6 +511,7 @@ function ExtractionResults({
   onToggleFlag: (idx: number) => void;
   onUpdate: (e: FloorPlanExtraction) => void;
   onApply: () => void;
+  onApplyAssemblies: () => void;
   onReset: () => void;
   applying: boolean;
 }) {
@@ -591,13 +649,22 @@ function ExtractionResults({
         </p>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <button
           onClick={onApply}
           disabled={applying}
-          className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Generate flat $/sqft category lines — quick ballpark estimate."
         >
-          {applying ? "Applying…" : "Apply to estimate →"}
+          {applying ? "Applying…" : "Quick estimate ($/sqft)"}
+        </button>
+        <button
+          onClick={onApplyAssemblies}
+          disabled={applying}
+          className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
+          title="Generate parametric assemblies you can edit live at the kitchen table."
+        >
+          {applying ? "Applying…" : "Create assemblies →"}
         </button>
       </div>
     </div>

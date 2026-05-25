@@ -499,6 +499,249 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     ],
   },
   {
+    id: "stub-siding",
+    name: "Siding — exterior cladding (installed)",
+    description:
+      "Exterior wall cladding with house wrap and fasteners. Material " +
+      "drives most of the cost — switch the option dropdown live with " +
+      "the client (board & batten, vinyl, fiber cement, stone veneer).",
+    trade: "exterior",
+    properties: [
+      { name: "Wall Area", uom: "SF", defaultValue: 2000 },
+      {
+        name: "Siding Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Vinyl", value: 1.0 },
+          { label: "LP SmartSide", value: 1.6 },
+          { label: "Board & batten (cedar)", value: 2.4 },
+          { label: "Fiber cement (Hardie)", value: 2.0 },
+          { label: "Stone veneer (accent)", value: 4.5 },
+          { label: "Brick (full)", value: 3.8 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Siding material (per SF, installed)",
+        uom: "SF",
+        quantityFormula: "{Wall Area}",
+        // Vinyl baseline: ~$3.50 mat + ~$3.00 labor per SF. Multiplier
+        // shifts both proportionally; tweak per-line if needed.
+        unitCostUsd: 0,
+        unitCostFormula: "3.50 * {Siding Material}",
+        laborCostUsd: 0,
+        laborCostFormula: "3.00 * {Siding Material}",
+        csiDivision: "07",
+      },
+      {
+        name: "House wrap (Tyvek) + tape",
+        uom: "SF",
+        quantityFormula: "{Wall Area} * 1.05",
+        unitCostUsd: 0.18,
+        laborCostUsd: 0.20,
+        csiDivision: "07",
+      },
+      {
+        name: "Trim, J-channel, corner boards",
+        uom: "LF",
+        // Roughly 4-5 LF of trim per 100 SF of wall — covers windows, doors,
+        // corners, transitions. Use 0.045 ratio as a working baseline.
+        quantityFormula: "{Wall Area} * 0.045",
+        unitCostUsd: 2.40,
+        laborCostUsd: 1.80,
+        csiDivision: "07",
+      },
+    ],
+  },
+  {
+    id: "stub-stair-package",
+    name: "Stairs — straight run (installed)",
+    description:
+      "Wood-framed straight-run staircase with stringers, treads, risers, " +
+      "and 36\" guardrails. Rise/run set per code; 17 risers typical " +
+      "between floors with 9' ceilings.",
+    trade: "framing",
+    properties: [
+      { name: "Risers", uom: "EA", defaultValue: 17 },
+      { name: "Stair Width", uom: "IN", defaultValue: 40 },
+      {
+        name: "Stringer Count",
+        uom: "EA",
+        defaultValue: 3,
+        kind: "choice",
+        choices: [2, 3, 4],
+      },
+      { name: "Guardrail Length", uom: "LF", defaultValue: 18 },
+      {
+        name: "Tread Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Pine (paint grade)", value: 1.0 },
+          { label: "Red oak", value: 1.8 },
+          { label: "White oak", value: 2.3 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "2×12 stringer (SPF)",
+        uom: "EA",
+        // Default 3 stringers — code typically requires it for stairs >36"
+        // wide. Override the Stringer Count property for narrow runs.
+        quantityFormula: "{Stringer Count}",
+        unitCostUsd: 38.0,
+        laborCostUsd: 12.0,
+        csiDivision: "06",
+      },
+      {
+        name: 'Tread (1-1/16" x stair width)',
+        uom: "EA",
+        quantityFormula: "{Risers} - 1",
+        unitCostUsd: 0,
+        unitCostFormula: "(22 + {Stair Width} * 0.6) * {Tread Material}",
+        laborCostUsd: 8.0,
+        csiDivision: "06",
+      },
+      {
+        name: 'Riser (3/4" pine)',
+        uom: "EA",
+        quantityFormula: "{Risers}",
+        unitCostUsd: 9.5,
+        laborCostUsd: 5.0,
+        csiDivision: "06",
+      },
+      {
+        name: '36" guardrail w/ balusters + newel',
+        uom: "LF",
+        quantityFormula: "{Guardrail Length}",
+        unitCostUsd: 42.0,
+        laborCostUsd: 28.0,
+        csiDivision: "06",
+      },
+    ],
+  },
+  {
+    id: "stub-drainage",
+    name: "Gutters & Downspouts",
+    description:
+      "Aluminum K-style gutter with downspouts at corners. Use perimeter " +
+      "of roof eave for the LF count.",
+    trade: "exterior",
+    properties: [
+      { name: "Eave Length", uom: "LF", defaultValue: 200 },
+      { name: "Downspouts", uom: "EA", defaultValue: 8 },
+      {
+        name: "Gutter Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Aluminum (5\")", value: 1.0 },
+          { label: "Aluminum (6\" oversize)", value: 1.3 },
+          { label: "Copper", value: 5.5 },
+          { label: "Galvanized steel", value: 1.6 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "K-style gutter (per LF, installed)",
+        uom: "LF",
+        quantityFormula: "{Eave Length}",
+        unitCostUsd: 0,
+        unitCostFormula: "5.50 * {Gutter Material}",
+        laborCostUsd: 4.50,
+        csiDivision: "07",
+      },
+      {
+        name: "Downspout w/ extensions",
+        uom: "EA",
+        quantityFormula: "{Downspouts}",
+        unitCostUsd: 0,
+        unitCostFormula: "38 * {Gutter Material}",
+        laborCostUsd: 35.0,
+        csiDivision: "07",
+      },
+      {
+        name: "Hangers, end caps, miters, fasteners",
+        uom: "LF",
+        // Hardware ratio per LF of gutter run.
+        quantityFormula: "{Eave Length}",
+        unitCostUsd: 0.85,
+        laborCostUsd: 0.30,
+        csiDivision: "07",
+      },
+    ],
+  },
+  {
+    id: "stub-garage-door",
+    name: "Garage Door (installed)",
+    description:
+      "Sectional overhead garage door with opener, tracks, and weather " +
+      "seal. Width drives most of the cost; insulation + window options " +
+      "scale via the dropdown.",
+    trade: "exterior",
+    properties: [
+      { name: "Width", uom: "FT", defaultValue: 16 },
+      { name: "Height", uom: "FT", defaultValue: 7 },
+      { name: "Quantity", uom: "EA", defaultValue: 1 },
+      {
+        name: "Door Style",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Steel, non-insulated", value: 1.0 },
+          { label: "Steel, insulated", value: 1.4 },
+          { label: "Steel + window row", value: 1.7 },
+          { label: "Carriage house (wood)", value: 3.2 },
+          { label: "Glass + aluminum (modern)", value: 4.5 },
+        ],
+      },
+      {
+        name: "Opener",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Chain drive (1/2 HP)", value: 1.0 },
+          { label: "Belt drive (3/4 HP, quiet)", value: 1.6 },
+          { label: "Direct/wall mount (smart)", value: 2.4 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Garage door + tracks + hardware (installed)",
+        uom: "EA",
+        quantityFormula: "{Quantity}",
+        unitCostUsd: 0,
+        // Single-bay baseline: ~$650 for a steel 9×7 non-insulated.
+        // Scales with area + style multiplier.
+        unitCostFormula:
+          "(400 + {Width} * {Height} * 6.5) * {Door Style}",
+        laborCostUsd: 0,
+        laborCostFormula:
+          "180 + {Width} * 8",
+        csiDivision: "08",
+      },
+      {
+        name: "Opener + remotes + wiring",
+        uom: "EA",
+        quantityFormula: "{Quantity}",
+        unitCostUsd: 0,
+        unitCostFormula: "220 * {Opener}",
+        laborCostUsd: 95.0,
+        csiDivision: "08",
+      },
+    ],
+  },
+  {
     id: "stub-hardwood-floor",
     name: 'Hardwood flooring — 3/4" solid (installed)',
     description:
