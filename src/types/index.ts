@@ -80,6 +80,26 @@ export interface Deal {
    *  (matched via QuoteLine.instance_id) that regenerate live as the
    *  builder tweaks properties during a client conversation. */
   assembly_instances?: import("./assembly").AssemblyInstance[];
+  /** Soft-cost layer applied below the line-item subtotal. Builders
+   *  add these as percentage (or flat) layers for taxes, contingency
+   *  reserve, and general conditions / project overhead. All optional
+   *  — zero/undefined means "don't apply this line." */
+  soft_costs?: {
+    /** Sales tax percentage applied to the materials subtotal. */
+    tax_percent?: number;
+    /** Tax applies to: "materials" (cost basis), "all" (full customer
+     *  subtotal), or undefined / "materials" by default. */
+    tax_basis?: "materials" | "all";
+    /** Contingency reserve percentage applied to the cost subtotal —
+     *  builder's buffer for change orders / market price swings. */
+    contingency_percent?: number;
+    /** General Conditions: project overhead (supervision, dumpsters,
+     *  port-a-john, etc.). Either a percentage on cost, or a flat
+     *  dollar amount — gc_mode picks which. */
+    gc_mode?: "percent" | "flat";
+    gc_percent?: number;
+    gc_amount?: number;
+  };
 }
 
 export interface QuoteLine {

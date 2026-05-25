@@ -18,6 +18,7 @@ import {
 import { Deal, OrgSettings, QuoteLine } from "@/types";
 import { getDeal, getSettings, listQuoteLines } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import { computeSoftCosts } from "@/components/soft-costs-panel";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -107,6 +108,11 @@ export default function TakeoffPage({
   );
   const totalMargin =
     totalCustomer > 0 ? ((totalCustomer - totalCost) / totalCustomer) * 100 : 0;
+  const softCosts = computeSoftCosts(
+    totalCost,
+    totalCustomer,
+    deal.soft_costs,
+  );
 
   const dateStr = new Date().toLocaleDateString(undefined, {
     year: "numeric",
@@ -186,6 +192,8 @@ export default function TakeoffPage({
               totalCost={totalCost}
               totalCustomer={totalCustomer}
               totalMargin={totalMargin}
+              softCosts={softCosts}
+              softCostsConfig={deal.soft_costs}
             />
           </>
         )}
@@ -335,11 +343,16 @@ function TotalsBlock({
   totalCost,
   totalCustomer,
   totalMargin,
+  softCosts,
+  softCostsConfig,
 }: {
   totalCost: number;
   totalCustomer: number;
   totalMargin: number;
+  softCosts: ReturnType<typeof computeSoftCosts>;
+  softCostsConfig: Deal["soft_costs"];
 }) {
+  const gcMode = softCostsConfig?.gc_mode ?? "percent";
   return (
     <section className="mt-10 break-inside-avoid border-t-2 border-slate-900 pt-4">
       <dl className="ml-auto max-w-sm space-y-1.5 text-sm">
@@ -351,9 +364,49 @@ function TotalsBlock({
           <dt>Margin</dt>
           <dd className="tabular-nums">{totalMargin.toFixed(1)}%</dd>
         </div>
-        <div className="flex justify-between border-t border-slate-300 pt-1.5 text-base font-bold text-slate-900">
-          <dt>Estimate to client</dt>
+        <div className="flex justify-between text-slate-700">
+          <dt>Line-item subtotal</dt>
           <dd className="tabular-nums">{fmtMoneyRound(totalCustomer)}</dd>
+        </div>
+        {softCosts.taxAmount !== 0 ? (
+          <div className="flex justify-between text-slate-700">
+            <dt>
+              + Sales tax ({softCostsConfig?.tax_percent ?? 0}%
+              {softCostsConfig?.tax_basis === "all" ? " on all" : ""})
+            </dt>
+            <dd className="tabular-nums">
+              {fmtMoneyRound(softCosts.taxAmount)}
+            </dd>
+          </div>
+        ) : null}
+        {softCosts.contingencyAmount !== 0 ? (
+          <div className="flex justify-between text-slate-700">
+            <dt>
+              + Contingency ({softCostsConfig?.contingency_percent ?? 0}%)
+            </dt>
+            <dd className="tabular-nums">
+              {fmtMoneyRound(softCosts.contingencyAmount)}
+            </dd>
+          </div>
+        ) : null}
+        {softCosts.gcAmount !== 0 ? (
+          <div className="flex justify-between text-slate-700">
+            <dt>
+              + General Conditions
+              {gcMode === "percent"
+                ? ` (${softCostsConfig?.gc_percent ?? 0}%)`
+                : ""}
+            </dt>
+            <dd className="tabular-nums">
+              {fmtMoneyRound(softCosts.gcAmount)}
+            </dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between border-t border-slate-300 pt-1.5 text-base font-bold text-slate-900">
+          <dt>Grand total to client</dt>
+          <dd className="tabular-nums">
+            {fmtMoneyRound(softCosts.grandTotal)}
+          </dd>
         </div>
       </dl>
     </section>

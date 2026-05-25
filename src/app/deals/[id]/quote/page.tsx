@@ -24,6 +24,9 @@ import AddAssemblyModal, {
 } from "@/components/add-assembly-modal";
 import AssemblyInstancesPanel from "@/components/assembly-instances-panel";
 import NumberInput from "@/components/number-input";
+import SoftCostsPanel, {
+  computeSoftCosts,
+} from "@/components/soft-costs-panel";
 import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import {
@@ -101,6 +104,8 @@ export default function DealQuotePage({
   const [savedInstancesSnapshot, setSavedInstancesSnapshot] = useState<string>(
     "",
   );
+  const [savedSoftCostsSnapshot, setSavedSoftCostsSnapshot] =
+    useState<string>("");
 
   useEffect(() => {
     if (!profile) return;
@@ -127,6 +132,7 @@ export default function DealQuotePage({
       const instances = (d.assembly_instances ?? []).map(migrateInstance);
       setAssemblyInstances(instances);
       setSavedInstancesSnapshot(JSON.stringify(instances));
+      setSavedSoftCostsSnapshot(JSON.stringify(d.soft_costs ?? null));
       setSettings(theSettings);
       // Pull parsed BOM cache from sessionStorage (set by the deal detail
       // page when a PDF was uploaded + parsed). Filter to attachments that
@@ -158,12 +164,29 @@ export default function DealQuotePage({
     const customer = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
     const cost = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
     const margin = customer > 0 ? ((customer - cost) / customer) * 100 : 0;
-    return { customer, cost, margin };
-  }, [lines]);
+    // Soft-cost layer rolls up tax + contingency + GC on top of the
+    // line-item subtotal. Grand total drives the deal's total_quote_value
+    // on save so the proposal + budget panel + pipeline all show the
+    // number the client actually owes.
+    const soft = computeSoftCosts(cost, customer, deal?.soft_costs);
+    return {
+      customer,
+      cost,
+      margin,
+      soft,
+      grandTotal: soft.grandTotal,
+    };
+  }, [lines, deal?.soft_costs]);
+
+  function updateSoftCosts(next: Deal["soft_costs"]) {
+    if (!deal) return;
+    setDeal({ ...deal, soft_costs: next, updated_at: new Date().toISOString() });
+  }
 
   const dirty =
     JSON.stringify(lines) !== savedLinesSnapshot ||
-    JSON.stringify(assemblyInstances) !== savedInstancesSnapshot;
+    JSON.stringify(assemblyInstances) !== savedInstancesSnapshot ||
+    JSON.stringify(deal?.soft_costs ?? null) !== savedSoftCostsSnapshot;
 
   function recomputeLine(line: QuoteLine): QuoteLine {
     // Builder pricing model: the user types their cost directly into the
@@ -467,10 +490,14 @@ export default function DealQuotePage({
       // and quote lines are independent.
       const updatedDeal: Deal = {
         ...deal,
-        total_quote_value: totals.customer,
+        // total_quote_value reflects the GRAND total (with soft costs)
+        // — that's what the client owes, what shows on the proposal,
+        // what feeds the budget panel + pipeline cards.
+        total_quote_value: totals.grandTotal,
         total_cost: totals.cost,
         margin_percent: totals.margin,
         assembly_instances: assemblyInstances,
+        soft_costs: deal.soft_costs,
         updated_at: new Date().toISOString(),
       };
       await saveDeal(updatedDeal);
@@ -478,6 +505,7 @@ export default function DealQuotePage({
       setLines(renumbered);
       setSavedLinesSnapshot(JSON.stringify(renumbered));
       setSavedInstancesSnapshot(JSON.stringify(assemblyInstances));
+      setSavedSoftCostsSnapshot(JSON.stringify(deal.soft_costs ?? null));
       setSaveProgress(100);
       // Hold at 100% briefly so the user sees completion before the
       // "Saved" pill swaps in.
@@ -608,6 +636,15 @@ export default function DealQuotePage({
           />
         )}
 
+        {lines.length > 0 && deal ? (
+          <SoftCostsPanel
+            deal={deal}
+            costSubtotal={totals.cost}
+            customerSubtotal={totals.customer}
+            onChange={updateSoftCosts}
+          />
+        ) : null}
+
         <div className="flex flex-wrap justify-between gap-2 pb-24 sm:pb-0">
           <button
             onClick={addBlankLine}
@@ -679,7 +716,7 @@ export default function DealQuotePage({
               Estimate to client
             </div>
             <div className="text-sm font-bold tabular-nums text-emerald-700">
-              {fmtMoney(totals.customer)}
+              {fmtMoney(totals.grandTotal)}
             </div>
           </div>
           {!dirty && !saving ? (
@@ -790,7 +827,12 @@ function TotalsBar({
   totals,
   lineCount,
 }: {
-  totals: { customer: number; cost: number; margin: number };
+  totals: {
+    customer: number;
+    cost: number;
+    margin: number;
+    grandTotal: number;
+  };
   lineCount: number;
 }) {
   // The full 4-tile grid stays in normal document flow at all times —
@@ -824,7 +866,7 @@ function TotalsBar({
         <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
         <Stat
           label="Estimate to Client"
-          value={fmtMoney(totals.customer)}
+          value={fmtMoney(totals.grandTotal)}
           accent="emerald"
         />
         <Stat
@@ -848,7 +890,7 @@ function TotalsBar({
               <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
               <CompactStat
                 label="Client"
-                value={fmtMoney(totals.customer)}
+                value={fmtMoney(totals.grandTotal)}
                 accent="emerald"
               />
               <CompactStat
