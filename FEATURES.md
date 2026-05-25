@@ -22,10 +22,9 @@ When something gets implemented, move its check to **✅** and add the implement
 What ships in v1, what waits. Frozen 2026-05-24.
 
 **v1 includes everything ✅ Shipped plus these 🎯 commitments:**
-- Subcontractor portal (no-login token UI for assigned subs)
+- Subcontractor portal — **max version** (one unified `/sub/[token]` for each sub, covering schedule view + bid submission + draw status + doc access + schedule acknowledgment + SMS-link entry points)
 - Excel / PDF export of the estimate
 - Tax / contingency / general conditions lines on estimates
-- Sub bidding portal *(needs confirmation — see Section B note)*
 
 **v1 does NOT include — deferred to post-v1:**
 - Bank-specific draw process selector (revisit after Barry confirms which banks he deals with)
@@ -82,12 +81,21 @@ Sub-facing functionality. Most of the SMS work landed this session.
 - **✅ SMS STOP/HELP inbound webhook** — `/api/sms/inbound` handles A2P 10DLC compliance keywords (STOP/STOPALL/UNSUBSCRIBE/CANCEL/END/QUIT and HELP/INFO) with branded TwiML replies. Twilio request signature verified via HMAC-SHA1 + timing-safe compare. Firestore consent-flip is the one TODO (needs firebase-admin SDK on the server, not blocking).
 - **✅ SMS C-ready architecture** — `OrgSettings.sms_config` schema field + `sendSms(to, body, { fromNumberHint })` client + `TWILIO_ALLOWED_FROM_NUMBERS` whitelist on the route. Migration from shared platform number (Option A) to dedicated per-builder numbers (Option C) is now a config write, not a deploy.
 
-### v1 commitments
-- **🎯 Subcontractor portal** *(Barry)* — sub-facing UI where a sub sees their assigned phases, dates, draws, RFQ status without logging into the GC's account. Token-based no-login page (`/sub/[token]`), separate from the client portal we already have.
-- **🎯 Sub bidding portal** *(Barry — needs explicit confirmation)* — RFQ out to multiple subs of the same trade simultaneously, collect bids in one place, side-by-side compare. *Inferred for v1 per "everything Barry asked"; confirm with Collin before scheduling.*
+### v1 commitments — unified "max sub portal"
+
+One URL per sub (`/sub/[token]`) covering everything they need from a GC, no login required. Every existing SMS (assign, reschedule, RFQ send, draw status) carries that token link as the entry point.
+
+- **🎯 Sub schedule view** *(Barry)* — phases assigned to this sub across all of the GC's active projects, with dates, addresses, status. Lands here from the assignment + reschedule SMS texts.
+- **🎯 Sub bid submission** *(Barry)* — when the GC sends an RFQ, the sub gets an SMS with a link to `/sub/[token]/bid/[rfqId]` where they review scope, enter a bid amount, attach supporting docs, and submit. Bids land back in the GC's RFQ panel for side-by-side compare.
+- **🎯 GC-side RFQ compare** *(Barry)* — existing `RFQPanel` extended: see bids as they arrive, compare side-by-side, award the winner, push to estimate. Most of the scaffold exists; needs polish + the bid-submission-from-sub-side wiring.
+- **🎯 Draw status view (sub side)** — what they've been paid, what's pending, links to invoice docs they've uploaded.
+- **🎯 Document access (sub side)** — their bid PDF, awarded scope, any change orders that affect their work.
+- **🎯 Schedule acknowledgment** — confirm a phase they're scheduled for, or flag a conflict (drives a notification back to the GC).
+- **🎯 T-7 / T-2 reminder SMS cadence** *(scheduling extension)* — auto-SMS the assigned sub one week before and two days before their phase starts. Builds on the existing SMS pipeline + `composeRescheduleSms` patterns.
 
 ### Deferred / future
-- **💡 Sub Scheduling — Auto-notify & Conflicts** *(roadmap)* — T-7 / T-2 day SMS to subs, conflict detection across projects, weather-aware date shifts, per-sub performance scoring.
+- **📅 Cross-project conflict detection** *(roadmap)* — flag when a sub is double-booked across GCs or across this GC's projects. More complex than the v1 self-service flag.
+- **📅 Weather-aware date shifts** *(roadmap)* — auto-shuffle phases when forecast shows multiple rain days.
 - **💡 Sub Bid Intelligence** *(roadmap)* — RSMeans-style benchmark comparison, historical-bid comparison, sub performance scoring, auto-flag bids missing scope.
 
 ---
@@ -203,8 +211,8 @@ Cross-cutting work that lands behind the scenes.
 1. **Verify shipped features** (~½ day) — inline line-item edits on `/quote`, add-blank-line, add-assembly flows, AttachmentsCard parse pipeline end-to-end with real data.
 2. **🎯 Tax / contingency / GC lines** (~½ day) — Section A.
 3. **🎯 Excel / PDF export of estimate** (~1 day) — Section A / G.
-4. **🎯 Subcontractor portal** (~2 days) — Section B.
-5. **🎯 Sub bidding portal** (~3 days, *pending confirmation*) — Section B.
+4. **🎯 Max sub portal** (~5 days) — Section B. Unified `/sub/[token]` with schedule view, bid submission, draw status, doc access, schedule acknowledgment. Absorbs the standalone "sub bidding portal" item — bids land inside the same portal.
+5. **🎯 T-7 / T-2 reminder SMS cadence** (~½ day) — Section B. Auto-SMS the week before and two days before each scheduled phase.
 6. **🎯 Mobile-first redesign pass** (~5 days) — Section J.
 7. **🎯 PWA shortcut** (~1 hour) — Section J.
 
