@@ -106,3 +106,44 @@ export function composeRescheduleSms(p: {
   const link = p.scheduleLink ? ` Your schedule: ${p.scheduleLink}` : "";
   return `${prefix}Schedule change — ${p.phaseName} on ${p.projectName} is now ${fmtDate(p.startDate)}–${fmtDate(p.endDate)}.${link}`;
 }
+
+/** Text a sub gets inviting them to bid on an RFQ. The link drops
+ *  them at /s/{token}/bid/{rfqId} where they review scope + submit. */
+export function composeRfqInviteSms(p: {
+  builderName: string;
+  projectName: string;
+  scopeTitle: string;
+  bidLink: string;
+}): string {
+  const prefix = p.builderName ? `${p.builderName}: ` : "";
+  return `${prefix}Bid request — ${p.scopeTitle} on ${p.projectName}. Submit your bid: ${p.bidLink}`;
+}
+
+/** Text the GC gets when a sub submits a bid. */
+export function composeBidArrivedSms(p: {
+  builderName: string;
+  subName: string;
+  scopeTitle: string;
+  bidAmount: number;
+}): string {
+  const prefix = p.builderName ? `${p.builderName}: ` : "";
+  const fmt = `$${Math.round(p.bidAmount).toLocaleString("en-US")}`;
+  return `${prefix}💰 ${p.subName} bid ${fmt} for ${p.scopeTitle}`;
+}
+
+/** Reminder text a sub gets a fixed number of days before their phase
+ *  starts. `lead` is the human-readable lead time ("1 week", "2 days")
+ *  so the cron job that calls this controls the copy's tone. */
+export function composeReminderSms(p: {
+  builderName: string;
+  projectName: string;
+  phaseName: string;
+  lead: string;
+  startDate?: string;
+  scheduleLink?: string;
+}): string {
+  const prefix = p.builderName ? `${p.builderName}: ` : "";
+  const when = p.startDate ? ` (${fmtDate(p.startDate)})` : "";
+  const link = p.scheduleLink ? ` Your schedule: ${p.scheduleLink}` : "";
+  return `${prefix}Reminder — ${p.phaseName} on ${p.projectName} starts in ${p.lead}${when}.${link}`;
+}

@@ -25,6 +25,7 @@ import {
   MILESTONE_STATUS_LABELS,
   MILESTONE_STATUS_STYLES,
   DEFAULT_BUILDER_MILESTONES,
+  SubAcknowledgment,
 } from "@/types/builder";
 import {
   listMilestones,
@@ -37,6 +38,7 @@ import {
   listChangeOrders,
   getSettings,
   refreshSubScheduleLink,
+  listSubAcknowledgmentsByDeal,
   effectiveContractValue,
 } from "@/lib/store";
 import { toE164, sendSms, composeAssignmentSms, composeRescheduleSms } from "@/lib/sms";
@@ -52,6 +54,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
   const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
+  const [acks, setAcks] = useState<SubAcknowledgment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -64,13 +67,15 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       listDistributors(deal.org_ref),
       listChangeOrders(deal.id),
       getSettings(deal.org_ref),
+      listSubAcknowledgmentsByDeal(deal.id),
     ]).then(
-      ([m, lines, subList, cos, settings]) => {
+      ([m, lines, subList, cos, settings, ackList]) => {
         if (!active) return;
         setMilestones(m);
         setSubs(subList);
         setChangeOrders(cos);
         setQuoteLines(lines);
+        setAcks(ackList);
         setCompanyName(settings?.company_name || "");
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
@@ -97,6 +102,25 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     );
     return () => { active = false; };
   }, [deal]);
+
+  // Latest ack per (milestone, sub) pair. Audit trail may contain
+  // multiple rows (confirmed → later flagged); the GC cares about the
+  // most recent one.
+  const ackIndex = useMemo(() => {
+    const out = new Map<string, Map<string, SubAcknowledgment>>();
+    for (const a of acks) {
+      let inner = out.get(a.milestone_ref);
+      if (!inner) {
+        inner = new Map();
+        out.set(a.milestone_ref, inner);
+      }
+      const prior = inner.get(a.sub_ref);
+      if (!prior || a.created_at > prior.created_at) {
+        inner.set(a.sub_ref, a);
+      }
+    }
+    return out;
+  }, [acks]);
 
   const totals = useMemo(() => {
     const totalAmount = milestones.reduce((s, m) => s + (m.amount || 0), 0);
@@ -472,6 +496,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
             milestone={m}
             dealId={deal.id}
             subs={subs}
+            subAcks={ackIndex.get(m.id)}
             onTransition={(next) => transition(m, next)}
             onAssignSubs={(refs) => updateAssignedSubs(m, refs)}
             onRemove={() => removeMilestone(m)}
@@ -557,6 +582,7 @@ function MilestoneRow({
   milestone: m,
   dealId,
   subs,
+  subAcks,
   onTransition,
   onAssignSubs,
   onRemove,
@@ -564,6 +590,7 @@ function MilestoneRow({
   milestone: ProjectMilestone;
   dealId: string;
   subs: Distributor[];
+  subAcks?: Map<string, SubAcknowledgment>;
   onTransition: (next: MilestoneStatus) => void;
   onAssignSubs: (refs: string[]) => void;
   onRemove: () => void;
@@ -601,15 +628,34 @@ function MilestoneRow({
             Subs:
           </span>
           {assignedSubs.length > 0 ? (
-            assignedSubs.map((s) => (
-              <span
-                key={s.id}
-                className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800"
-                title={s.account_number}
-              >
-                {s.name}
-              </span>
-            ))
+            assignedSubs.map((s) => {
+              const ack = subAcks?.get(s.id);
+              const isConflict = ack?.status === "conflict";
+              const isConfirmed = ack?.status === "confirmed";
+              const chipClass = isConflict
+                ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+                : isConfirmed
+                  ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+                  : "bg-sky-100 text-sky-800";
+              const tooltip = ack
+                ? `${ack.status === "confirmed" ? "Confirmed" : "Conflict flagged"} ${new Date(ack.created_at).toLocaleString()}${ack.reason ? ` — "${ack.reason}"` : ""}${
+                    ack.for_start_date && ack.for_start_date !== m.planned_start_date
+                      ? ` (for original ${ack.for_start_date}; date has since changed)`
+                      : ""
+                  }`
+                : s.account_number;
+              return (
+                <span
+                  key={s.id}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipClass}`}
+                  title={tooltip}
+                >
+                  {isConfirmed && <span aria-hidden>✓</span>}
+                  {isConflict && <span aria-hidden>⚠</span>}
+                  {s.name}
+                </span>
+              );
+            })
           ) : (
             <span className="text-[11px] italic text-slate-400">none assigned</span>
           )}
@@ -630,6 +676,38 @@ function MilestoneRow({
             />
           )}
         </div>
+
+        {/* Conflict callouts — surface the reason text the sub typed,
+         *  for each conflict flag on this milestone. Quiet for confirmed
+         *  (the green chip is enough). */}
+        {assignedSubs
+          .map((s) => ({ sub: s, ack: subAcks?.get(s.id) }))
+          .filter((x) => x.ack?.status === "conflict")
+          .map(({ sub, ack }) => (
+            <div
+              key={`conflict-${sub.id}`}
+              className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"
+            >
+              <div className="font-semibold">
+                ⚠ {sub.name} flagged a conflict
+                <span className="ml-2 font-normal text-amber-700">
+                  {new Date(ack!.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              {ack!.reason && (
+                <div className="mt-0.5 text-slate-800">
+                  &ldquo;{ack!.reason}&rdquo;
+                </div>
+              )}
+              {ack!.for_start_date &&
+                ack!.for_start_date !== m.planned_start_date && (
+                  <div className="mt-0.5 text-[11px] italic text-amber-700">
+                    Flagged when start was {ack!.for_start_date} — date has since
+                    changed.
+                  </div>
+                )}
+            </div>
+          ))}
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {nextActions(m.status).map((a) => (

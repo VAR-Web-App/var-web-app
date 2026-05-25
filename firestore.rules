@@ -189,6 +189,16 @@ service cloud.firestore {
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
 
+    // Sub acknowledgments: written ONLY by the server (admin SDK) after
+    // /api/sub/acknowledge validates the token. The GC reads them to
+    // surface "sub confirmed" / "sub flagged a conflict" badges. No
+    // client write path — admin SDK bypasses these rules.
+    match /sub_acknowledgments/{ackId} {
+      allow read: if request.auth != null
+                  && resource.data.org_ref == callerOrgRef();
+      allow write: if false;
+    }
+
     // Project change orders (Builder vertical): scope/cost changes
     // during construction with client approval.
     match /project_change_orders/{coId} {

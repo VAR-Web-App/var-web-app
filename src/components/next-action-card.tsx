@@ -59,7 +59,7 @@ function pickAction(deal: Deal): NextAction {
         body: "Drop the floor plan PDF and the AI pulls square footage, room counts, and pre-fills the estimate.",
         primary: {
           label: "Upload floor plan",
-          scrollTo: "floor-plan-extractor",
+          href: `/deals/${id}/files`,
           icon: ArrowUpTrayIcon,
         },
       };
@@ -76,7 +76,7 @@ function pickAction(deal: Deal): NextAction {
         },
         secondary: {
           label: "Sub bids",
-          scrollTo: "rfq-panel",
+          href: `/deals/${id}/finances`,
         },
       };
 
@@ -99,12 +99,12 @@ function pickAction(deal: Deal): NextAction {
         body: "Set up the draw schedule + payment milestones so the client sees a clear billing timeline. Notify subs that work is starting.",
         primary: {
           label: "Set up draws",
-          scrollTo: "project-execution",
+          href: `/deals/${id}/schedule`,
           icon: CurrencyDollarIcon,
         },
         secondary: {
           label: "Notify subs",
-          scrollTo: "rfq-panel",
+          href: `/deals/${id}/schedule`,
         },
       };
 
@@ -120,7 +120,7 @@ function pickAction(deal: Deal): NextAction {
         },
         secondary: {
           label: "Sub bids",
-          scrollTo: "rfq-panel",
+          href: `/deals/${id}/finances`,
         },
       };
 
@@ -131,12 +131,12 @@ function pickAction(deal: Deal): NextAction {
         body: "Submit draw requests as milestones complete. Photos posted here flow straight to the client portal.",
         primary: {
           label: "Submit draw request",
-          scrollTo: "project-execution",
+          href: `/deals/${id}/schedule`,
           icon: CurrencyDollarIcon,
         },
         secondary: {
           label: "Post photos",
-          scrollTo: "photo-gallery",
+          href: `/deals/${id}/schedule`,
         },
       };
 

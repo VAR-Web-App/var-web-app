@@ -193,6 +193,21 @@ export interface AssemblyInstance {
   propertyValues?: AssemblyPropertyValue[];
 }
 
+/** First property representing a unit count — used by the "Split 1 →"
+ *  action to peel one item off an assembly with multiple identical
+ *  units. Returns null when no count property exists (e.g. wall
+ *  assemblies have Length, not a discrete count). */
+export function findCountProperty(
+  assembly: Assembly,
+): AssemblyProperty | null {
+  for (const p of assembly.properties) {
+    if (p.kind === "option" || p.kind === "choice") continue;
+    if (p.name === "Quantity") return p;
+    if (p.uom === "EA") return p;
+  }
+  return null;
+}
+
 /** Read the active variant of an instance, falling back to the first
  *  variant if activeVariantId points to a deleted one (defensive). */
 export function activeVariantOf(instance: AssemblyInstance): AssemblyVariant {

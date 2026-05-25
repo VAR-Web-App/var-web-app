@@ -1,4 +1,29 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "party_ref", "order": "ASCENDING" },
+        { "fieldPath": "direction", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "project_rfqs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "org_ref", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attachments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rfq_ref", "order": "ASCENDING" },
+        { "fieldPath": "sub_ref", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

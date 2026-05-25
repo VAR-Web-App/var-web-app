@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowTopRightOnSquareIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import Tooltip from "@/components/tooltip";
 import { Distributor } from "@/types";
-import { listDistributors, saveDistributor, deleteDistributor, newId } from "@/lib/store";
+import {
+  listDistributors,
+  saveDistributor,
+  deleteDistributor,
+  newId,
+  refreshSubScheduleLink,
+  getSettings,
+} from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
 
@@ -13,11 +24,32 @@ export default function DistributorsPage() {
   const { profile } = useAuth();
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [editing, setEditing] = useState<Distributor | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
     listDistributors(profile.org_ref).then(setDistributors);
   }, [profile]);
+
+  /** Open the sub's portal in a new tab. Refreshes (or generates) the
+   *  schedule token first so the URL is always valid. */
+  async function previewPortal(sub: Distributor) {
+    if (!profile) return;
+    setPreviewingId(sub.id);
+    try {
+      const settings = await getSettings(profile.org_ref);
+      const builderName = settings?.company_name?.trim() || "your builder";
+      const token = await refreshSubScheduleLink(sub.id, builderName);
+      window.open(`/s/${token}`, "_blank", "noopener,noreferrer");
+      // Refresh the list so any newly-created token is reflected.
+      setDistributors(await listDistributors(profile.org_ref));
+    } catch (e) {
+      console.warn("[distributors] preview portal failed", e);
+      alert("Couldn't open portal — check console.");
+    } finally {
+      setPreviewingId(null);
+    }
+  }
 
   function startNew() {
     if (!profile) return;
@@ -90,8 +122,21 @@ export default function DistributorsPage() {
                 <td className="px-4 py-3 text-xs text-slate-700">{d.phone || "—"}</td>
                 <td className="px-4 py-3 whitespace-pre-line text-xs text-slate-700">{d.address || "—"}</td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-sky-700 hover:text-sky-800">
+                  <div className="flex justify-end gap-2">
+                    <Tooltip
+                      label="See exactly what this sub sees when they open their portal link — schedule, payments, awarded scopes."
+                      placement="left"
+                    >
+                      <button
+                        onClick={() => void previewPortal(d)}
+                        disabled={previewingId === d.id}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800 disabled:opacity-50"
+                      >
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        {previewingId === d.id ? "Opening…" : "Preview portal"}
+                      </button>
+                    </Tooltip>
+                    <button onClick={() => setEditing(d)} className="text-xs font-medium text-slate-700 hover:text-slate-900">
                       Edit
                     </button>
                     <button onClick={() => onDelete(d.id)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">

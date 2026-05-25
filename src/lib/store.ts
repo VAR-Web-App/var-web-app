@@ -216,6 +216,22 @@ export async function listAttachments(dealRef: string): Promise<Attachment[]> {
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Attachment, "id">) }));
 }
 
+/** Sub-uploaded bid files for a single RFQ. Used by the GC's RFQ
+ *  comparison view to surface attachments per invitee. */
+export async function listAttachmentsByRFQ(
+  rfqId: string,
+): Promise<Attachment[]> {
+  const q = query(
+    collection(db, "attachments"),
+    where("rfq_ref", "==", rfqId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<Attachment, "id">),
+  }));
+}
+
 export async function saveAttachment(a: Attachment): Promise<void> {
   await setDoc(doc(db, "attachments", a.id), a, { merge: false });
 }
@@ -238,6 +254,7 @@ export async function deleteAttachment(id: string): Promise<void> {
 import type {
   ProjectMilestone,
   ProjectPhoto,
+  SubAcknowledgment,
   SubScheduleLink,
   SubScheduleAssignment,
 } from "@/types/builder";
@@ -261,6 +278,20 @@ export async function saveMilestones(items: ProjectMilestone[]): Promise<void> {
 
 export async function deleteMilestone(id: string): Promise<void> {
   await removeFromCollection("project_milestones", id);
+}
+
+/** Sub acknowledgments for every milestone on this deal. Server-written
+ *  via /api/sub/acknowledge; GC reads here for badge surfacing. Multiple
+ *  rows per (milestone, sub) form an audit trail — caller picks latest. */
+export async function listSubAcknowledgmentsByDeal(
+  dealRef: string,
+): Promise<SubAcknowledgment[]> {
+  const q = query(
+    collection(db, "sub_acknowledgments"),
+    where("deal_ref", "==", dealRef),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as SubAcknowledgment);
 }
 
 // ── project photos (Builder vertical) ────────────────────────────
@@ -413,19 +444,37 @@ export async function refreshSubScheduleLink(
   }
 
   // Snapshot the sub's assignments across every project in the org.
+  // Carry forward any acknowledgment from the previous snapshot so a
+  // reschedule write doesn't wipe the sub's "confirmed" / "flag" state.
+  // Stale acks (date changed since the sub clicked) stay visible — the
+  // GC can see for_start_date drift and decide.
+  const priorSnap = await getDoc(doc(db, "sub_schedule_links", token));
+  const priorAcks = new Map<string, SubScheduleAssignment["acknowledgment"]>();
+  if (priorSnap.exists()) {
+    const prior = priorSnap.data() as SubScheduleLink;
+    for (const a of prior.assignments || []) {
+      if (a.milestone_ref && a.acknowledgment) {
+        priorAcks.set(a.milestone_ref, a.acknowledgment);
+      }
+    }
+  }
+
   const deals = await listDeals(sub.org_ref);
   const assignments: SubScheduleAssignment[] = [];
   for (const d of deals) {
     const milestones = await listMilestones(d.id);
     for (const m of milestones) {
       if ((m.assigned_subs || []).includes(subId)) {
+        const ack = priorAcks.get(m.id);
         assignments.push({
+          milestone_ref: m.id,
           project_name: d.name,
           project_address: d.ship_to_address,
           phase_name: m.name,
           status: m.status,
           start_date: m.planned_start_date,
           end_date: m.planned_end_date,
+          ...(ack ? { acknowledgment: ack } : {}),
         });
       }
     }

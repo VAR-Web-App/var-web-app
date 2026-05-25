@@ -8,14 +8,12 @@ import {
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import {
-  findStubAssembly,
-  STUB_ASSEMBLIES,
-} from "@/lib/assemblies/stub-catalog";
+import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import NumberInput from "@/components/number-input";
 import {
   activeVariantOf,
+  findCountProperty,
   type Assembly,
   type AssemblyInstance,
   type AssemblyProperty,
@@ -39,6 +37,7 @@ function variantTotal(variant: AssemblyVariant): number {
 function instanceTotal(instance: AssemblyInstance): number {
   return variantTotal(activeVariantOf(instance));
 }
+
 
 /** Trade buckets ordered by construction sequence — same order the GC
  *  experiences on the job, so the assemblies list reads top-to-bottom
@@ -115,14 +114,15 @@ export default function AssemblyInstancesPanel({
   instances,
   onChange,
   onRemove,
-  onSwap,
+  onSplit,
   onAddAssembly,
 }: {
   instances: AssemblyInstance[];
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
-  /** Swap an instance to a different assembly definition (e.g. vinyl → wood window family). */
-  onSwap: (instanceId: string, newAssemblyId: string) => void;
+  /** Break one unit out of an assembly with a count property into a
+   *  sibling instance set to qty=1, ready to customize independently. */
+  onSplit?: (instanceId: string) => void;
   /** Opens the Add Assembly modal. Optional — when absent the header
    *  button is hidden (e.g. sandbox / read-only embeds). */
   onAddAssembly?: () => void;
@@ -162,7 +162,7 @@ export default function AssemblyInstancesPanel({
           totalInstances={instances.length}
           onChange={onChange}
           onRemove={onRemove}
-          onSwap={onSwap}
+          onSplit={onSplit}
         />
       ))}
     </section>
@@ -178,14 +178,14 @@ function TradeGroup({
   totalInstances,
   onChange,
   onRemove,
-  onSwap,
+  onSplit,
 }: {
   group: TradeBucket;
   accentIdx: number;
   totalInstances: number;
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
-  onSwap: (instanceId: string, newAssemblyId: string) => void;
+  onSplit?: (instanceId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const subtotal = useMemo(
@@ -194,11 +194,11 @@ function TradeGroup({
   );
   const accent = ALT_ACCENTS[accentIdx % ALT_ACCENTS.length];
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-stretch text-left hover:bg-black/5"
+        className="flex w-full items-stretch overflow-hidden rounded-t-xl text-left hover:bg-black/5"
         aria-expanded={open}
       >
         <span className={`w-1.5 ${accent.bar}`} aria-hidden />
@@ -221,14 +221,18 @@ function TradeGroup({
         </span>
       </button>
       {open ? (
-        <div className="grid grid-cols-1 items-start gap-3 p-3 md:grid-cols-2">
+        <div
+          className={`grid grid-cols-1 items-start gap-3 p-3 ${
+            group.items.length > 1 ? "md:grid-cols-2" : ""
+          }`}
+        >
           {group.items.map((instance, idx) => (
             <AssemblyInstanceCard
               key={instance.id}
               instance={instance}
               onChange={onChange}
               onRemove={() => onRemove(instance.id)}
-              onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
+              onSplit={onSplit ? () => onSplit(instance.id) : undefined}
               // Smart default: keep cards open when the project has 3
               // or fewer assemblies total; otherwise start collapsed
               // (except the first of the first group) so a 13-assembly
@@ -247,13 +251,13 @@ function AssemblyInstanceCard({
   instance,
   onChange,
   onRemove,
-  onSwap,
+  onSplit,
   defaultCollapsed = false,
 }: {
   instance: AssemblyInstance;
   onChange: (next: AssemblyInstance) => void;
   onRemove: () => void;
-  onSwap: (newAssemblyId: string) => void;
+  onSplit?: () => void;
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
@@ -263,6 +267,22 @@ function AssemblyInstanceCard({
     () => findStubAssembly(activeVariant.assemblyId),
     [activeVariant.assemblyId],
   );
+
+  // Split-1 affordance: shown for any assembly with a discrete unit
+  // count (Quantity / EA). Enabled when count > 1 — lets the GC peel
+  // off one unit to customize (e.g. 1 of 5 doors upgraded to mahogany).
+  // Shown disabled at count=1 so the GC discovers it exists; tooltip
+  // explains how to enable.
+  const countProperty = useMemo(
+    () => (assembly ? findCountProperty(assembly) : null),
+    [assembly],
+  );
+  const countValue = countProperty
+    ? (activeVariant.propertyValues.find((p) => p.name === countProperty.name)
+        ?.value ?? 0)
+    : 0;
+  const showSplit = !!onSplit && !!countProperty;
+  const canSplit = showSplit && countValue > 1;
 
   // Roll up every variant once so the chips can show their own price +
   // delta vs active without re-computing inside each chip render.
@@ -457,19 +477,24 @@ function AssemblyInstanceCard({
           placeholder="Phase label"
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-slate-900 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
         />
-        {!collapsed ? (
-          <select
-            value={activeVariant.assemblyId}
-            onChange={(e) => onSwap(e.target.value)}
-            className="hidden rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-300 focus:border-sky-500 focus:outline-none sm:block"
-            title="Swap the active variant's assembly type — properties with matching names carry over."
+        {showSplit ? (
+          <button
+            type="button"
+            onClick={canSplit ? onSplit : undefined}
+            disabled={!canSplit}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+              canSplit
+                ? "border-sky-200 bg-white text-sky-700 hover:bg-sky-50"
+                : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+            }`}
+            title={
+              canSplit
+                ? `Peel one ${countProperty!.name === "Quantity" ? "unit" : countProperty!.name} off this assembly into a new sibling card you can customize independently (e.g. change just one of ${countValue} ${countProperty!.uom || ""} to a different option).`
+                : `Bump ${countProperty!.name} above 1 to enable — lets you peel one unit off into a sibling card you can customize independently.`
+            }
           >
-            {STUB_ASSEMBLIES.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+            Split 1 →
+          </button>
         ) : null}
         <span className="text-sm font-semibold tabular-nums text-slate-900">
           ${activeTotal.toFixed(2)}
@@ -524,8 +549,10 @@ function AssemblyInstanceCard({
           </div>
 
           {/* Active variant's property editors. Edits write back to
-           *  the active variant only — inactive variants are untouched. */}
-          <div className="flex gap-2 px-4 py-3">
+           *  the active variant only — inactive variants are untouched.
+           *  flex-wrap so option fields with longer labels (e.g. "Steel,
+           *  insulated") wrap to a second row instead of getting clipped. */}
+          <div className="flex flex-wrap gap-2 px-4 py-3">
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
@@ -644,17 +671,17 @@ function AddVariantMenu({
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-slate-100" />
             </>
-          ) : null}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => pick(onCloneCurrent)}
-            className="block w-full px-3 py-2 text-left text-xs italic text-slate-600 hover:bg-slate-50"
-          >
-            Clone current configuration
-          </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => pick(onCloneCurrent)}
+              className="block w-full px-3 py-2 text-left text-xs italic text-slate-600 hover:bg-slate-50"
+            >
+              Clone current configuration
+            </button>
+          )}
         </div>
       ) : null}
     </div>
@@ -785,14 +812,18 @@ function PropertyEditor({
   value: number;
   onChange: (v: number) => void;
 }) {
-  // Stretch pill — each property pill takes flex-1 of the parent row
-  // so they distribute across the full width of the card on one line.
-  // The control in the middle is the only stretching part; the label
-  // and UoM stay sized to their text.
+  // Property pill widths: option/choice fields hold variable-length
+  // labels ("Steel, insulated", "Architectural shingle") so they get
+  // both a higher flex weight AND a min-width so they don't clip on a
+  // wrapped row. Number fields stay compact — 4 digits + UoM is enough.
   const isOption = property.kind === "option" && property.options;
   const isChoice = property.kind === "choice" && property.choices;
+  const sizingClass =
+    isOption || isChoice ? "flex-[2] min-w-[10rem]" : "flex-1 min-w-[5rem]";
   return (
-    <label className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
+    <label
+      className={`flex ${sizingClass} items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500`}
+    >
       <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-600">
         {property.name}
       </span>

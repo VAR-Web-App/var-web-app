@@ -297,6 +297,13 @@ export interface Attachment {
    *  draw_receipt uploads so the draw page can show only the docs tied
    *  to that milestone. */
   milestone_ref?: string;
+  /** Optional foreign key into ProjectRFQ — set on sub_bid attachments
+   *  uploaded by a sub through the public bid portal. Lets the RFQ
+   *  panel pull "this sub's bid files" without scanning every record. */
+  rfq_ref?: string;
+  /** Distributor id of the uploader, set on attachments uploaded by a
+   *  sub through the public portal. Scopes per-bid file lists. */
+  sub_ref?: string;
   /** Storage object path (e.g. "attachments/deal_abc/att_xyz-name.pdf").
    *  When set, deleteAttachment also removes the Storage object. Absent
    *  on legacy records that never went through the Storage pipeline. */

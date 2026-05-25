@@ -191,6 +191,13 @@ export interface ProjectMilestone {
   qb_invoice_number?: string;
   /** ISO timestamp of the last successful QB sync. */
   qb_synced_at?: string;
+  /** Dedup keys for the T-7 / T-2 / T-1 reminder cron. Each stores the
+   *  planned_start_date the corresponding reminder was last sent for
+   *  — when the start date changes, the value goes stale and the
+   *  reminder fires again for the new date. */
+  t7_reminded_for_start?: string;
+  t2_reminded_for_start?: string;
+  t1_reminded_for_start?: string;
   /** When work on this phase began (in_progress flip). */
   started_at?: string;
   /** When the GC marked the phase complete (awaiting client approval). */
@@ -238,12 +245,47 @@ export const MILESTONE_STATUS_STYLES: Record<MilestoneStatus, string> = {
 // assigned or rescheduled; the page renders purely from this snapshot.
 
 export interface SubScheduleAssignment {
+  /** Stable ref back to the source ProjectMilestone — required so sub
+   *  actions (acknowledge, flag conflict) can target the right doc. */
+  milestone_ref?: string;
   project_name: string;
   project_address?: string;
   phase_name: string;
   status: MilestoneStatus;
   start_date?: string;
   end_date?: string;
+  /** Echoed from the latest SubAcknowledgment so the portal can render
+   *  "you confirmed this" without a second query. Server (admin SDK)
+   *  writes this back on /api/sub/acknowledge. */
+  acknowledgment?: {
+    status: "confirmed" | "conflict";
+    reason?: string;
+    /** ISO timestamp of when the sub clicked the button. */
+    created_at: string;
+  };
+}
+
+// ── Sub acknowledgments ──────────────────────────────────────────
+// One per sub-per-milestone-per-action. Written only by the server
+// (admin SDK) after the public /api/sub/acknowledge endpoint verifies
+// the token. Multiple records per (sub, milestone) are fine — they
+// form an audit trail (e.g. confirmed → later flagged conflict). The
+// GC reads these to surface ack state on each milestone row.
+
+export interface SubAcknowledgment {
+  id: string;
+  org_ref: string;
+  deal_ref: string;
+  milestone_ref: string;
+  sub_ref: string;
+  /** The token the sub used; recorded for audit, not used as auth. */
+  token: string;
+  status: "confirmed" | "conflict";
+  reason?: string;
+  /** Snapshot of the milestone's planned_start_date at ack time, so a
+   *  later date change shows up clearly ("ack'd for a different date"). */
+  for_start_date?: string;
+  created_at: string;
 }
 
 export interface SubScheduleLink {
@@ -311,6 +353,9 @@ export interface RFQInvitee {
   bid_amount?: number;
   bid_notes?: string;
   responded_at?: string;
+  /** ISO timestamp of the SMS invite (or email mock). Used to show
+   *  "sent X days ago" and to gate re-send. */
+  notified_at?: string;
 }
 
 // ── Change Orders ────────────────────────────────────────────────

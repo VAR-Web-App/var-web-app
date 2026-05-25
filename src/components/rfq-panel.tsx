@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   PlusIcon,
   ClipboardDocumentListIcon,
@@ -9,7 +9,7 @@ import {
   XMarkIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { Deal, Distributor, QuoteLine, newId } from "@/types";
+import { Attachment, Deal, Distributor, QuoteLine, newId } from "@/types";
 import {
   ProjectRFQ,
   RFQInvitee,
@@ -27,7 +27,15 @@ import {
   saveDeal,
   getDeal,
   listDistributors,
+  getSettings,
+  refreshSubScheduleLink,
+  listAttachmentsByRFQ,
 } from "@/lib/store";
+import {
+  composeRfqInviteSms,
+  sendSms,
+  toE164,
+} from "@/lib/sms";
 import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
@@ -36,20 +44,28 @@ const fmtMoney = (n: number) =>
 export default function RFQPanel({ deal }: { deal: Deal }) {
   const [rfqs, setRfqs] = useState<ProjectRFQ[]>([]);
   const [subs, setSubs] = useState<Distributor[]>([]);
+  const [builderName, setBuilderName] = useState("");
+  const [fromNumberHint, setFromNumberHint] = useState<string | undefined>(
+    undefined,
+  );
   const [loaded, setLoaded] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<ProjectRFQ | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([listRFQs(deal.id), listDistributors(deal.org_ref)]).then(
-      ([r, s]) => {
-        if (!active) return;
-        setRfqs(r);
-        setSubs(s);
-        setLoaded(true);
-      }
-    );
+    Promise.all([
+      listRFQs(deal.id),
+      listDistributors(deal.org_ref),
+      getSettings(deal.org_ref),
+    ]).then(([r, s, settings]) => {
+      if (!active) return;
+      setRfqs(r);
+      setSubs(s);
+      setBuilderName(settings?.company_name ?? "");
+      setFromNumberHint(settings?.sms_config?.from_number);
+      setLoaded(true);
+    });
     return () => { active = false; };
   }, [deal.id, deal.org_ref]);
 
@@ -184,6 +200,8 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
         <RFQModal
           deal={deal}
           subs={subs}
+          builderName={builderName}
+          fromNumberHint={fromNumberHint}
           onSave={onCreate}
           onClose={() => setShowNew(false)}
         />
@@ -192,6 +210,8 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
         <RFQModal
           deal={deal}
           subs={subs}
+          builderName={builderName}
+          fromNumberHint={fromNumberHint}
           existing={editing}
           onSave={onUpdate}
           onClose={() => setEditing(null)}
@@ -281,22 +301,56 @@ function RFQRow({
 function RFQModal({
   deal,
   subs,
+  builderName,
+  fromNumberHint,
   existing,
   onSave,
   onClose,
 }: {
   deal: Deal;
   subs: Distributor[];
+  builderName: string;
+  fromNumberHint?: string;
   existing?: ProjectRFQ;
   onSave: (rfq: ProjectRFQ) => void;
   onClose: () => void;
 }) {
+  const [sending, setSending] = useState(false);
+  const [sendReport, setSendReport] = useState<string | null>(null);
   const [title, setTitle] = useState(existing?.scope_title || "");
   const [description, setDescription] = useState(existing?.scope_description || "");
   const [phase, setPhase] = useState<ProjectPhase>(existing?.phase || "Foundation");
   const [invitees, setInvitees] = useState<RFQInvitee[]>(existing?.invitees || []);
   const [notes, setNotes] = useState(existing?.notes || "");
   const [status, setStatus] = useState(existing?.status || "draft");
+
+  // Sub-uploaded bid attachments, indexed by sub_ref. Loaded once on
+  // open for existing RFQs; brand-new RFQs (no id yet) have none.
+  const [bidFiles, setBidFiles] = useState<Map<string, Attachment[]>>(
+    new Map(),
+  );
+  useEffect(() => {
+    if (!existing?.id) return;
+    let active = true;
+    listAttachmentsByRFQ(existing.id).then((list) => {
+      if (!active) return;
+      const map = new Map<string, Attachment[]>();
+      for (const a of list) {
+        if (!a.sub_ref) continue;
+        const arr = map.get(a.sub_ref) ?? [];
+        arr.push(a);
+        map.set(a.sub_ref, arr);
+      }
+      // Newest first within each bucket.
+      for (const arr of map.values()) {
+        arr.sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
+      }
+      setBidFiles(map);
+    });
+    return () => {
+      active = false;
+    };
+  }, [existing?.id]);
 
   function toggleSub(sub: Distributor) {
     const exists = invitees.find((i) => i.sub_ref === sub.id);
@@ -316,15 +370,85 @@ function RFQModal({
 
   async function save(send: boolean) {
     const now = new Date().toISOString();
+    const rfqId = existing?.id || newId("rfq");
+    let finalInvitees = invitees;
+
+    // On send: text each newly-invited sub (no prior notified_at) with
+    // a link to /s/{token}/bid/{rfqId}. We refresh the sub's schedule
+    // token to ensure one exists, then fire SMS via /api/sms. Failures
+    // surface in the modal so the GC knows which subs to follow up with.
+    if (send) {
+      setSending(true);
+      const host = typeof window !== "undefined" ? window.location.host : "";
+      let sentCount = 0;
+      const failures: string[] = [];
+      finalInvitees = await Promise.all(
+        invitees.map(async (inv) => {
+          if (inv.notified_at) return inv;
+          const sub = subs.find((s) => s.id === inv.sub_ref);
+          if (!sub) {
+            failures.push(`${inv.sub_name}: missing distributor`);
+            return inv;
+          }
+          if (sub.sms_consent !== true) {
+            failures.push(`${inv.sub_name}: no SMS consent`);
+            return inv;
+          }
+          const to = toE164(sub.phone ?? "");
+          if (!to) {
+            failures.push(`${inv.sub_name}: no valid phone`);
+            return inv;
+          }
+          try {
+            // Ensure the sub has a schedule_token so the bid link works.
+            const token = await refreshSubScheduleLink(
+              sub.id,
+              builderName || "your builder",
+            );
+            const bidLink = `https://${host}/s/${token}/bid/${rfqId}`;
+            const body = composeRfqInviteSms({
+              builderName,
+              projectName: deal.name,
+              scopeTitle: title.trim() || "bid request",
+              bidLink,
+            });
+            const result = await sendSms(to, body, { fromNumberHint });
+            if (result.ok) {
+              sentCount++;
+              return { ...inv, notified_at: new Date().toISOString() };
+            } else {
+              failures.push(
+                `${inv.sub_name}: ${result.reason || "send failed"}`,
+              );
+              return inv;
+            }
+          } catch (e) {
+            failures.push(
+              `${inv.sub_name}: ${e instanceof Error ? e.message : "error"}`,
+            );
+            return inv;
+          }
+        }),
+      );
+      setSending(false);
+      if (failures.length > 0) {
+        setSendReport(
+          `Texted ${sentCount} of ${invitees.length}. Skipped: ${failures.join("; ")}`,
+        );
+      } else if (sentCount > 0) {
+        setSendReport(`Texted ${sentCount} sub${sentCount === 1 ? "" : "s"}.`);
+      }
+    }
+
     const rfq: ProjectRFQ = {
-      id: existing?.id || newId("rfq"),
+      id: rfqId,
       deal_ref: deal.id,
       org_ref: deal.org_ref,
       scope_title: title.trim() || "Untitled RFQ",
       scope_description: description,
       phase,
       status: send ? (status === "draft" ? "sent" : status) : status,
-      invitees,
+      invitees: finalInvitees,
       notes,
       sent_at: send && !existing?.sent_at ? now : existing?.sent_at,
       awarded_to_sub_ref: existing?.awarded_to_sub_ref,
@@ -462,67 +586,108 @@ function RFQModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {sortedInvitees.map((inv) => (
-                      <tr
-                        key={inv.sub_ref}
-                        className={inv.status === "selected" ? "bg-emerald-50" : "bg-white"}
-                      >
-                        <td className="px-3 py-2 font-medium text-slate-900">{inv.sub_name}</td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="number"
-                            value={inv.bid_amount ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              updateInvitee(inv.sub_ref, {
-                                bid_amount: v === "" ? undefined : parseFloat(v),
-                                status: v === "" ? "sent" : "responded",
-                                responded_at: v !== "" && !inv.responded_at ? new Date().toISOString() : inv.responded_at,
-                              });
-                            }}
-                            placeholder="—"
-                            className="w-24 rounded border border-slate-300 px-2 py-1 text-right text-xs tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            value={inv.bid_notes || ""}
-                            onChange={(e) => updateInvitee(inv.sub_ref, { bid_notes: e.target.value })}
-                            placeholder="Inclusions/exclusions…"
-                            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-[11px]">
-                          <span className={`rounded-full px-1.5 py-0.5 ${
-                            inv.status === "selected" ? "bg-emerald-100 text-emerald-700" :
-                            inv.status === "responded" ? "bg-blue-100 text-blue-700" :
-                            inv.status === "passed" ? "bg-slate-100 text-slate-500" :
-                            "bg-sky-100 text-sky-700"
-                          }`}>
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {inv.status !== "selected" && inv.bid_amount && (
-                            <Tooltip
-                              label="Pick this sub as the winner. Unlocks the → Estimate button so you can drop their bid into the project estimate."
-                              placement="left"
-                            >
-                              <button
-                                onClick={() => awardTo(inv.sub_ref)}
-                                className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100"
+                    {sortedInvitees.map((inv) => {
+                      const files = bidFiles.get(inv.sub_ref) ?? [];
+                      const fromPortal = !!inv.responded_at;
+                      const rowBg =
+                        inv.status === "selected" ? "bg-emerald-50" : "bg-white";
+                      return (
+                        <Fragment key={inv.sub_ref}>
+                          <tr className={rowBg}>
+                            <td className="px-3 py-2 font-medium text-slate-900">
+                              {inv.sub_name}
+                              {fromPortal && (
+                                <span
+                                  title="Bid submitted through the sub portal"
+                                  className="ml-1.5 inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider text-sky-700"
+                                >
+                                  Portal
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <input
+                                type="number"
+                                value={inv.bid_amount ?? ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateInvitee(inv.sub_ref, {
+                                    bid_amount: v === "" ? undefined : parseFloat(v),
+                                    status: v === "" ? "sent" : "responded",
+                                    responded_at: v !== "" && !inv.responded_at ? new Date().toISOString() : inv.responded_at,
+                                  });
+                                }}
+                                placeholder="—"
+                                className="w-24 rounded border border-slate-300 px-2 py-1 text-right text-xs tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={inv.bid_notes || ""}
+                                onChange={(e) => updateInvitee(inv.sub_ref, { bid_notes: e.target.value })}
+                                placeholder="Inclusions/exclusions…"
+                                className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-[11px]">
+                              <span className={`rounded-full px-1.5 py-0.5 ${
+                                inv.status === "selected" ? "bg-emerald-100 text-emerald-700" :
+                                inv.status === "responded" ? "bg-blue-100 text-blue-700" :
+                                inv.status === "passed" ? "bg-slate-100 text-slate-500" :
+                                "bg-sky-100 text-sky-700"
+                              }`}>
+                                {inv.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {inv.status !== "selected" && inv.bid_amount && (
+                                <Tooltip
+                                  label="Pick this sub as the winner. Unlocks the → Estimate button so you can drop their bid into the project estimate."
+                                  placement="left"
+                                >
+                                  <button
+                                    onClick={() => awardTo(inv.sub_ref)}
+                                    className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100"
+                                  >
+                                    Award
+                                  </button>
+                                </Tooltip>
+                              )}
+                              {inv.status === "selected" && (
+                                <CheckCircleIcon className="ml-auto h-4 w-4 text-emerald-600" />
+                              )}
+                            </td>
+                          </tr>
+                          {files.length > 0 && (
+                            <tr className={rowBg}>
+                              <td
+                                colSpan={5}
+                                className="px-3 pb-2 pt-0 text-[11px]"
                               >
-                                Award
-                              </button>
-                            </Tooltip>
+                                <div className="flex flex-wrap items-center gap-1.5 pl-3">
+                                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                                    Files:
+                                  </span>
+                                  {files.map((f) => (
+                                    <a
+                                      key={f.id}
+                                      href={f.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[11px] text-sky-700 ring-1 ring-slate-200 hover:bg-sky-50"
+                                      title={`${(f.size / 1024).toFixed(0)} KB · uploaded ${new Date(f.uploaded_at).toLocaleDateString()}`}
+                                    >
+                                      📎 {f.name}
+                                    </a>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                          {inv.status === "selected" && (
-                            <CheckCircleIcon className="ml-auto h-4 w-4 text-emerald-600" />
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -541,26 +706,37 @@ function RFQModal({
           </div>
         </div>
 
+        {sendReport && (
+          <div className="border-t border-slate-200 px-6 py-2 text-[11px] text-slate-600">
+            {sendReport}
+          </div>
+        )}
         <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={() => save(false)}
-            className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+            disabled={sending}
+            className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-50"
           >
             Save draft
           </button>
           <button
             onClick={() => save(true)}
-            disabled={invitees.length === 0 || !title.trim()}
+            disabled={invitees.length === 0 || !title.trim() || sending}
             className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
-            {existing?.sent_at ? "Save" : `Send to ${invitees.length} sub${invitees.length === 1 ? "" : "s"}`}
+            {sending
+              ? "Sending…"
+              : existing?.sent_at
+                ? "Save"
+                : `Send to ${invitees.length} sub${invitees.length === 1 ? "" : "s"}`}
           </button>
         </div>
       </div>

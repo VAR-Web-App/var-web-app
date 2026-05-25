@@ -31,6 +31,7 @@ import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import {
   activeVariantOf,
+  findCountProperty,
   migrateInstance,
   type AssemblyInstance,
   type AssemblyVariant,
@@ -427,43 +428,87 @@ export default function DealQuotePage({
   }
 
   /**
-   * Swap an instance to a different assembly definition. Property values
-   * with matching names carry over (e.g. "Width" / "Height" stay when
-   * swapping vinyl → wood window); new properties use defaults.
+   * Split one unit off an assembly with a count property — for the
+   * "5 doors but the client wants one upgraded" case. Decrements the
+   * count on the source by 1, creates a new sibling instance with qty=1
+   * (and the same property values, so the GC starts from the same spec
+   * and just changes the one thing they need). The new card is inserted
+   * right after the source so it's adjacent in the UI.
    */
-  function swapInstance(instanceId: string, newAssemblyId: string) {
-    const next = findStubAssembly(newAssemblyId);
-    if (!next) return;
-    const current = assemblyInstances.find((i) => i.id === instanceId);
-    if (!current) return;
-    // Swap operates on the ACTIVE variant only — other variants keep
-    // their own assembly definitions. This lets a single instance carry
-    // mixed types (e.g. Variant A = 2×6 wall, Variant B = 2×4 wall).
-    const activeVariant = activeVariantOf(current);
-    const oldByName = Object.fromEntries(
-      activeVariant.propertyValues.map((p) => [p.name, p.value]),
-    );
-    const newPropertyValues = next.properties.map((p) => {
-      const carried = oldByName[p.name];
-      if (carried != null) return { name: p.name, value: carried };
-      const fallback =
-        p.defaultValue ??
-        (p.kind === "option" ? p.options?.[0]?.value : undefined) ??
-        (p.kind === "choice" ? p.choices?.[0] : undefined) ??
-        0;
-      return { name: p.name, value: fallback };
-    });
-    const updatedVariant: AssemblyVariant = {
-      ...activeVariant,
-      assemblyId: next.id,
-      label: next.name,
-      propertyValues: newPropertyValues,
-    };
-    updateInstance({
-      ...current,
-      variants: current.variants.map((v) =>
-        v.id === activeVariant.id ? updatedVariant : v,
+  function splitInstance(instanceId: string) {
+    const sourceIdx = assemblyInstances.findIndex((i) => i.id === instanceId);
+    if (sourceIdx < 0) return;
+    const source = assemblyInstances[sourceIdx];
+    const sourceActive = activeVariantOf(source);
+    const assembly = findStubAssembly(sourceActive.assemblyId);
+    if (!assembly) return;
+    const countProp = findCountProperty(assembly);
+    if (!countProp) return;
+    const currentCount =
+      sourceActive.propertyValues.find((p) => p.name === countProp.name)
+        ?.value ?? 0;
+    if (currentCount <= 1) return;
+
+    const now = Date.now().toString(36);
+    const newVariantId = `var_${now}_${Math.random().toString(36).slice(2, 8)}`;
+    const newInstanceId = `inst_${now}_${Math.random().toString(36).slice(2, 8)}`;
+
+    // Decrement source: count → count - 1.
+    const decrementedSource: AssemblyInstance = {
+      ...source,
+      variants: source.variants.map((v) =>
+        v.id === sourceActive.id
+          ? {
+              ...v,
+              propertyValues: v.propertyValues.map((p) =>
+                p.name === countProp.name ? { ...p, value: currentCount - 1 } : p,
+              ),
+            }
+          : v,
       ),
+    };
+
+    // Sibling: clone of the source's active variant with count = 1.
+    // Single variant on the new instance — variants on the source
+    // (alt material options, etc.) don't carry over; the GC will pick
+    // their custom spec from scratch.
+    const siblingVariant: AssemblyVariant = {
+      id: newVariantId,
+      label: sourceActive.label,
+      assemblyId: sourceActive.assemblyId,
+      propertyValues: sourceActive.propertyValues.map((p) =>
+        p.name === countProp.name ? { ...p, value: 1 } : p,
+      ),
+    };
+    const sibling: AssemblyInstance = {
+      id: newInstanceId,
+      instanceLabel: `${source.instanceLabel} (custom)`,
+      variants: [siblingVariant],
+      activeVariantId: newVariantId,
+    };
+
+    // Insert sibling after source. Build the next array, then push lines
+    // through updateInstance for each so derived QuoteLines stay in sync.
+    const nextInstances = [...assemblyInstances];
+    nextInstances[sourceIdx] = decrementedSource;
+    nextInstances.splice(sourceIdx + 1, 0, sibling);
+    setAssemblyInstances(nextInstances);
+
+    // Regenerate lines for both: drop any tied to either id, then append
+    // the freshly-derived sets. Simpler than per-instance splice tracking
+    // when two instances change in one pass.
+    setLines((prev) => {
+      const filtered = prev.filter(
+        (l) =>
+          l.instance_id !== decrementedSource.id &&
+          l.instance_id !== sibling.id,
+      );
+      const derivedSource = instanceToQuoteLines(decrementedSource, 0);
+      const derivedSibling = instanceToQuoteLines(sibling, 0);
+      return [...filtered, ...derivedSource, ...derivedSibling].map((l, i) => ({
+        ...l,
+        line_number: i + 1,
+      }));
     });
   }
 
@@ -621,7 +666,7 @@ export default function DealQuotePage({
           instances={assemblyInstances}
           onChange={updateInstance}
           onRemove={removeInstance}
-          onSwap={swapInstance}
+          onSplit={splitInstance}
           onAddAssembly={() => setShowAssemblyModal(true)}
         />
 
