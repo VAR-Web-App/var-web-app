@@ -121,6 +121,12 @@ export default function FloorPlanExtractor({
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
+  /** Which Apply action is currently running, so each button shows its
+   *  own spinner instead of both buttons reading the same `applying` flag. */
+  const [applyingMode, setApplyingMode] = useState<
+    "flat" | "assemblies" | null
+  >(null);
+  const [applyProgress, setApplyProgress] = useState(0);
   const [extraction, setExtraction] = useState<FloorPlanExtraction | null>(
     initialExtraction ?? null,
   );
@@ -262,7 +268,20 @@ export default function FloorPlanExtractor({
    */
   async function applyAssemblies() {
     if (!extraction) return;
+    setApplyingMode("assemblies");
+    setApplyProgress(0);
     setApplying(true);
+    // Same eased progress curve the AI extraction uses, scaled to ~2.5s
+    // since apply is faster than vision. Holds at 95% until the saves
+    // resolve, snaps to 100% on completion.
+    const start = performance.now();
+    const targetMs = 2500;
+    const tick = window.setInterval(() => {
+      const elapsed = performance.now() - start;
+      const t = Math.min(1, elapsed / targetMs);
+      const eased = 1 - Math.pow(1 - t, 2.2);
+      setApplyProgress(Math.min(95, eased * 95));
+    }, 80);
     try {
       const deal = await getDeal(dealId);
       if (!deal) throw new Error("Project no longer exists");
@@ -299,17 +318,31 @@ export default function FloorPlanExtractor({
         updated_at: new Date().toISOString(),
       });
 
+      setApplyProgress(100);
+      await new Promise((r) => setTimeout(r, 200));
       router.push(`/deals/${dealId}/quote`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      clearInterval(tick);
       setApplying(false);
+      setApplyingMode(null);
     }
   }
 
   async function applyToEstimate() {
     if (!extraction) return;
+    setApplyingMode("flat");
+    setApplyProgress(0);
     setApplying(true);
+    const start = performance.now();
+    const targetMs = 2000;
+    const tick = window.setInterval(() => {
+      const elapsed = performance.now() - start;
+      const t = Math.min(1, elapsed / targetMs);
+      const eased = 1 - Math.pow(1 - t, 2.2);
+      setApplyProgress(Math.min(95, eased * 95));
+    }, 80);
     try {
       const newLines = generateEstimateLines(extraction);
       // Append to any existing lines so prior manual entries survive.
@@ -336,11 +369,15 @@ export default function FloorPlanExtractor({
         });
       }
 
+      setApplyProgress(100);
+      await new Promise((r) => setTimeout(r, 200));
       router.push(`/deals/${dealId}/quote`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      clearInterval(tick);
       setApplying(false);
+      setApplyingMode(null);
     }
   }
 
@@ -489,6 +526,8 @@ export default function FloorPlanExtractor({
             onApplyAssemblies={applyAssemblies}
             onReset={startReupload}
             applying={applying}
+            applyingMode={applyingMode}
+            applyProgress={applyProgress}
           />
         )}
       </div>
@@ -505,6 +544,8 @@ function ExtractionResults({
   onApplyAssemblies,
   onReset,
   applying,
+  applyingMode,
+  applyProgress,
 }: {
   extraction: FloorPlanExtraction;
   resolvedFlags: Set<number>;
@@ -514,6 +555,8 @@ function ExtractionResults({
   onApplyAssemblies: () => void;
   onReset: () => void;
   applying: boolean;
+  applyingMode: "flat" | "assemblies" | null;
+  applyProgress: number;
 }) {
   const conf = extraction.confidence;
   const confColor =
@@ -649,6 +692,29 @@ function ExtractionResults({
         </p>
       </div>
 
+      {applying ? (
+        // Match the AI extraction's progress UX so the apply step feels
+        // like one continuous flow, not a different kind of waiting.
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-4">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-semibold text-sky-900">
+              {applyingMode === "assemblies"
+                ? "Generating assemblies…"
+                : "Building estimate…"}
+            </span>
+            <span className="tabular-nums text-sky-700">
+              {Math.round(applyProgress)}%
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-sky-100">
+            <div
+              className="h-full bg-sky-600 transition-[width] duration-200"
+              style={{ width: `${applyProgress}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap justify-end gap-2">
         <button
           onClick={onApply}
@@ -656,7 +722,7 @@ function ExtractionResults({
           className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           title="Generate flat $/sqft category lines — quick ballpark estimate."
         >
-          {applying ? "Applying…" : "Quick estimate ($/sqft)"}
+          {applyingMode === "flat" ? "Building…" : "Quick estimate ($/sqft)"}
         </button>
         <button
           onClick={onApplyAssemblies}
@@ -664,7 +730,7 @@ function ExtractionResults({
           className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
           title="Generate parametric assemblies you can edit live at the kitchen table."
         >
-          {applying ? "Applying…" : "Create assemblies →"}
+          {applyingMode === "assemblies" ? "Generating…" : "Create assemblies →"}
         </button>
       </div>
     </div>
