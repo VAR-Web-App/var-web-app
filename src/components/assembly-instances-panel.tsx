@@ -69,12 +69,12 @@ const TRADE_LABELS: Record<Assembly["trade"], string> = {
   other: "Other",
 };
 
-/** Alternating gray + on-brand sky tints by position. Keeps the visual
- *  separation but stays calm — no rainbow per-trade. The accent bar on
- *  the left is the stronger color of the same family. */
-const ALT_ACCENTS: Array<{ bg: string; bar: string }> = [
-  { bg: "bg-slate-50", bar: "bg-slate-400" },
-  { bg: "bg-sky-50", bar: "bg-sky-500" },
+/** Alternating left-accent stripes by group position — white section
+ *  bg, only the stripe distinguishes one trade from the next. Most
+ *  minimal aesthetic; lets the cards inside read clean. */
+const ALT_ACCENTS: Array<{ bar: string }> = [
+  { bar: "bg-slate-400" },
+  { bar: "bg-sky-500" },
 ];
 
 interface TradeBucket {
@@ -203,9 +203,7 @@ function TradeGroup({
   );
   const accent = ALT_ACCENTS[accentIdx % ALT_ACCENTS.length];
   return (
-    <div
-      className={`overflow-hidden rounded-xl border border-slate-200 shadow-sm ${accent.bg}`}
-    >
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
