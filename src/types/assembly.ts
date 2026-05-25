@@ -75,6 +75,29 @@ export interface AssemblyMaterial {
   csiDivision?: string;
 }
 
+/**
+ * A pre-defined variant configuration that ships with the assembly —
+ * shows up in the "+ Add variant" menu so the builder can pick a
+ * common alternative (Wood Casement Premium, 6" Slab, etc.) instead
+ * of cloning + manually tweaking properties.
+ *
+ * Each preset is "label + property overrides on top of defaults," with
+ * an optional assemblyId override for cross-assembly presets (e.g. a
+ * Metal Roof preset that swaps to a different roof assembly entirely).
+ */
+export interface AssemblyVariantPreset {
+  /** Display label, e.g. "Wood Casement Premium". */
+  label: string;
+  /** Optional one-line context shown in the menu. */
+  description?: string;
+  /** When set, the created variant uses this assembly instead of the
+   *  parent — for presets that fundamentally swap product type. */
+  assemblyId?: string;
+  /** Property name → value, applied on top of assembly defaults. Any
+   *  property the preset doesn't override keeps the default. */
+  propertyOverrides: Record<string, number>;
+}
+
 /** A reusable Assembly definition, e.g. 'Exterior Wall — 2×6 @ 16" OC'. */
 export interface Assembly {
   id: string;
@@ -93,6 +116,11 @@ export interface Assembly {
     | "other";
   properties: AssemblyProperty[];
   materials: AssemblyMaterial[];
+  /** Curated alternative configurations the GC can pick from when
+   *  adding a variant. Typically 2-4 per assembly — baseline + a few
+   *  progressively-more-expensive upgrades that match real client
+   *  conversations ("standard vs premium"). */
+  variantPresets?: AssemblyVariantPreset[];
 }
 
 /** A property's value as filled in by the user for one Assembly instance. */

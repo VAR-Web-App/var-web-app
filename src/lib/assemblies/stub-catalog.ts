@@ -89,6 +89,22 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "09",
       },
     ],
+    variantPresets: [
+      {
+        label: '16" OC (standard)',
+        propertyOverrides: { "Stud Spacing": 16 },
+      },
+      {
+        label: '24" OC (code-min budget)',
+        description: "Lower stud count + more insulation room",
+        propertyOverrides: { "Stud Spacing": 24 },
+      },
+      {
+        label: '12" OC (high-load)',
+        description: "Heavy loads or tall walls",
+        propertyOverrides: { "Stud Spacing": 12 },
+      },
+    ],
   },
   {
     id: "stub-int-wall-2x4-16oc",
@@ -141,6 +157,16 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "09",
       },
     ],
+    variantPresets: [
+      {
+        label: '16" OC (standard)',
+        propertyOverrides: { "Stud Spacing": 16 },
+      },
+      {
+        label: '24" OC (budget)',
+        propertyOverrides: { "Stud Spacing": 24 },
+      },
+    ],
   },
   {
     id: "stub-floor-2x10-16oc",
@@ -185,6 +211,17 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "06",
       },
     ],
+    variantPresets: [
+      {
+        label: '16" OC (standard)',
+        propertyOverrides: { "Joist Spacing": 16 },
+      },
+      {
+        label: '12" OC (heavy-load)',
+        description: "Stiffer floor — better for stone tile",
+        propertyOverrides: { "Joist Spacing": 12 },
+      },
+    ],
   },
   {
     id: "stub-footing-strip",
@@ -224,6 +261,17 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 1.1,
         laborCostUsd: 0.7,
         csiDivision: "03",
+      },
+    ],
+    variantPresets: [
+      {
+        label: 'Standard residential (8" deep)',
+        propertyOverrides: { "Footing Depth": 8 },
+      },
+      {
+        label: 'Frost wall (16" deep)',
+        description: "Northern climates / below frost line",
+        propertyOverrides: { "Footing Depth": 16 },
       },
     ],
   },
@@ -274,14 +322,30 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "07",
       },
     ],
+    variantPresets: [
+      {
+        label: '4" Standard',
+        propertyOverrides: { "Slab Thickness": 4 },
+      },
+      {
+        label: '5" Light commercial',
+        propertyOverrides: { "Slab Thickness": 5 },
+      },
+      {
+        label: '6" Thickened garage / heavy load',
+        propertyOverrides: { "Slab Thickness": 6 },
+      },
+    ],
   },
   {
     id: "stub-roof-2x8-16oc",
-    name: 'Roof — 2×8 rafters @ 16" OC, asphalt shingles',
+    name: 'Roof — 2×8 rafters @ 16" OC',
     description:
       "Conventional 2×8 rafter roof with ridge board, OSB sheathing, " +
-      "felt, and 3-tab asphalt shingles. Sheet/shingle areas bumped 15% " +
-      "for pitch (use Roof Run = horizontal eave length).",
+      "and felt underlayment. The Roof Finish option drives the final " +
+      "weather layer — switch between asphalt, architectural, metal, " +
+      "or tile and the cost scales accordingly. Sheet/shingle areas " +
+      "bumped 15% for pitch (use Roof Run = horizontal eave length).",
     trade: "roofing",
     properties: [
       { name: "Roof Run", uom: "LF", defaultValue: 40 },
@@ -292,6 +356,18 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         defaultValue: 16,
         kind: "choice",
         choices: SPACING_CHOICES,
+      },
+      {
+        name: "Roof Finish",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Asphalt 3-tab", value: 1.0 },
+          { label: "Architectural shingles", value: 1.4 },
+          { label: "Standing-seam metal", value: 3.2 },
+          { label: "Concrete tile", value: 4.5 },
+        ],
       },
     ],
     materials: [
@@ -332,12 +408,37 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "07",
       },
       {
-        name: "Asphalt shingles (3-tab) — SQ = 100 SF",
+        name: "Roof finish (per SQ = 100 SF)",
         uom: "SQ",
         quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.15",
-        unitCostUsd: 95.0,
-        laborCostUsd: 55.0,
+        // Asphalt 3-tab baseline: ~$95 mat + ~$55 labor per SQ.
+        // The Roof Finish multiplier scales both proportionally.
+        unitCostUsd: 0,
+        unitCostFormula: "95 * {Roof Finish}",
+        laborCostUsd: 0,
+        laborCostFormula: "55 * {Roof Finish}",
         csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Asphalt 3-tab (baseline)",
+        propertyOverrides: { "Roof Finish": 1.0 },
+      },
+      {
+        label: "Architectural shingles",
+        description: "30-year dimensional shingles, mid-tier upgrade",
+        propertyOverrides: { "Roof Finish": 1.4 },
+      },
+      {
+        label: "Standing-seam metal",
+        description: "Long-life premium roof — most clients see as upgrade",
+        propertyOverrides: { "Roof Finish": 3.2 },
+      },
+      {
+        label: "Concrete tile",
+        description: "Tile roof — common in SW / hot climates",
+        propertyOverrides: { "Roof Finish": 4.5 },
       },
     ],
   },
@@ -394,6 +495,26 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "08",
       },
     ],
+    variantPresets: [
+      {
+        label: "Vinyl Double-hung (baseline)",
+        propertyOverrides: { "Frame Material": 1.0, "Window Style": 1.0 },
+      },
+      {
+        label: "Fiberglass Casement",
+        description: "Stronger frame, broader sash",
+        propertyOverrides: { "Frame Material": 1.85, "Window Style": 1.2 },
+      },
+      {
+        label: "Wood Casement Premium",
+        propertyOverrides: { "Frame Material": 2.3, "Window Style": 1.2 },
+      },
+      {
+        label: "Aluminum-clad Wood Premium",
+        description: "Wood inside, weatherproof outside",
+        propertyOverrides: { "Frame Material": 2.7, "Window Style": 1.0 },
+      },
+    ],
   },
   {
     id: "stub-door-interior",
@@ -426,6 +547,21 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostFormula: "(110 + {Width} * {Height} * 0.06) * {Door Type}",
         laborCostUsd: 85.0,
         csiDivision: "08",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Hollow-core 6-panel (standard)",
+        propertyOverrides: { "Door Type": 1.2 },
+      },
+      {
+        label: "Solid-core (quiet)",
+        description: "Heavier, better sound dampening",
+        propertyOverrides: { "Door Type": 1.6 },
+      },
+      {
+        label: "Glass panel (French)",
+        propertyOverrides: { "Door Type": 2.1 },
       },
     ],
   },
@@ -463,6 +599,21 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "08",
       },
     ],
+    variantPresets: [
+      {
+        label: "Steel Insulated (standard)",
+        propertyOverrides: { "Door Material": 1.0 },
+      },
+      {
+        label: "Fiberglass Premium",
+        description: "Better insulation + dent resistance",
+        propertyOverrides: { "Door Material": 1.6 },
+      },
+      {
+        label: "Solid Wood Entry",
+        propertyOverrides: { "Door Material": 2.5 },
+      },
+    ],
   },
   {
     id: "stub-interior-paint",
@@ -495,6 +646,21 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         laborCostUsd: 0,
         laborCostFormula: "0.65 * {Paint Grade}",
         csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder grade",
+        propertyOverrides: { "Paint Grade": 1.0 },
+      },
+      {
+        label: "Mid eggshell (washable)",
+        propertyOverrides: { "Paint Grade": 1.25 },
+      },
+      {
+        label: "Premium low-VOC",
+        description: "Designer line, low odor",
+        propertyOverrides: { "Paint Grade": 1.7 },
       },
     ],
   },
@@ -553,6 +719,33 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 2.40,
         laborCostUsd: 1.80,
         csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Vinyl (baseline)",
+        propertyOverrides: { "Siding Material": 1.0 },
+      },
+      {
+        label: "LP SmartSide",
+        description: "Engineered wood, paintable",
+        propertyOverrides: { "Siding Material": 1.6 },
+      },
+      {
+        label: "Fiber cement (Hardie)",
+        propertyOverrides: { "Siding Material": 2.0 },
+      },
+      {
+        label: "Cedar Board & Batten",
+        propertyOverrides: { "Siding Material": 2.4 },
+      },
+      {
+        label: "Brick (full)",
+        propertyOverrides: { "Siding Material": 3.8 },
+      },
+      {
+        label: "Stone Veneer accent",
+        propertyOverrides: { "Siding Material": 4.5 },
       },
     ],
   },
@@ -624,6 +817,20 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "06",
       },
     ],
+    variantPresets: [
+      {
+        label: "Pine paint-grade (standard)",
+        propertyOverrides: { "Tread Material": 1.0 },
+      },
+      {
+        label: "Red Oak (mid)",
+        propertyOverrides: { "Tread Material": 1.8 },
+      },
+      {
+        label: "White Oak (premium)",
+        propertyOverrides: { "Tread Material": 2.3 },
+      },
+    ],
   },
   {
     id: "stub-drainage",
@@ -675,6 +882,26 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 0.85,
         laborCostUsd: 0.30,
         csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: 'Aluminum 5" (standard)',
+        propertyOverrides: { "Gutter Material": 1.0 },
+      },
+      {
+        label: 'Aluminum 6" oversize',
+        description: "Higher flow for big roof areas",
+        propertyOverrides: { "Gutter Material": 1.3 },
+      },
+      {
+        label: "Galvanized steel",
+        propertyOverrides: { "Gutter Material": 1.6 },
+      },
+      {
+        label: "Copper (premium)",
+        description: "Long-life, ages to patina",
+        propertyOverrides: { "Gutter Material": 5.5 },
       },
     ],
   },
@@ -740,6 +967,25 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "08",
       },
     ],
+    variantPresets: [
+      {
+        label: "Steel Insulated + Belt opener (standard)",
+        propertyOverrides: { "Door Style": 1.4, Opener: 1.6 },
+      },
+      {
+        label: "Steel + windows",
+        propertyOverrides: { "Door Style": 1.7, Opener: 1.6 },
+      },
+      {
+        label: "Carriage House (wood)",
+        propertyOverrides: { "Door Style": 3.2, Opener: 1.6 },
+      },
+      {
+        label: "Modern glass + aluminum",
+        description: "Contemporary look, premium",
+        propertyOverrides: { "Door Style": 4.5, Opener: 2.4 },
+      },
+    ],
   },
   {
     id: "stub-hardwood-floor",
@@ -773,6 +1019,28 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostFormula: "7.50 * {Wood Species}",
         laborCostUsd: 4.5,
         csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Red Oak (standard)",
+        propertyOverrides: { "Wood Species": 1.0 },
+      },
+      {
+        label: "White Oak",
+        propertyOverrides: { "Wood Species": 1.3 },
+      },
+      {
+        label: "Maple",
+        propertyOverrides: { "Wood Species": 1.4 },
+      },
+      {
+        label: "Hickory",
+        propertyOverrides: { "Wood Species": 1.7 },
+      },
+      {
+        label: "Walnut (premium)",
+        propertyOverrides: { "Wood Species": 2.8 },
       },
     ],
   },

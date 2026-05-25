@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -22,6 +22,7 @@ import {
   type AssemblyInstance,
   type AssemblyProperty,
   type AssemblyVariant,
+  type AssemblyVariantPreset,
 } from "@/types/assembly";
 
 /** Roll up a single variant to a dollar total via the shared compute. */
@@ -544,15 +545,17 @@ function AssemblyInstanceCard({
     });
   }
 
-  function addVariant() {
-    // Clone the currently active variant and switch to it — user lands
-    // ready to tweak the differentiator.
-    const newId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `var_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    // Auto-name "Option A", "Option B", … unless that name's already
-    // used, in which case fall back to "Variant N".
+  function mintVarId() {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `var_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /** Clone the currently active variant — used by the "Clone current"
+   *  entry in the + Add variant menu when the builder wants to start
+   *  from where they are rather than a preset. */
+  function addVariantFromClone() {
+    const newId = mintVarId();
     const letter = String.fromCharCode(65 + instance.variants.length);
     const proposed = `Option ${letter}`;
     const labelTaken = instance.variants.some((v) => v.label === proposed);
@@ -564,6 +567,39 @@ function AssemblyInstanceCard({
       label,
       assemblyId: activeVariant.assemblyId,
       propertyValues: activeVariant.propertyValues.map((p) => ({ ...p })),
+    };
+    onChange({
+      ...instance,
+      variants: [...instance.variants, newVariant],
+      activeVariantId: newId,
+    });
+  }
+
+  /** Apply a curated preset from the assembly catalog — overrides land
+   *  on top of the new variant's assembly defaults. Property names that
+   *  the preset doesn't override keep their assembly default. */
+  function addVariantFromPreset(preset: AssemblyVariantPreset) {
+    const newId = mintVarId();
+    const targetAssemblyId = preset.assemblyId ?? activeVariant.assemblyId;
+    const targetAssembly = findStubAssembly(targetAssemblyId);
+    if (!targetAssembly) return;
+    // Start from the new assembly's defaults so all required properties
+    // exist, then apply the preset's overrides on top.
+    const propertyValues = targetAssembly.properties.map((p) => {
+      const override = preset.propertyOverrides[p.name];
+      if (override != null) return { name: p.name, value: override };
+      const fallback =
+        p.defaultValue ??
+        (p.kind === "option" ? p.options?.[0]?.value : undefined) ??
+        (p.kind === "choice" ? p.choices?.[0] : undefined) ??
+        0;
+      return { name: p.name, value: fallback };
+    });
+    const newVariant: AssemblyVariant = {
+      id: newId,
+      label: preset.label,
+      assemblyId: targetAssemblyId,
+      propertyValues,
     };
     onChange({
       ...instance,
@@ -729,15 +765,11 @@ function AssemblyInstanceCard({
                 }
               />
             ))}
-            <button
-              type="button"
-              onClick={addVariant}
-              className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-sky-500 hover:bg-sky-50 hover:text-sky-700"
-              title="Add a variant — clones the active variant so you can tweak one property to compare"
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-              Add variant
-            </button>
+            <AddVariantMenu
+              presets={assembly.variantPresets ?? []}
+              onCloneCurrent={addVariantFromClone}
+              onPickPreset={addVariantFromPreset}
+            />
           </div>
 
           {/* Active variant's property editors. Edits write back to
@@ -777,6 +809,107 @@ function AssemblyInstanceCard({
  *  shows a filled sky pill; inactive variants outline with a "Δ vs
  *  active" indicator. Single-click selects; double-click renames inline;
  *  hover reveals a trash icon when more than one variant exists. */
+/**
+ * Popover menu opened by clicking the "+ Add variant" button. Surfaces
+ * the assembly's curated presets (Wood Casement Premium, Standing-seam
+ * metal, etc.) so the builder picks a common alternative in one click
+ * instead of cloning + manually tweaking properties. "Clone current"
+ * is always available as the bottom escape hatch.
+ */
+function AddVariantMenu({
+  presets,
+  onCloneCurrent,
+  onPickPreset,
+}: {
+  presets: AssemblyVariantPreset[];
+  onCloneCurrent: () => void;
+  onPickPreset: (preset: AssemblyVariantPreset) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside + Escape to close. Keeps the menu feeling like a
+  // proper popover instead of a sticky modal.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function pick(action: () => void) {
+    action();
+    setOpen(false);
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-sky-500 hover:bg-sky-50 hover:text-sky-700"
+        title="Add a variant — pick a curated preset or clone the active configuration"
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <PlusIcon className="h-3.5 w-3.5" />
+        Add variant
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          {presets.length > 0 ? (
+            <>
+              <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Common alternatives
+              </div>
+              <ul className="max-h-64 overflow-auto py-1">
+                {presets.map((p) => (
+                  <li key={p.label}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => pick(() => onPickPreset(p))}
+                      className="block w-full px-3 py-1.5 text-left text-sm text-slate-800 hover:bg-sky-50 hover:text-sky-800"
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      {p.description ? (
+                        <div className="text-[11px] text-slate-500">
+                          {p.description}
+                        </div>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-slate-100" />
+            </>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => pick(onCloneCurrent)}
+            className="block w-full px-3 py-2 text-left text-xs italic text-slate-600 hover:bg-slate-50"
+          >
+            Clone current configuration
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function VariantChip({
   variant,
   isActive,
