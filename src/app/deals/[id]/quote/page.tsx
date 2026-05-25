@@ -28,7 +28,7 @@ import SoftCostsPanel, {
   computeSoftCosts,
 } from "@/components/soft-costs-panel";
 import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
-import { computeMaterials } from "@/lib/assemblies/compute";
+import { computeMaterials, resolveOverrides } from "@/lib/assemblies/compute";
 import {
   activeVariantOf,
   findCountProperty,
@@ -351,7 +351,11 @@ export default function DealQuotePage({
     const propertyValues = Object.fromEntries(
       variant.propertyValues.map((p) => [p.name, p.value]),
     );
-    const result = computeMaterials(assembly, propertyValues);
+    const overrides = resolveOverrides(
+      settings?.cost_overrides,
+      assembly.id,
+    );
+    const result = computeMaterials(assembly, propertyValues, overrides);
     const markup = settings?.default_markup_percent ?? 20;
     return result.lines.map((m, i) =>
       makeInstanceLine(instance, m, startingLineNumber + i, markup),
@@ -664,6 +668,7 @@ export default function DealQuotePage({
 
         <AssemblyInstancesPanel
           instances={assemblyInstances}
+          costOverrides={settings?.cost_overrides}
           onChange={updateInstance}
           onRemove={removeInstance}
           onSplit={splitInstance}

@@ -261,6 +261,59 @@ export interface OrgSettings {
     /** Reserved for future Twilio Subaccount split (Phase 3). */
     subaccount_sid?: string;
   };
+  /**
+   * Per-org cost-multiplier overrides on the assembly catalog. The
+   * stub catalog ships with national-average pricing; builders tune
+   * to their local market via these multipliers without editing
+   * formulas. Applied in computeMaterials() — see assemblies/compute.ts.
+   *
+   * Global multipliers apply to every assembly. Per-assembly entries
+   * stack on top (final = base × per_assembly × global).
+   *
+   * Defaults are 1.0 (no change) when fields are absent.
+   */
+  cost_overrides?: {
+    /** Multiplier on every material unit cost across all assemblies. */
+    global_material_multiplier?: number;
+    /** Multiplier on every labor unit cost across all assemblies. */
+    global_labor_multiplier?: number;
+    /** Per-assembly fine-tuning, keyed by assembly id (e.g. "stub-carpet"). */
+    per_assembly?: Record<
+      string,
+      {
+        material_multiplier?: number;
+        labor_multiplier?: number;
+        /** Stock material names (Assembly.materials[].name) to suppress
+         *  from compute output. Example: a builder who rolls underlayment
+         *  cost into their carpet bid removes the "Carpet + pad + tack
+         *  strip" line's pad portion via a per-line removal here. */
+        removed_materials?: string[];
+        /** Additional materials appended to the assembly's stock list,
+         *  scaled either by a fixed base quantity or proportional to an
+         *  existing property (e.g. vapor barrier = Floor Area × 1.10). */
+        extra_materials?: ExtraMaterial[];
+      }
+    >;
+  };
+}
+
+/** Builder-authored material line appended to a stock assembly via
+ *  cost_overrides.per_assembly.extra_materials. Quantity is computed
+ *  as `base + (scale_property × scale_multiplier)`; static lines set
+ *  only base, scaling lines set only scale_property+multiplier. */
+export interface ExtraMaterial {
+  name: string;
+  uom: string;
+  /** Static quantity added regardless of property values. Default 0. */
+  base_quantity?: number;
+  /** Name of an existing assembly property to scale by (e.g. "Floor Area"). */
+  scale_property?: string;
+  /** Multiplier on the scale property's value. Default 1.0. */
+  scale_multiplier?: number;
+  /** Per-unit material cost (before global multiplier). */
+  unit_cost_usd: number;
+  /** Per-unit labor cost (before global multiplier). Default 0. */
+  labor_cost_usd?: number;
 }
 
 export interface Attachment {

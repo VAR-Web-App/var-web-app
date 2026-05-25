@@ -4,21 +4,22 @@
 // "A Message Comes In" webhook. Handles A2P 10DLC compliance behaviors
 // that carriers spot-check on campaign review:
 //   - STOP / STOPALL / UNSUBSCRIBE / CANCEL / END / QUIT → confirm opt-out
+//     AND flip sms_consent → false on every Distributor matching the
+//     sender's phone (across all orgs sharing the platform number).
 //   - HELP / INFO → return support info (REQUIRED for campaign approval)
 //   - anything else → silent ack
 //
 // Delivery suppression: Twilio enforces STOP at the carrier level the
 // moment it arrives — future Messages.create calls to that number get
 // blocked automatically. So opt-out is *already in effect* before this
-// route runs; our response is purely the user-visible confirmation text.
-//
-// Firestore consent flip (sms_consent → false on the Distributor) is a
-// follow-up that lands when firebase-admin is added to the server. Until
-// then, inbound events are logged and the carrier-level block keeps the
-// sub protected.
+// route runs; the consent flip is purely so the GC's UI reflects the
+// new state and we don't surface "SMS-enabled" subs we can't text.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { adminConfigured, adminDb } from "@/lib/firebase-admin";
+import { toE164 } from "@/lib/sms";
+import type { Distributor } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -63,10 +64,12 @@ export async function POST(req: NextRequest) {
 
   if (STOP_KEYWORDS.has(keyword)) {
     console.warn("[sms/inbound] STOP received", { from, messageSid });
-    // TODO(firebase-admin): flip sms_consent → false on the Distributor
-    //   whose normalized phone matches `from`. Until firebase-admin is
-    //   wired, Twilio's carrier-level STOP enforcement keeps the sub
-    //   safe from further messages — the DB flip is only for UI status.
+    // Fire-and-forget — the TwiML reply doesn't wait on the DB write,
+    // and a failure here doesn't change the user-visible outcome since
+    // Twilio's carrier-level STOP enforcement is already in effect.
+    void flipConsentForPhone(from).catch((e) =>
+      console.warn("[sms/inbound] consent flip failed", e),
+    );
     return twiml(stopReply());
   }
 
@@ -79,6 +82,52 @@ export async function POST(req: NextRequest) {
   // start an inadvertent conversation thread.
   console.warn("[sms/inbound] other inbound", { from, messageSid, body });
   return twiml("");
+}
+
+/**
+ * Flip sms_consent → false on every Distributor whose phone normalizes
+ * to the inbound From number. Distributors store phone in whatever
+ * format the GC typed; we normalize both sides via toE164() so a
+ * "(210) 555-0142" record matches "+12105550142" from Twilio.
+ *
+ * Cross-org: a single platform number receives STOP from a sub who
+ * may be registered under multiple orgs (rare, but happens with
+ * common subcontractors). We flip ALL matches to be safe.
+ */
+async function flipConsentForPhone(fromPhone: string): Promise<void> {
+  const target = toE164(fromPhone);
+  if (!target) {
+    console.warn("[sms/inbound] could not normalize from-number", { fromPhone });
+    return;
+  }
+  if (!adminConfigured()) {
+    console.warn(
+      "[sms/inbound] admin SDK not configured — consent flip skipped",
+      { fromPhone },
+    );
+    return;
+  }
+  const db = adminDb();
+  // No phone-normalized field on Distributor to query directly, so
+  // pull only the records that have a phone set and consent currently
+  // true. Filters keep the read small.
+  const snap = await db
+    .collection("distributors")
+    .where("sms_consent", "==", true)
+    .get();
+  let matched = 0;
+  for (const doc of snap.docs) {
+    const sub = doc.data() as Distributor;
+    if (toE164(sub.phone ?? "") === target) {
+      await doc.ref.update({ sms_consent: false });
+      matched++;
+    }
+  }
+  console.warn("[sms/inbound] consent flipped", {
+    fromPhone,
+    target,
+    matched,
+  });
 }
 
 /** Build a TwiML response with an optional reply Body. Empty body = no auto-reply. */

@@ -5,6 +5,7 @@ import AppShell from "@/components/app-shell";
 import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
 import { Input, TextArea } from "../accounts/page";
 
 const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
@@ -104,6 +105,16 @@ export default function SettingsPage() {
                 <Input label="Phone (on estimates)" value={settings.prepared_by_phone} onChange={(v) => setSettings({ ...settings, prepared_by_phone: v })} />
               </div>
             </div>
+          </Card>
+
+          <Card
+            title="Assembly cost overrides"
+            subtitle="Tune the stock catalog's pricing to your local market. Multipliers apply to every estimate you build — material × scales the unit cost, labor × scales install time. Set 1.00 = unchanged."
+          >
+            <AssemblyCostOverridesCard
+              value={settings.cost_overrides}
+              onChange={(next) => setSettings({ ...settings, cost_overrides: next })}
+            />
           </Card>
 
           <div className="flex items-center justify-end gap-3">

@@ -9,7 +9,8 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
-import { computeMaterials } from "@/lib/assemblies/compute";
+import { computeMaterials, resolveOverrides } from "@/lib/assemblies/compute";
+import type { OrgSettings } from "@/types";
 import NumberInput from "@/components/number-input";
 import {
   activeVariantOf,
@@ -21,21 +22,31 @@ import {
   type AssemblyVariantPreset,
 } from "@/types/assembly";
 
-/** Roll up a single variant to a dollar total via the shared compute. */
-function variantTotal(variant: AssemblyVariant): number {
+/** Roll up a single variant to a dollar total via the shared compute.
+ *  Applies the org's per-assembly + global cost multipliers when
+ *  costOverrides is provided so card totals match what lands in the
+ *  estimate's QuoteLines. */
+function variantTotal(
+  variant: AssemblyVariant,
+  costOverrides?: OrgSettings["cost_overrides"],
+): number {
   const assembly = findStubAssembly(variant.assemblyId);
   if (!assembly) return 0;
   const propertyMap = Object.fromEntries(
     variant.propertyValues.map((p) => [p.name, p.value]),
   );
-  return computeMaterials(assembly, propertyMap).total;
+  const overrides = resolveOverrides(costOverrides, assembly.id);
+  return computeMaterials(assembly, propertyMap, overrides).total;
 }
 
 /** Roll up the ACTIVE variant of an instance — the one that drives the
  *  estimate's QuoteLines + project totals. Inactive variants are
  *  reference state and don't contribute to project totals. */
-function instanceTotal(instance: AssemblyInstance): number {
-  return variantTotal(activeVariantOf(instance));
+function instanceTotal(
+  instance: AssemblyInstance,
+  costOverrides?: OrgSettings["cost_overrides"],
+): number {
+  return variantTotal(activeVariantOf(instance), costOverrides);
 }
 
 
@@ -112,12 +123,17 @@ function groupByTrade(instances: AssemblyInstance[]): TradeBucket[] {
  */
 export default function AssemblyInstancesPanel({
   instances,
+  costOverrides,
   onChange,
   onRemove,
   onSplit,
   onAddAssembly,
 }: {
   instances: AssemblyInstance[];
+  /** Per-org cost multipliers from OrgSettings.cost_overrides. When
+   *  set, scales material + labor across every card so on-screen
+   *  totals match what computeMaterials produces for QuoteLines. */
+  costOverrides?: OrgSettings["cost_overrides"];
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
   /** Break one unit out of an assembly with a count property into a
@@ -160,6 +176,7 @@ export default function AssemblyInstancesPanel({
           group={group}
           accentIdx={idx}
           totalInstances={instances.length}
+          costOverrides={costOverrides}
           onChange={onChange}
           onRemove={onRemove}
           onSplit={onSplit}
@@ -176,6 +193,7 @@ function TradeGroup({
   group,
   accentIdx,
   totalInstances,
+  costOverrides,
   onChange,
   onRemove,
   onSplit,
@@ -183,14 +201,15 @@ function TradeGroup({
   group: TradeBucket;
   accentIdx: number;
   totalInstances: number;
+  costOverrides?: OrgSettings["cost_overrides"];
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
   onSplit?: (instanceId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const subtotal = useMemo(
-    () => group.items.reduce((s, i) => s + instanceTotal(i), 0),
-    [group.items],
+    () => group.items.reduce((s, i) => s + instanceTotal(i, costOverrides), 0),
+    [group.items, costOverrides],
   );
   const accent = ALT_ACCENTS[accentIdx % ALT_ACCENTS.length];
   return (
@@ -230,6 +249,7 @@ function TradeGroup({
             <AssemblyInstanceCard
               key={instance.id}
               instance={instance}
+              costOverrides={costOverrides}
               onChange={onChange}
               onRemove={() => onRemove(instance.id)}
               onSplit={onSplit ? () => onSplit(instance.id) : undefined}
@@ -249,12 +269,14 @@ function TradeGroup({
 
 function AssemblyInstanceCard({
   instance,
+  costOverrides,
   onChange,
   onRemove,
   onSplit,
   defaultCollapsed = false,
 }: {
   instance: AssemblyInstance;
+  costOverrides?: OrgSettings["cost_overrides"];
   onChange: (next: AssemblyInstance) => void;
   onRemove: () => void;
   onSplit?: () => void;
@@ -286,11 +308,14 @@ function AssemblyInstanceCard({
 
   // Roll up every variant once so the chips can show their own price +
   // delta vs active without re-computing inside each chip render.
+  // costOverrides flows in here so variant prices reflect the org's
+  // tuned catalog instead of the stock numbers.
   const variantTotals = useMemo(() => {
     const m = new Map<string, number>();
-    for (const v of instance.variants) m.set(v.id, variantTotal(v));
+    for (const v of instance.variants)
+      m.set(v.id, variantTotal(v, costOverrides));
     return m;
-  }, [instance.variants]);
+  }, [instance.variants, costOverrides]);
   const activeTotal = variantTotals.get(activeVariant.id) ?? 0;
 
   const propertyMap = useMemo(
@@ -301,10 +326,11 @@ function AssemblyInstanceCard({
     [activeVariant.propertyValues],
   );
 
-  const computed = useMemo(
-    () => (assembly ? computeMaterials(assembly, propertyMap) : null),
-    [assembly, propertyMap],
-  );
+  const computed = useMemo(() => {
+    if (!assembly) return null;
+    const overrides = resolveOverrides(costOverrides, assembly.id);
+    return computeMaterials(assembly, propertyMap, overrides);
+  }, [assembly, propertyMap, costOverrides]);
 
   function updateLabel(label: string) {
     onChange({ ...instance, instanceLabel: label });
@@ -550,9 +576,18 @@ function AssemblyInstanceCard({
 
           {/* Active variant's property editors. Edits write back to
            *  the active variant only — inactive variants are untouched.
-           *  flex-wrap so option fields with longer labels (e.g. "Steel,
-           *  insulated") wrap to a second row instead of getting clipped. */}
-          <div className="flex flex-wrap gap-2 px-4 py-3">
+           *  Auto-fit grid so columns scale with card width: a card
+           *  wide enough fits all properties on one row; a narrower
+           *  card flows them onto multiple uniform rows. Each property
+           *  is label-over-control, so heights are identical and long
+           *  option labels never get clipped. */}
+          <div
+            className="grid gap-3 px-4 py-3"
+            style={{
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
+            }}
+          >
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
@@ -812,57 +847,55 @@ function PropertyEditor({
   value: number;
   onChange: (v: number) => void;
 }) {
-  // Property pill widths: option/choice fields hold variable-length
-  // labels ("Steel, insulated", "Architectural shingle") so they get
-  // both a higher flex weight AND a min-width so they don't clip on a
-  // wrapped row. Number fields stay compact — 4 digits + UoM is enough.
+  // Stacked layout — label above the control. Every property occupies
+  // the same width and height regardless of value type, so a row of
+  // mixed properties stays clean. Long option labels ("Steel,
+  // insulated", "Architectural shingle") get the full column width.
   const isOption = property.kind === "option" && property.options;
   const isChoice = property.kind === "choice" && property.choices;
-  const sizingClass =
-    isOption || isChoice ? "flex-[2] min-w-[10rem]" : "flex-1 min-w-[5rem]";
   return (
-    <label
-      className={`flex ${sizingClass} items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500`}
-    >
-      <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-600">
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         {property.name}
       </span>
-      {isOption ? (
-        <select
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
-        >
-          {property.options!.map((opt) => (
-            <option key={opt.label} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      ) : isChoice ? (
-        <select
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
-        >
-          {property.choices!.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <NumberInput
-          value={value}
-          onChange={onChange}
-          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
-        />
-      )}
-      {property.uom ? (
-        <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
-          {property.uom}
-        </span>
-      ) : null}
+      <div className="flex min-w-0 items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
+        {isOption ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+          >
+            {property.options!.map((opt) => (
+              <option key={opt.label} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : isChoice ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+          >
+            {property.choices!.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <NumberInput
+            value={value}
+            onChange={onChange}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
+          />
+        )}
+        {property.uom ? (
+          <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
+            {property.uom}
+          </span>
+        ) : null}
+      </div>
     </label>
   );
 }

@@ -63,12 +63,28 @@ The core of the platform's differentiator vs JobTread / Buildxact: quantity-base
 - **🎯 Tax / contingency / general conditions lines** — markup model exists; need tax + contingency + GC layer applied below the subtotal.
 - **🎯 Excel / PDF export of the estimate** — currently a disabled "coming soon" button. Build it.
 
+### Builder customization of assemblies (the "where am I wrong?" thread, 2026-05-25)
+
+Settled premise: a curated catalog alone has a hard ceiling. Every custom builder has tribal knowledge (waste factors, regional pricing, bundled scopes, items they always include/exclude) we cannot anticipate. The tool that "almost works" is more frustrating than the tool that's clearly a starting point you finish yourself. Override-only customization (just unit costs) handles ~50% of tweaks; the other 50% needs structural changes — add/remove material lines, change waste %, add new properties, etc. So full customization is required for the magic, not optional. The risk is formula syntax being too engineering-heavy for non-technical GCs; the path through is AI-assisted authoring on top of the existing Anthropic SDK we already have.
+
+Sequencing:
+
+- **📅 V1.5: Org-scoped overrides** — builder can override unit costs, labor costs, waste % on their org's copy of a stock assembly. No formula editing. ~2 days. Highest-value, lowest-risk customization. Covers price tweaks ("my framer charges $1.20/SF") without exposing math.
+- **📅 V1.6: Material line add/remove** — list editor on each assembly's materials. Builder can append a new line (vapor barrier, sound-board) or remove one (underlayment rolled into carpet). Picks materials from a curated material picker with `unitCostUsd` + `laborCostUsd` fields; no formula needed for the add. ~2 days.
+- **📅 V2: AI-assisted formula authoring + new-property creation** — plain English → formula via Claude, with preview + sanity check ("you've got SF on the left but multiplied by a LF rate — fix?"). The "make it really mine" tier; lets builders create entirely new assemblies. ~5 days. Gates on Anthropic API spend being acceptable at builder scale.
+- **📅 V2.5: Share custom assemblies between builders** — marketplace dynamic; revisit when there are 5+ paying builders authoring meaningful catalogs.
+
+The curated catalog (today) is the scaffold every builder builds on top of, not the destination. Author ~25–30 stock assemblies covering Barry's typical custom build, then layer V1.5/V1.6 on after the mobile pass.
+
 ### Deferred / future
 - **📅 Named whole-quote scenarios** — save the configuration as "Standard Spec" / "Premium Spec" / "Budget Spec"; toggle between them.
-- **📅 More catalog variety** — skylights, plumbing fixtures, cabinetry, tile, electrical packages. Cheap to author in stubs; eventually 1build supersedes.
+- **📅 More catalog variety** — skylights, plumbing fixtures, cabinetry, electrical packages. Flooring coverage (hardwood / carpet / LVP / laminate / tile) shipped 2026-05-25. Cheap to author in stubs; eventually 1build supersedes the price layer (not the formula layer — see below).
 - **📅 CMU foundation wall assembly** — Maddox list shows 1191 8×8×16 blocks; current catalog maps basement to strip footing without the wall.
 - **📅 Drywall + insulation as standalone assemblies** — currently bundled in wall assemblies. Maddox lists them separately; useful for remodels where walls already exist.
 - **📅 Manual takeoff overlay** — upload floor-plan PDF, trace walls/areas to feed assembly properties. Tier 2 (not the Tier 3 AI-takeoff moonshot we skipped).
+
+### Note: what 1build provides vs. what we provide
+1build is a Cost Data API — material/labor unit costs by location, RSMeans-style. They have "Sources" that approximate flat assemblies but no parametric formula layer. The relationship between a property (Wall Length) and a quantity (number of studs) is FrameFlow's logic, not theirs. When 1build wires up, swap `unitCostUsd` from hardcoded to a `lookup1Build()` call; UI + engine + formula structure stay identical. So formula authoring work — both ours and eventual builder-authored — is not wasted by the 1build integration.
 
 ---
 

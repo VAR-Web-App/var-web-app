@@ -1044,6 +1044,250 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       },
     ],
   },
+  {
+    id: "stub-lvp",
+    name: "LVP flooring — luxury vinyl plank (installed)",
+    description:
+      "Click-lock luxury vinyl plank over foam underlayment, including " +
+      "transitions and quarter-round at perimeter. Waterproof grades " +
+      "common in basements, kitchens, and full-house remodels.",
+    trade: "flooring",
+    properties: [
+      { name: "Floor Area", uom: "SF", defaultValue: 500 },
+      {
+        name: "LVP Grade",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder (4mm)", value: 1.0 },
+          { label: "Standard (5mm)", value: 1.3 },
+          { label: "Waterproof premium (6mm+)", value: 1.7 },
+          { label: "Rigid core SPC", value: 2.1 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "LVP + underlayment + transitions (installed)",
+        uom: "SF",
+        // 8% waste — LVP cuts cleaner than carpet/tile.
+        quantityFormula: "{Floor Area} * 1.08",
+        unitCostUsd: 0,
+        unitCostFormula: "3.50 * {LVP Grade}",
+        laborCostUsd: 1.5,
+        csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder grade",
+        propertyOverrides: { "LVP Grade": 1.0 },
+      },
+      {
+        label: "Standard",
+        propertyOverrides: { "LVP Grade": 1.3 },
+      },
+      {
+        label: "Waterproof premium",
+        description: "Suitable for kitchens / baths / basements",
+        propertyOverrides: { "LVP Grade": 1.7 },
+      },
+      {
+        label: "Rigid core SPC",
+        description: "Stone-polymer core; most dimensionally stable",
+        propertyOverrides: { "LVP Grade": 2.1 },
+      },
+    ],
+  },
+  {
+    id: "stub-laminate",
+    name: "Laminate flooring (installed)",
+    description:
+      "Click-lock laminate plank over foam underlayment. Lower price " +
+      "point than LVP but not waterproof — best for bedrooms / living " +
+      "areas where moisture isn't a concern.",
+    trade: "flooring",
+    properties: [
+      { name: "Floor Area", uom: "SF", defaultValue: 500 },
+      {
+        name: "Laminate Quality",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "8mm AC3", value: 1.0 },
+          { label: "10mm AC4", value: 1.3 },
+          { label: "12mm AC5 (commercial)", value: 1.6 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Laminate + underlayment + transitions (installed)",
+        uom: "SF",
+        quantityFormula: "{Floor Area} * 1.08",
+        unitCostUsd: 0,
+        unitCostFormula: "2.20 * {Laminate Quality}",
+        laborCostUsd: 1.4,
+        csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "8mm AC3 (budget)",
+        propertyOverrides: { "Laminate Quality": 1.0 },
+      },
+      {
+        label: "10mm AC4",
+        propertyOverrides: { "Laminate Quality": 1.3 },
+      },
+      {
+        label: "12mm AC5",
+        description: "Commercial-grade wear layer",
+        propertyOverrides: { "Laminate Quality": 1.6 },
+      },
+    ],
+  },
+  {
+    id: "stub-tile-floor",
+    name: "Tile flooring (installed)",
+    description:
+      "Ceramic / porcelain / natural-stone tile over mortar bed with " +
+      "grout + sealer. Pattern complexity affects labor — straight lay " +
+      "is fastest; herringbone / diagonal add cutting time.",
+    trade: "flooring",
+    properties: [
+      { name: "Floor Area", uom: "SF", defaultValue: 200 },
+      {
+        name: "Tile Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Ceramic", value: 1.0 },
+          { label: "Porcelain", value: 1.5 },
+          { label: "Natural stone", value: 2.6 },
+          { label: "Marble / mosaic", value: 4.0 },
+        ],
+      },
+      {
+        name: "Pattern",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Straight lay", value: 1.0 },
+          { label: "Diagonal", value: 1.2 },
+          { label: "Herringbone", value: 1.4 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Tile + thinset + grout + sealer (installed)",
+        uom: "SF",
+        // 15% waste — tile cuts produce more scrap, especially patterns.
+        quantityFormula: "{Floor Area} * 1.15",
+        unitCostUsd: 0,
+        unitCostFormula: "5.50 * {Tile Type}",
+        laborCostUsd: 0,
+        // Labor scales with pattern complexity.
+        laborCostFormula: "4.50 * {Pattern}",
+        csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Ceramic — straight lay (basic)",
+        propertyOverrides: { "Tile Type": 1.0, Pattern: 1.0 },
+      },
+      {
+        label: "Porcelain — straight lay",
+        propertyOverrides: { "Tile Type": 1.5, Pattern: 1.0 },
+      },
+      {
+        label: "Porcelain — herringbone",
+        description: "Premium look, higher labor",
+        propertyOverrides: { "Tile Type": 1.5, Pattern: 1.4 },
+      },
+      {
+        label: "Natural stone — straight lay",
+        propertyOverrides: { "Tile Type": 2.6, Pattern: 1.0 },
+      },
+      {
+        label: "Marble mosaic — diagonal",
+        description: "Luxury feature floor",
+        propertyOverrides: { "Tile Type": 4.0, Pattern: 1.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-carpet",
+    name: "Carpet flooring (installed)",
+    description:
+      "Tufted carpet over foam pad, including tack strips, transitions, " +
+      "and installation. Grade drives material cost; pad thickness affects " +
+      "comfort + wear life. 10% waste factor included for cuts.",
+    trade: "flooring",
+    properties: [
+      { name: "Floor Area", uom: "SF", defaultValue: 500 },
+      {
+        name: "Carpet Grade",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder grade", value: 1.0 },
+          { label: "Standard polyester", value: 1.4 },
+          { label: "Nylon premium", value: 2.0 },
+          { label: "Wool", value: 3.5 },
+        ],
+      },
+      {
+        name: "Pad Thickness",
+        uom: "IN",
+        defaultValue: 0.625,
+        kind: "choice",
+        choices: [0.375, 0.5, 0.625, 0.75, 0.875],
+      },
+    ],
+    materials: [
+      {
+        name: "Carpet + pad + tack strip (installed)",
+        uom: "SF",
+        // 10% waste factor included in the quantity.
+        quantityFormula: "{Floor Area} * 1.10",
+        unitCostUsd: 0,
+        // Base $2.50/SF carpet × grade multiplier, plus pad cost
+        // scaled off 5/8" baseline ($0.80/SF at 5/8").
+        unitCostFormula:
+          "(2.50 * {Carpet Grade}) + (0.80 * {Pad Thickness} / 0.625)",
+        laborCostUsd: 1.1,
+        csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder grade (rental / spec)",
+        propertyOverrides: { "Carpet Grade": 1.0 },
+      },
+      {
+        label: "Standard polyester",
+        propertyOverrides: { "Carpet Grade": 1.4 },
+      },
+      {
+        label: "Nylon premium",
+        description: "Stain-resistant, longer wear life",
+        propertyOverrides: { "Carpet Grade": 2.0 },
+      },
+      {
+        label: "Wool (luxury)",
+        description: "Natural fiber, soft hand, premium price",
+        propertyOverrides: { "Carpet Grade": 3.5 },
+      },
+    ],
+  },
 ];
 
 /** Find a stub assembly by id, or null if not in the catalog. */
