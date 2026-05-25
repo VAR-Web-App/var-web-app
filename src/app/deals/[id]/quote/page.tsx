@@ -936,12 +936,15 @@ function LineEditor({
     (l.notes ?? "").toLowerCase().includes(q);
   const visibleCount = q ? lines.filter(matches).length : lines.length;
 
-  // Stable color per Phase label — first phase encountered gets
-  // slate, second sky, then alternates. Same two-color rotation the
-  // trade groups in the assembly panel use, so the visual language
-  // stays consistent across both surfaces.
-  const phaseDotClass = useMemo(() => {
-    const palette = ["bg-slate-400", "bg-sky-500"];
+  // Soft tint per Phase — first phase gets slate-50, second sky-50,
+  // then alternates. Whole-row background so contiguous same-phase
+  // rows read as a section. Kept very pale (50 weights) so 100+ rows
+  // never feel busy; hover bumps to 100 for the row under the cursor.
+  const phaseRowClass = useMemo(() => {
+    const palette = [
+      "bg-slate-50 hover:bg-slate-100",
+      "bg-sky-50 hover:bg-sky-100",
+    ];
     const map = new Map<string, string>();
     for (const line of lines) {
       const phase = line.product_code?.trim();
@@ -1037,35 +1040,25 @@ function LineEditor({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {displayLines.map(({ line, origIdx }, displayIdx) => (
+            {displayLines.map(({ line, origIdx }, displayIdx) => {
+              const tint =
+                phaseRowClass.get(line.product_code?.trim()) ??
+                "hover:bg-slate-50";
+              return (
               <tr
                 key={line.id}
-                className={`hover:bg-slate-50 ${matches(line) ? "" : "hidden"}`}
+                className={`${tint} ${matches(line) ? "" : "hidden"}`}
               >
                 <td className="px-3 py-2 text-xs text-slate-500">
                   {displayIdx + 1}
                 </td>
                 <td className="px-2 py-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                        phaseDotClass.get(line.product_code?.trim()) ??
-                        "bg-transparent ring-1 ring-slate-200"
-                      }`}
-                      aria-hidden
-                      title={
-                        line.product_code?.trim()
-                          ? `Phase: ${line.product_code}`
-                          : "No phase set"
-                      }
-                    />
-                    <CellInput
-                      value={line.product_code}
-                      onChange={(v) => onUpdate(origIdx, { product_code: v })}
-                      className="w-36 text-xs"
-                      placeholder="Foundation"
-                    />
-                  </div>
+                  <CellInput
+                    value={line.product_code}
+                    onChange={(v) => onUpdate(origIdx, { product_code: v })}
+                    className="w-40 text-xs"
+                    placeholder="Foundation"
+                  />
                 </td>
                 <td className="px-2 py-1.5">
                   <CellInput
@@ -1128,7 +1121,8 @@ function LineEditor({
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
