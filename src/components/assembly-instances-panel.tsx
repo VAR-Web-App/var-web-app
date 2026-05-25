@@ -369,37 +369,31 @@ function AssemblyComparisonHeader({
             How to use Option compare
           </p>
           <p className="mt-1 text-[11px] italic text-slate-500">
-            Walk a client through trade-offs live — vinyl vs wood
-            windows, 16&quot; vs 24&quot; stud spacing, etc.
+            Compares two different assemblies on the quote (e.g. slab
+            on grade vs strip footing). To compare options{" "}
+            <em>within</em> one assembly (vinyl vs wood window), use
+            the variant chips inside the assembly card — that&apos;s
+            the primary compare flow.
           </p>
           <ol className="mt-3 list-decimal space-y-2 pl-5">
             <li>
-              <strong>Add an assembly</strong>{" "}
-              (e.g. Window Unit) and set its properties as you&apos;d
-              normally quote it — say Vinyl frame, double-hung.
+              Have at least two assemblies on the quote.
             </li>
             <li>
-              <strong>Click the duplicate icon</strong>{" "}
-              (the two-overlapping-squares icon) on that assembly&apos;s
-              card. A copy appears below it.
+              Use the <strong>Option A</strong> and{" "}
+              <strong>Option B</strong> dropdowns above to pick which
+              two you want to compare. Each shows that assembly&apos;s
+              current active-variant total.
             </li>
             <li>
-              <strong>On the copy, change one property</strong> — switch
-              Frame Material to Wood, or change the stud spacing, etc.
-              You now have two versions to compare.
+              The <strong>Difference</strong> tile shows the dollar +
+              percent delta. Green means Option B is cheaper than A,
+              amber means more expensive.
             </li>
             <li>
-              <strong>Expand this Option compare bar</strong> (click the
-              chevron above). The Option A and Option B dropdowns
-              auto-pick your first two assemblies — change them if you
-              want to compare different ones.
-            </li>
-            <li>
-              <strong>Read the Difference</strong>{" "}
-              tile — green means Option B is cheaper than A, amber means
-              more expensive. Tweak either side&apos;s properties live;
-              the delta updates in real time both here and in this
-              collapsed header.
+              Switch a card&apos;s active variant via its chip strip,
+              or edit a property — the delta here (and in this
+              collapsed header) updates live.
             </li>
           </ol>
         </div>
