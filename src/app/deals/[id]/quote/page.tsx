@@ -743,19 +743,21 @@ function TotalsBar({
   totals: { customer: number; cost: number; margin: number };
   lineCount: number;
 }) {
-  // Sentinel sits just above the bar in normal flow. When the user
-  // scrolls and the sentinel leaves the viewport, the bar switches to a
-  // compact, sticky-pinned row so the totals stay visible while they're
-  // editing assemblies and line items below.
-  const [scrolled, setScrolled] = useState(false);
+  // The full 4-tile grid stays in normal document flow at all times —
+  // never changes height or position. A separate compact overlay (below)
+  // appears as a fixed-position bar when the full grid has scrolled out
+  // of view. This avoids the layout-thrash oscillation we had earlier
+  // where shrinking/growing the bar moved the sentinel and re-triggered
+  // the observer in a loop.
+  const [scrolledOut, setScrolledOut] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setScrolled(!entry.isIntersecting),
-      { rootMargin: "-1px 0px 0px 0px", threshold: 0 },
+      ([entry]) => setScrolledOut(!entry.isIntersecting),
+      { threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -766,19 +768,32 @@ function TotalsBar({
 
   return (
     <>
+      {/* Full bar — always rendered, always in normal flow, same height. */}
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Line Items" value={String(lineCount)} />
+        <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
+        <Stat
+          label="Estimate to Client"
+          value={fmtMoney(totals.customer)}
+          accent="emerald"
+        />
+        <Stat
+          label="Profit Margin"
+          value={`${totals.margin.toFixed(1)}%`}
+          accent={marginAccent}
+        />
+      </section>
+      {/* Sentinel sits just below the full bar; observer fires when it
+       *  leaves the top of the viewport (i.e. the user scrolled past
+       *  the full bar). */}
       <div ref={sentinelRef} aria-hidden className="h-px" />
-      <section
-        className={
-          scrolled
-            ? // Pinned compact row — hidden on mobile (the bottom sticky
-              // bar covers the same need there with one Save action).
-              "sticky top-0 z-30 -mx-4 hidden border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-6 sm:block sm:px-6 lg:-mx-8 lg:px-8"
-            : ""
-        }
-      >
-        {scrolled ? (
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-baseline gap-5 text-sm">
+      {/* Compact overlay — fixed-position so it doesn't change document
+       *  flow when it appears/disappears. Desktop-only; mobile already
+       *  has a sticky bottom bar with totals + save. */}
+      {scrolledOut ? (
+        <div className="fixed inset-x-0 top-0 z-30 hidden border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur sm:block">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">
+            <div className="flex items-baseline gap-5">
               <CompactStat label="Lines" value={String(lineCount)} />
               <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
               <CompactStat
@@ -793,23 +808,8 @@ function TotalsBar({
               />
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Stat label="Line Items" value={String(lineCount)} />
-            <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
-            <Stat
-              label="Estimate to Client"
-              value={fmtMoney(totals.customer)}
-              accent="emerald"
-            />
-            <Stat
-              label="Profit Margin"
-              value={`${totals.margin.toFixed(1)}%`}
-              accent={marginAccent}
-            />
-          </div>
-        )}
-      </section>
+        </div>
+      ) : null}
     </>
   );
 }

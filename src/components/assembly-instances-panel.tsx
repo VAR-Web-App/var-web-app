@@ -59,6 +59,24 @@ const TRADE_LABELS: Record<Assembly["trade"], string> = {
   other: "Other",
 };
 
+/** Subtle pastel tints for each trade so adjacent groups visually
+ *  separate at a glance. Kept very light so they don't fight with
+ *  the white cards inside. */
+const TRADE_ACCENTS: Record<
+  Assembly["trade"],
+  { bg: string; bar: string }
+> = {
+  foundation: { bg: "bg-stone-50", bar: "bg-stone-400" },
+  framing: { bg: "bg-amber-50", bar: "bg-amber-500" },
+  roofing: { bg: "bg-slate-50", bar: "bg-slate-500" },
+  exterior: { bg: "bg-sky-50", bar: "bg-sky-500" },
+  drywall: { bg: "bg-zinc-50", bar: "bg-zinc-400" },
+  flooring: { bg: "bg-orange-50", bar: "bg-orange-400" },
+  millwork: { bg: "bg-yellow-50", bar: "bg-yellow-500" },
+  finishes: { bg: "bg-emerald-50", bar: "bg-emerald-500" },
+  other: { bg: "bg-slate-50", bar: "bg-slate-400" },
+};
+
 interface TradeBucket {
   trade: Assembly["trade"];
   label: string;
@@ -176,28 +194,34 @@ function TradeGroup({
     () => group.items.reduce((s, i) => s + instanceTotal(i), 0),
     [group.items],
   );
+  const accent = TRADE_ACCENTS[group.trade];
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className={`overflow-hidden rounded-xl border border-slate-200 shadow-sm ${accent.bg}`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 border-b border-transparent px-3 py-2 text-left hover:bg-slate-50"
+        className="flex w-full items-stretch text-left hover:bg-black/5"
         aria-expanded={open}
       >
-        {open ? (
-          <ChevronDownIcon className="h-4 w-4 text-slate-500" />
-        ) : (
-          <ChevronRightIcon className="h-4 w-4 text-slate-500" />
-        )}
-        <span className="text-sm font-semibold text-slate-900">
-          {group.label}
-        </span>
-        <span className="text-xs text-slate-500">
-          {group.items.length} assembl
-          {group.items.length === 1 ? "y" : "ies"}
-        </span>
-        <span className="ml-auto text-sm font-semibold tabular-nums text-slate-700">
-          ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        <span className={`w-1.5 ${accent.bar}`} aria-hidden />
+        <span className="flex flex-1 items-center gap-2 px-3 py-2">
+          {open ? (
+            <ChevronDownIcon className="h-4 w-4 text-slate-500" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-slate-500" />
+          )}
+          <span className="text-sm font-semibold text-slate-900">
+            {group.label}
+          </span>
+          <span className="text-xs text-slate-500">
+            {group.items.length} assembl
+            {group.items.length === 1 ? "y" : "ies"}
+          </span>
+          <span className="ml-auto text-sm font-semibold tabular-nums text-slate-700">
+            ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
         </span>
       </button>
       {open ? (
@@ -296,11 +320,11 @@ function AssemblyComparisonHeader({
         (open ? "sticky top-12 z-20 shadow-md" : "")
       }
     >
-      <div className="flex items-center gap-1 pr-2">
+      <div className="flex items-center px-1 py-0.5">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex flex-1 items-center gap-2 px-4 py-2.5 text-left hover:bg-sky-100/50"
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-sky-100/50"
           aria-expanded={open}
         >
           {open ? (
@@ -310,9 +334,6 @@ function AssemblyComparisonHeader({
           )}
           <span className="text-sm font-semibold text-sky-900">
             Option compare
-          </span>
-          <span className={`ml-auto text-xs tabular-nums ${deltaColor}`}>
-            A vs B: {collapsedSummary}
           </span>
         </button>
         <button
@@ -325,6 +346,9 @@ function AssemblyComparisonHeader({
         >
           <QuestionMarkCircleIcon className="h-4 w-4" />
         </button>
+        <span className={`ml-auto pr-3 text-xs tabular-nums ${deltaColor}`}>
+          A vs B: {collapsedSummary}
+        </span>
       </div>
       {helpOpen ? (
         <div className="relative border-t border-sky-200 bg-white/70 p-4 text-xs leading-relaxed text-slate-700">
@@ -339,27 +363,37 @@ function AssemblyComparisonHeader({
           <p className="font-semibold text-sky-900">
             How to use Option compare
           </p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <p className="mt-1 text-[11px] italic text-slate-500">
+            Walk a client through trade-offs at the kitchen table — vinyl
+            vs wood windows, 16&quot; vs 24&quot; stud spacing, etc.
+          </p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5">
             <li>
-              Have at least two assemblies on the quote — usually one is
-              an original and the other is a <strong>Duplicate</strong>
-              with one or two properties changed (frame material, stud
-              spacing, etc.).
+              <strong>Add an assembly</strong> (e.g. Window Unit) and set
+              its properties as you&apos;d normally quote it — say Vinyl
+              frame, double-hung.
             </li>
             <li>
-              Expand this widget. Use the <strong>Option A</strong> and{" "}
-              <strong>Option B</strong> dropdowns to pick which two you
-              want to compare.
+              <strong>Click the duplicate icon</strong> (the
+              two-overlapping-squares icon) on that assembly&apos;s card.
+              A copy appears below it.
             </li>
             <li>
-              The <strong>Difference</strong> tile shows the dollar and
-              percent delta. Green means B is cheaper than A; amber means
-              B is more expensive.
+              <strong>On the copy, change one property</strong> — switch
+              Frame Material to Wood, or change the stud spacing, etc.
+              You now have two versions to compare.
             </li>
             <li>
-              Edit a property on either assembly — totals update live, and
-              the running delta in this header follows you as you scroll
-              through the cards.
+              <strong>Expand this Option compare bar</strong> (click the
+              chevron above). The Option A and Option B dropdowns
+              auto-pick your first two assemblies — change them if you
+              want to compare different ones.
+            </li>
+            <li>
+              <strong>Read the Difference</strong> tile — green means
+              Option B is cheaper than A, amber means more expensive.
+              Tweak either side&apos;s properties live; the delta updates
+              in real time both here and in this collapsed header.
             </li>
           </ol>
         </div>
@@ -589,8 +623,11 @@ function AssemblyInstanceCard({
         ) : null
       ) : (
         <>
-          {/* Property inputs — 2-col fits the now-half-width card on md+. */}
-          <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+          {/* Property inputs — inline pills wrap as needed. Each pill is
+           *  "Label [input] UoM" on one line, much narrower per property
+           *  than the previous stacked grid. Three properties usually
+           *  fit on one row of a half-width card. */}
+          <div className="flex flex-wrap gap-2 px-4 py-3">
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
@@ -626,49 +663,53 @@ function PropertyEditor({
   value: number;
   onChange: (v: number) => void;
 }) {
+  // Inline pill — label, control, and UoM all on one line. Width is
+  // determined by content so each property takes only the room it
+  // actually needs (a short "16 IN" stays narrow; a long "Vinyl"
+  // option fits its widest choice). Card lays them out via flex-wrap.
+  const isOption = property.kind === "option" && property.options;
+  const isChoice = property.kind === "choice" && property.choices;
   return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">
+    <label className="inline-flex items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
+      <span className="flex items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-600">
         {property.name}
       </span>
-      <div className="flex items-stretch overflow-hidden rounded-md border border-slate-300 focus-within:border-sky-500">
-        {property.kind === "option" && property.options ? (
-          <select
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
-          >
-            {property.options.map((opt) => (
-              <option key={opt.label} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        ) : property.kind === "choice" && property.choices ? (
-          <select
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
-          >
-            {property.choices.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <NumberInput
-            value={value}
-            onChange={onChange}
-            className="w-full bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none"
-          />
-        )}
-        {property.uom ? (
-          <span className="flex items-center bg-slate-50 px-2.5 text-xs font-medium text-slate-500">
-            {property.uom}
-          </span>
-        ) : null}
-      </div>
+      {isOption ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
+        >
+          {property.options!.map((opt) => (
+            <option key={opt.label} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      ) : isChoice ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
+        >
+          {property.choices!.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <NumberInput
+          value={value}
+          onChange={onChange}
+          className="w-16 bg-white px-1.5 py-1 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
+        />
+      )}
+      {property.uom ? (
+        <span className="flex items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
+          {property.uom}
+        </span>
+      ) : null}
     </label>
   );
 }
