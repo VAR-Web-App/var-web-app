@@ -109,9 +109,27 @@ One URL per sub (`/sub/[token]`) covering everything they need from a GC, no log
 - **🎯 Schedule acknowledgment** — confirm a phase they're scheduled for, or flag a conflict (drives a notification back to the GC).
 - **🎯 T-7 / T-2 reminder SMS cadence** *(scheduling extension)* — auto-SMS the assigned sub one week before and two days before their phase starts. Builds on the existing SMS pipeline + `composeRescheduleSms` patterns.
 
+### Multi-channel notification strategy (2026-05-25 thread)
+
+Settled premise: SMS is the gold-standard channel for sub notifications (~99% delivery, ~90% open within 3 min), but A2P 10DLC compliance is gated by LLC + EIN + Twilio Brand approval. While that's in flight, we want a reliable + highly-visible notification path that ships *now*.
+
+The realistic alternatives don't match SMS on both axes:
+- **Email** — reliable delivery but ~30-50% open rate, hours-to-days; everyone has it; zero compliance lift
+- **Web push (PWA)** — native-alert visibility (banner / lockscreen / sound, OS-rendered, identical to native-app notifications); free per-message; **but** on iPhone requires the sub to install the PWA to home screen + grant permission first
+- **WhatsApp / Phone IVR / In-app only** — non-starters for various reasons (adoption / disruption / engagement-gated)
+
+Planned sequencing:
+- **📅 Email-channel fallback** — same compose helpers, swap carrier. Sends when SMS isn't available (no consent, no valid phone, no A2P brand yet). Universal long-tail.
+- **📅 Web push on PWA install** — once a sub installs the FrameFlow portal to home screen, prompt for push permission and use it for future assignment / conflict / reminder notifications. Replaces SMS for the engaged tier; free + reliable for installed users.
+- **🎯 SMS as primary once A2P clears** — after LLC + EIN + Twilio Brand approval (the gating sequence already on the pre-launch list), flip SMS to primary. Email + web push become the backup channels.
+
+Net: ship email + PWA push as the pre-A2P notification stack; SMS becomes the upgrade. Multi-channel is permanent — different channels are better for different message types (push for instant alerts, email for digestible summaries, SMS for "must reach this person now").
+
 ### Deferred / future
 - **📅 Cross-project conflict detection** *(roadmap)* — flag when a sub is double-booked across GCs or across this GC's projects. More complex than the v1 self-service flag.
 - **📅 Weather-aware date shifts** *(roadmap)* — auto-shuffle phases when forecast shows multiple rain days.
+- **📅 Email-channel notification fallback** — universal channel for subs without SMS consent or valid phone. ~½ day; same compose helpers + a fetch swap.
+- **📅 Web push on PWA install** — native-alert delivery for subs who've installed the portal home-screen shortcut. Free per-message, replaces SMS for engaged tier. ~1 day for the service worker + push subscription plumbing.
 - **💡 Sub Bid Intelligence** *(roadmap)* — RSMeans-style benchmark comparison, historical-bid comparison, sub performance scoring, auto-flag bids missing scope.
 
 ---

@@ -338,6 +338,72 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     ],
   },
   {
+    id: "stub-cmu-foundation-wall",
+    name: "CMU Foundation Wall — 8×8×16 block",
+    description:
+      "Concrete masonry unit (8×8×16 block) foundation wall with mortar, " +
+      "#4 vertical rebar at 32\" OC, and bond beam at the top course. " +
+      "Block count assumes standard 8\" tall × 16\" wide units = 1.125 " +
+      "blocks per SF of wall.",
+    trade: "foundation",
+    properties: [
+      { name: "Wall Length", uom: "LF", defaultValue: 100 },
+      { name: "Wall Height", uom: "FT", defaultValue: 8 },
+    ],
+    materials: [
+      {
+        name: "CMU block (8×8×16)",
+        uom: "EA",
+        // 1.125 blocks per SF of wall (8" tall × 16" wide).
+        quantityFormula: "{Wall Length} * {Wall Height} * 1.125",
+        unitCostUsd: 2.4,
+        laborCostUsd: 4.2,
+        csiDivision: "04",
+      },
+      {
+        name: "Mortar mix (Type S, 70-lb bags)",
+        uom: "BAG",
+        // Roughly 1 bag per 30 blocks.
+        quantityFormula: "({Wall Length} * {Wall Height} * 1.125) / 30",
+        unitCostUsd: 9.5,
+        laborCostUsd: 0,
+        csiDivision: "04",
+      },
+      {
+        name: "#4 vertical rebar (32\" OC, full height + lap)",
+        uom: "LF",
+        // One vertical per 32" = 0.375 verticals per LF, each height+1ft lap.
+        quantityFormula: "({Wall Length} * 0.375) * ({Wall Height} + 1)",
+        unitCostUsd: 0.95,
+        laborCostUsd: 0.4,
+        csiDivision: "03",
+      },
+      {
+        name: "Bond beam (top course, grout-filled + 2× #4)",
+        uom: "LF",
+        quantityFormula: "{Wall Length}",
+        unitCostUsd: 3.8,
+        laborCostUsd: 2.1,
+        csiDivision: "04",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Standard 8 ft basement wall",
+        propertyOverrides: { "Wall Height": 8 },
+      },
+      {
+        label: "9 ft tall (extra-height basement)",
+        propertyOverrides: { "Wall Height": 9 },
+      },
+      {
+        label: "Crawl space (4 ft)",
+        description: "Half-height stem wall for crawl-space foundations",
+        propertyOverrides: { "Wall Height": 4 },
+      },
+    ],
+  },
+  {
     id: "stub-roof-2x8-16oc",
     name: 'Roof — 2×8 rafters @ 16" OC',
     description:
@@ -1041,6 +1107,159 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         label: "Walnut (premium)",
         propertyOverrides: { "Wood Species": 2.8 },
+      },
+    ],
+  },
+  {
+    id: "stub-insulation",
+    name: "Insulation — cavity / batt / spray",
+    description:
+      "Standalone insulation assembly for remodels or as a phase-by-phase " +
+      "estimate item separate from framing. Choose product to match the " +
+      "cavity (R-13 batt for 2×4 walls, R-21 for 2×6, R-30 for ceilings) " +
+      "or upgrade to spray foam for higher R-value + air-seal.",
+    trade: "drywall",
+    properties: [
+      { name: "Insulated Area", uom: "SF", defaultValue: 1200 },
+      {
+        name: "Insulation Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "R-13 fiberglass batt (2×4 wall)", value: 1.0 },
+          { label: "R-21 fiberglass batt (2×6 wall)", value: 1.35 },
+          { label: "R-30 fiberglass batt (ceiling)", value: 1.7 },
+          { label: "R-15 mineral wool (acoustic)", value: 2.0 },
+          { label: "Open-cell spray foam (R-3.5/in)", value: 2.6 },
+          { label: "Closed-cell spray foam (R-6.5/in)", value: 4.2 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Insulation product (installed)",
+        uom: "SF",
+        // 5% waste for batt cutting, none for spray foam (it fills).
+        quantityFormula: "{Insulated Area} * 1.05",
+        unitCostUsd: 0,
+        unitCostFormula: "0.65 * {Insulation Type}",
+        laborCostUsd: 0,
+        laborCostFormula: "0.55 * {Insulation Type}",
+        csiDivision: "07",
+      },
+      {
+        name: "Vapor barrier / kraft facing (where applicable)",
+        uom: "SF",
+        quantityFormula: "{Insulated Area}",
+        unitCostUsd: 0.12,
+        laborCostUsd: 0.15,
+        csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "R-13 batt (standard 2×4 wall)",
+        propertyOverrides: { "Insulation Type": 1.0 },
+      },
+      {
+        label: "R-21 batt (2×6 exterior wall)",
+        propertyOverrides: { "Insulation Type": 1.35 },
+      },
+      {
+        label: "R-30 ceiling batt",
+        description: "Attic floor / cathedral ceiling",
+        propertyOverrides: { "Insulation Type": 1.7 },
+      },
+      {
+        label: "Mineral wool (acoustic / fire)",
+        description: "R-15 + sound dampening + non-combustible",
+        propertyOverrides: { "Insulation Type": 2.0 },
+      },
+      {
+        label: "Open-cell spray foam",
+        description: "Air-seal + cavity-fill; lower R per inch",
+        propertyOverrides: { "Insulation Type": 2.6 },
+      },
+      {
+        label: "Closed-cell spray foam (premium)",
+        description: "Highest R per inch + vapor barrier in one",
+        propertyOverrides: { "Insulation Type": 4.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-drywall",
+    name: "Drywall — hung, taped, finished",
+    description:
+      "Standalone drywall assembly for remodels where the wall framing " +
+      "is already in place. Includes board, screws, joint compound, " +
+      "tape, corner bead, and labor through Level-4 finish (ready to " +
+      "paint). 10% material waste factored in.",
+    trade: "drywall",
+    properties: [
+      { name: "Wall Area", uom: "SF", defaultValue: 1200 },
+      { name: "Ceiling Area", uom: "SF", defaultValue: 800 },
+      {
+        name: "Drywall Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: '1/2" standard', value: 1.0 },
+          { label: '5/8" Type X (firecode)', value: 1.25 },
+          { label: '1/2" moisture-resistant (bath)', value: 1.4 },
+          { label: 'Soundboard (acoustic)', value: 1.8 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Drywall sheets (incl. 10% waste)",
+        uom: "SF",
+        quantityFormula: "({Wall Area} + {Ceiling Area}) * 1.10",
+        unitCostUsd: 0,
+        unitCostFormula: "0.55 * {Drywall Type}",
+        laborCostUsd: 0.45,
+        csiDivision: "09",
+      },
+      {
+        name: "Joint compound + tape + screws",
+        uom: "SF",
+        quantityFormula: "{Wall Area} + {Ceiling Area}",
+        unitCostUsd: 0.18,
+        laborCostUsd: 0.7,
+        csiDivision: "09",
+      },
+      {
+        name: "Corner bead + outside corner reinforcement",
+        uom: "LF",
+        // ~0.04 LF per SF of wall = a reasonable approximation for
+        // residential corners (interior + window/door openings).
+        quantityFormula: "{Wall Area} * 0.04",
+        unitCostUsd: 0.85,
+        laborCostUsd: 1.2,
+        csiDivision: "09",
+      },
+    ],
+    variantPresets: [
+      {
+        label: '1/2" standard (whole house)',
+        propertyOverrides: { "Drywall Type": 1.0 },
+      },
+      {
+        label: '5/8" Type X (garage / mech room)',
+        description: "Code-required fire rating",
+        propertyOverrides: { "Drywall Type": 1.25 },
+      },
+      {
+        label: "Moisture-resistant (bathroom)",
+        propertyOverrides: { "Drywall Type": 1.4 },
+      },
+      {
+        label: "Soundboard (media / nursery)",
+        description: "Acoustic dampening, premium remodel",
+        propertyOverrides: { "Drywall Type": 1.8 },
       },
     ],
   },
