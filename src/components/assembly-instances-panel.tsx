@@ -59,23 +59,13 @@ const TRADE_LABELS: Record<Assembly["trade"], string> = {
   other: "Other",
 };
 
-/** Subtle pastel tints for each trade so adjacent groups visually
- *  separate at a glance. Kept very light so they don't fight with
- *  the white cards inside. */
-const TRADE_ACCENTS: Record<
-  Assembly["trade"],
-  { bg: string; bar: string }
-> = {
-  foundation: { bg: "bg-stone-50", bar: "bg-stone-400" },
-  framing: { bg: "bg-amber-50", bar: "bg-amber-500" },
-  roofing: { bg: "bg-slate-50", bar: "bg-slate-500" },
-  exterior: { bg: "bg-sky-50", bar: "bg-sky-500" },
-  drywall: { bg: "bg-zinc-50", bar: "bg-zinc-400" },
-  flooring: { bg: "bg-orange-50", bar: "bg-orange-400" },
-  millwork: { bg: "bg-yellow-50", bar: "bg-yellow-500" },
-  finishes: { bg: "bg-emerald-50", bar: "bg-emerald-500" },
-  other: { bg: "bg-slate-50", bar: "bg-slate-400" },
-};
+/** Alternating gray + on-brand sky tints by position. Keeps the visual
+ *  separation but stays calm — no rainbow per-trade. The accent bar on
+ *  the left is the stronger color of the same family. */
+const ALT_ACCENTS: Array<{ bg: string; bar: string }> = [
+  { bg: "bg-slate-50", bar: "bg-slate-400" },
+  { bg: "bg-sky-50", bar: "bg-sky-500" },
+];
 
 interface TradeBucket {
   trade: Assembly["trade"];
@@ -156,10 +146,11 @@ export default function AssemblyInstancesPanel({
       {/* Group cards by trade so the GC can find a specific phase
        *  quickly. Each group is independently collapsible — useful when
        *  a floor-plan import generates 13 assemblies across 6 trades. */}
-      {groupByTrade(instances).map((group) => (
+      {groupByTrade(instances).map((group, idx) => (
         <TradeGroup
           key={group.trade}
           group={group}
+          accentIdx={idx}
           totalInstances={instances.length}
           onChange={onChange}
           onRemove={onRemove}
@@ -176,6 +167,7 @@ export default function AssemblyInstancesPanel({
  *  two-column card grid inside. */
 function TradeGroup({
   group,
+  accentIdx,
   totalInstances,
   onChange,
   onRemove,
@@ -183,6 +175,7 @@ function TradeGroup({
   onDuplicate,
 }: {
   group: TradeBucket;
+  accentIdx: number;
   totalInstances: number;
   onChange: (next: AssemblyInstance) => void;
   onRemove: (instanceId: string) => void;
@@ -194,7 +187,7 @@ function TradeGroup({
     () => group.items.reduce((s, i) => s + instanceTotal(i), 0),
     [group.items],
   );
-  const accent = TRADE_ACCENTS[group.trade];
+  const accent = ALT_ACCENTS[accentIdx % ALT_ACCENTS.length];
   return (
     <div
       className={`overflow-hidden rounded-xl border border-slate-200 shadow-sm ${accent.bg}`}
@@ -364,19 +357,19 @@ function AssemblyComparisonHeader({
             How to use Option compare
           </p>
           <p className="mt-1 text-[11px] italic text-slate-500">
-            Walk a client through trade-offs at the kitchen table — vinyl
-            vs wood windows, 16&quot; vs 24&quot; stud spacing, etc.
+            Walk a client through trade-offs live — vinyl vs wood
+            windows, 16&quot; vs 24&quot; stud spacing, etc.
           </p>
           <ol className="mt-3 list-decimal space-y-2 pl-5">
             <li>
-              <strong>Add an assembly</strong> (e.g. Window Unit) and set
-              its properties as you&apos;d normally quote it — say Vinyl
-              frame, double-hung.
+              <strong>Add an assembly</strong>{" "}
+              (e.g. Window Unit) and set its properties as you&apos;d
+              normally quote it — say Vinyl frame, double-hung.
             </li>
             <li>
-              <strong>Click the duplicate icon</strong> (the
-              two-overlapping-squares icon) on that assembly&apos;s card.
-              A copy appears below it.
+              <strong>Click the duplicate icon</strong>{" "}
+              (the two-overlapping-squares icon) on that assembly&apos;s
+              card. A copy appears below it.
             </li>
             <li>
               <strong>On the copy, change one property</strong> — switch
@@ -390,10 +383,11 @@ function AssemblyComparisonHeader({
               want to compare different ones.
             </li>
             <li>
-              <strong>Read the Difference</strong> tile — green means
-              Option B is cheaper than A, amber means more expensive.
-              Tweak either side&apos;s properties live; the delta updates
-              in real time both here and in this collapsed header.
+              <strong>Read the Difference</strong>{" "}
+              tile — green means Option B is cheaper than A, amber means
+              more expensive. Tweak either side&apos;s properties live;
+              the delta updates in real time both here and in this
+              collapsed header.
             </li>
           </ol>
         </div>
@@ -623,11 +617,11 @@ function AssemblyInstanceCard({
         ) : null
       ) : (
         <>
-          {/* Property inputs — inline pills wrap as needed. Each pill is
-           *  "Label [input] UoM" on one line, much narrower per property
-           *  than the previous stacked grid. Three properties usually
-           *  fit on one row of a half-width card. */}
-          <div className="flex flex-wrap gap-2 px-4 py-3">
+          {/* Property inputs — each pill flex-1 so they distribute across
+           *  the full card width on one line, instead of sizing to
+           *  content and leaving gaps. With many properties, they'll get
+           *  narrower but stay on the row (min-w-0 lets them shrink). */}
+          <div className="flex gap-2 px-4 py-3">
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
@@ -663,22 +657,22 @@ function PropertyEditor({
   value: number;
   onChange: (v: number) => void;
 }) {
-  // Inline pill — label, control, and UoM all on one line. Width is
-  // determined by content so each property takes only the room it
-  // actually needs (a short "16 IN" stays narrow; a long "Vinyl"
-  // option fits its widest choice). Card lays them out via flex-wrap.
+  // Stretch pill — each property pill takes flex-1 of the parent row
+  // so they distribute across the full width of the card on one line.
+  // The control in the middle is the only stretching part; the label
+  // and UoM stay sized to their text.
   const isOption = property.kind === "option" && property.options;
   const isChoice = property.kind === "choice" && property.choices;
   return (
-    <label className="inline-flex items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
-      <span className="flex items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-600">
+    <label className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
+      <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-600">
         {property.name}
       </span>
       {isOption ? (
         <select
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
+          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
         >
           {property.options!.map((opt) => (
             <option key={opt.label} value={opt.value}>
@@ -690,7 +684,7 @@ function PropertyEditor({
         <select
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
+          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-sm text-slate-900 focus:outline-none"
         >
           {property.choices!.map((c) => (
             <option key={c} value={c}>
@@ -702,11 +696,11 @@ function PropertyEditor({
         <NumberInput
           value={value}
           onChange={onChange}
-          className="w-16 bg-white px-1.5 py-1 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
+          className="min-w-0 flex-1 bg-white px-1.5 py-1 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
         />
       )}
       {property.uom ? (
-        <span className="flex items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
+        <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
           {property.uom}
         </span>
       ) : null}
