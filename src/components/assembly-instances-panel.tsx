@@ -6,7 +6,9 @@ import {
   ChevronRightIcon,
   DocumentDuplicateIcon,
   PlusIcon,
+  QuestionMarkCircleIcon,
   TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
   findStubAssembly,
@@ -28,6 +30,54 @@ function instanceTotal(instance: AssemblyInstance): number {
     instance.propertyValues.map((p) => [p.name, p.value]),
   );
   return computeMaterials(assembly, propertyMap).total;
+}
+
+/** Trade buckets ordered by construction sequence — same order the GC
+ *  experiences on the job, so the assemblies list reads top-to-bottom
+ *  the way the build happens. */
+const TRADE_ORDER: Array<Assembly["trade"]> = [
+  "foundation",
+  "framing",
+  "roofing",
+  "exterior",
+  "drywall",
+  "flooring",
+  "millwork",
+  "finishes",
+  "other",
+];
+
+const TRADE_LABELS: Record<Assembly["trade"], string> = {
+  foundation: "Foundation",
+  framing: "Framing",
+  roofing: "Roofing",
+  exterior: "Exterior",
+  drywall: "Drywall",
+  flooring: "Flooring",
+  millwork: "Millwork",
+  finishes: "Finishes",
+  other: "Other",
+};
+
+interface TradeBucket {
+  trade: Assembly["trade"];
+  label: string;
+  items: AssemblyInstance[];
+}
+
+function groupByTrade(instances: AssemblyInstance[]): TradeBucket[] {
+  const map = new Map<Assembly["trade"], AssemblyInstance[]>();
+  for (const inst of instances) {
+    const a = findStubAssembly(inst.assemblyId);
+    const trade = a?.trade ?? "other";
+    if (!map.has(trade)) map.set(trade, []);
+    map.get(trade)!.push(inst);
+  }
+  return TRADE_ORDER.filter((t) => map.has(t)).map((t) => ({
+    trade: t,
+    label: TRADE_LABELS[t],
+    items: map.get(t)!,
+  }));
 }
 
 /**
@@ -85,23 +135,91 @@ export default function AssemblyInstancesPanel({
         ) : null}
       </header>
       <AssemblyComparisonHeader instances={instances} />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {instances.map((instance, idx) => (
-          <AssemblyInstanceCard
-            key={instance.id}
-            instance={instance}
-            onChange={onChange}
-            onRemove={() => onRemove(instance.id)}
-            onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
-            onDuplicate={() => onDuplicate(instance.id)}
-            // Smart default: keep all open with 3 or fewer instances;
-            // beyond that, start everything collapsed so a 13-assembly
-            // floor-plan import doesn't blow out the scroll height.
-            defaultCollapsed={instances.length > 3 && idx > 0}
-          />
-        ))}
-      </div>
+      {/* Group cards by trade so the GC can find a specific phase
+       *  quickly. Each group is independently collapsible — useful when
+       *  a floor-plan import generates 13 assemblies across 6 trades. */}
+      {groupByTrade(instances).map((group) => (
+        <TradeGroup
+          key={group.trade}
+          group={group}
+          totalInstances={instances.length}
+          onChange={onChange}
+          onRemove={onRemove}
+          onSwap={onSwap}
+          onDuplicate={onDuplicate}
+        />
+      ))}
     </section>
+  );
+}
+
+/** One trade section (Framing / Roofing / etc.) with a collapsible
+ *  header showing the trade name + card count + subtotal, and the
+ *  two-column card grid inside. */
+function TradeGroup({
+  group,
+  totalInstances,
+  onChange,
+  onRemove,
+  onSwap,
+  onDuplicate,
+}: {
+  group: TradeBucket;
+  totalInstances: number;
+  onChange: (next: AssemblyInstance) => void;
+  onRemove: (instanceId: string) => void;
+  onSwap: (instanceId: string, newAssemblyId: string) => void;
+  onDuplicate: (instanceId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const subtotal = useMemo(
+    () => group.items.reduce((s, i) => s + instanceTotal(i), 0),
+    [group.items],
+  );
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 border-b border-transparent px-3 py-2 text-left hover:bg-slate-50"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDownIcon className="h-4 w-4 text-slate-500" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 text-slate-500" />
+        )}
+        <span className="text-sm font-semibold text-slate-900">
+          {group.label}
+        </span>
+        <span className="text-xs text-slate-500">
+          {group.items.length} assembl
+          {group.items.length === 1 ? "y" : "ies"}
+        </span>
+        <span className="ml-auto text-sm font-semibold tabular-nums text-slate-700">
+          ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </span>
+      </button>
+      {open ? (
+        <div className="grid grid-cols-1 items-start gap-3 p-3 md:grid-cols-2">
+          {group.items.map((instance, idx) => (
+            <AssemblyInstanceCard
+              key={instance.id}
+              instance={instance}
+              onChange={onChange}
+              onRemove={() => onRemove(instance.id)}
+              onSwap={(newAssemblyId) => onSwap(instance.id, newAssemblyId)}
+              onDuplicate={() => onDuplicate(instance.id)}
+              // Smart default: keep cards open when the project has 3
+              // or fewer assemblies total; otherwise start collapsed
+              // (except the first of the first group) so a 13-assembly
+              // floor-plan import isn't a wall of text.
+              defaultCollapsed={totalInstances > 3 && !(group.trade === "foundation" && idx === 0)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -123,6 +241,7 @@ function AssemblyComparisonHeader({
   // when there are many instances — opening eats screen real estate and
   // is only situationally useful in that mode.
   const [open, setOpen] = useState<boolean>(instances.length === 2);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const a = useMemo(() => {
     const picked = instances.find((i) => i.id === aId);
@@ -167,33 +286,84 @@ function AssemblyComparisonHeader({
       : `${sign}$${absDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}${aTotal > 0 ? ` (${sign}${Math.abs(deltaPct).toFixed(0)}%)` : ""}`;
 
   return (
-    // When expanded, stick to the top of the viewport so the GC can keep
-    // an eye on the running A/B delta while scrolling through the
-    // assembly cards below. Collapsed state stays in normal flow.
+    // When expanded, stick to the top of the viewport (clearing the
+    // sticky TotalsBar height ~48px) so the GC can keep an eye on the
+    // running A/B delta while scrolling through the assembly cards
+    // below. Collapsed state stays in normal flow.
     <div
       className={
         "rounded-xl border border-sky-200 bg-sky-50/95 backdrop-blur " +
-        (open ? "sticky top-2 z-20 shadow-md" : "")
+        (open ? "sticky top-12 z-20 shadow-md" : "")
       }
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-sky-100/50"
-        aria-expanded={open}
-      >
-        {open ? (
-          <ChevronDownIcon className="h-4 w-4 text-sky-700" />
-        ) : (
-          <ChevronRightIcon className="h-4 w-4 text-sky-700" />
-        )}
-        <span className="text-sm font-semibold text-sky-900">
-          Option compare
-        </span>
-        <span className={`ml-auto text-xs tabular-nums ${deltaColor}`}>
-          A vs B: {collapsedSummary}
-        </span>
-      </button>
+      <div className="flex items-center gap-1 pr-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 items-center gap-2 px-4 py-2.5 text-left hover:bg-sky-100/50"
+          aria-expanded={open}
+        >
+          {open ? (
+            <ChevronDownIcon className="h-4 w-4 text-sky-700" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-sky-700" />
+          )}
+          <span className="text-sm font-semibold text-sky-900">
+            Option compare
+          </span>
+          <span className={`ml-auto text-xs tabular-nums ${deltaColor}`}>
+            A vs B: {collapsedSummary}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setHelpOpen((v) => !v)}
+          className="rounded-full p-1 text-sky-700 hover:bg-sky-100"
+          aria-expanded={helpOpen}
+          aria-label={helpOpen ? "Close compare help" : "How to use Option compare"}
+          title="How to use Option compare"
+        >
+          <QuestionMarkCircleIcon className="h-4 w-4" />
+        </button>
+      </div>
+      {helpOpen ? (
+        <div className="relative border-t border-sky-200 bg-white/70 p-4 text-xs leading-relaxed text-slate-700">
+          <button
+            type="button"
+            onClick={() => setHelpOpen(false)}
+            className="absolute right-2 top-2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Close compare help"
+          >
+            <XMarkIcon className="h-3.5 w-3.5" />
+          </button>
+          <p className="font-semibold text-sky-900">
+            How to use Option compare
+          </p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>
+              Have at least two assemblies on the quote — usually one is
+              an original and the other is a <strong>Duplicate</strong>
+              with one or two properties changed (frame material, stud
+              spacing, etc.).
+            </li>
+            <li>
+              Expand this widget. Use the <strong>Option A</strong> and{" "}
+              <strong>Option B</strong> dropdowns to pick which two you
+              want to compare.
+            </li>
+            <li>
+              The <strong>Difference</strong> tile shows the dollar and
+              percent delta. Green means B is cheaper than A; amber means
+              B is more expensive.
+            </li>
+            <li>
+              Edit a property on either assembly — totals update live, and
+              the running delta in this header follows you as you scroll
+              through the cards.
+            </li>
+          </ol>
+        </div>
+      ) : null}
       {open ? (
     <div className="border-t border-sky-200 p-4">
       <div className="mb-3 text-xs text-sky-700 sm:hidden">

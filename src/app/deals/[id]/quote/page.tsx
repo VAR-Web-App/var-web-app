@@ -1,12 +1,13 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
   TrashIcon,
@@ -742,17 +743,101 @@ function TotalsBar({
   totals: { customer: number; cost: number; margin: number };
   lineCount: number;
 }) {
+  // Sentinel sits just above the bar in normal flow. When the user
+  // scrolls and the sentinel leaves the viewport, the bar switches to a
+  // compact, sticky-pinned row so the totals stay visible while they're
+  // editing assemblies and line items below.
+  const [scrolled, setScrolled] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { rootMargin: "-1px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  const marginAccent: "emerald" | "amber" | "red" =
+    totals.margin >= 15 ? "emerald" : totals.margin >= 5 ? "amber" : "red";
+
   return (
-    <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      <Stat label="Line Items" value={String(lineCount)} />
-      <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
-      <Stat label="Estimate to Client" value={fmtMoney(totals.customer)} accent="emerald" />
-      <Stat
-        label="Profit Margin"
-        value={`${totals.margin.toFixed(1)}%`}
-        accent={totals.margin >= 15 ? "emerald" : totals.margin >= 5 ? "amber" : "red"}
-      />
-    </section>
+    <>
+      <div ref={sentinelRef} aria-hidden className="h-px" />
+      <section
+        className={
+          scrolled
+            ? // Pinned compact row — hidden on mobile (the bottom sticky
+              // bar covers the same need there with one Save action).
+              "sticky top-0 z-30 -mx-4 hidden border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-6 sm:block sm:px-6 lg:-mx-8 lg:px-8"
+            : ""
+        }
+      >
+        {scrolled ? (
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-baseline gap-5 text-sm">
+              <CompactStat label="Lines" value={String(lineCount)} />
+              <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
+              <CompactStat
+                label="Client"
+                value={fmtMoney(totals.customer)}
+                accent="emerald"
+              />
+              <CompactStat
+                label="Margin"
+                value={`${totals.margin.toFixed(1)}%`}
+                accent={marginAccent}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Stat label="Line Items" value={String(lineCount)} />
+            <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
+            <Stat
+              label="Estimate to Client"
+              value={fmtMoney(totals.customer)}
+              accent="emerald"
+            />
+            <Stat
+              label="Profit Margin"
+              value={`${totals.margin.toFixed(1)}%`}
+              accent={marginAccent}
+            />
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function CompactStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "emerald" | "amber" | "red";
+}) {
+  const color =
+    accent === "emerald"
+      ? "text-emerald-700"
+      : accent === "amber"
+        ? "text-sky-700"
+        : accent === "red"
+          ? "text-red-700"
+          : "text-slate-900";
+  return (
+    <div className="flex items-baseline gap-1.5 tabular-nums">
+      <span className="text-[10px] uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      <span className={`text-sm font-semibold ${color}`}>{value}</span>
+    </div>
   );
 }
 
@@ -809,10 +894,43 @@ function LineEditor({
   onUpdate: (idx: number, patch: Partial<QuoteLine>) => void;
   onRemove: (idx: number) => void;
 }) {
+  // Filter via CSS hide — keeps the array indices stable so `onUpdate`
+  // and `onRemove` still address the right line, no matter what the
+  // user has typed into the search box.
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
+  const matches = (l: QuoteLine) =>
+    !q ||
+    l.description.toLowerCase().includes(q) ||
+    l.product_code.toLowerCase().includes(q) ||
+    (l.notes ?? "").toLowerCase().includes(q);
+  const visibleCount = q ? lines.filter(matches).length : lines.length;
+
   // Outer chrome (rounded, border, shadow) is provided by the parent
   // CollapsibleLineEditor wrapper — keep this as a plain container.
   return (
     <div className="bg-white">
+      <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-2">
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by phase, description, or notes…"
+            className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            aria-label="Search line items"
+          />
+          <MagnifyingGlassIcon
+            className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+        </div>
+        <span className="whitespace-nowrap text-xs text-slate-500">
+          {q
+            ? `Showing ${visibleCount} of ${lines.length}`
+            : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
+        </span>
+      </div>
       <div className="max-h-[640px] overflow-auto">
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500 shadow-sm">
@@ -851,7 +969,10 @@ function LineEditor({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {lines.map((line, i) => (
-              <tr key={line.id} className="hover:bg-slate-50">
+              <tr
+                key={line.id}
+                className={`hover:bg-slate-50 ${matches(line) ? "" : "hidden"}`}
+              >
                 <td className="px-3 py-2 text-xs text-slate-500">{line.line_number}</td>
                 <td className="px-2 py-1.5">
                   <CellInput
@@ -1049,23 +1170,24 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
         </section>
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
-            Live decisions at the kitchen table
+            Live decisions
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
-              <strong>Duplicate</strong> an assembly to compare options —
-              vinyl vs wood windows, 16&quot; vs 24&quot; stud spacing, etc.
-              An <em>Option compare</em> bar at the top shows the dollar +
-              percent delta.
+              <strong>Duplicate</strong> — clone an assembly to compare
+              options (vinyl vs wood windows, 16&quot; vs 24&quot; stud
+              spacing). The <em>Option compare</em> bar at the top shows
+              the dollar + percent delta.
             </li>
             <li>
-              <strong>Swap</strong> an assembly type from the dropdown in
-              its header — matching property names carry over.
+              <strong>Swap</strong> — change an assembly&apos;s type from
+              the dropdown in its header; matching property names carry
+              over to the new assembly.
             </li>
             <li>
-              <strong>Collapse</strong> an assembly card (chevron in the
-              header) to shorten the page once it&apos;s set; the one-line
-              property summary stays visible.
+              <strong>Collapse</strong> — shrink an assembly card with the
+              chevron in its header; the one-line property summary stays
+              visible.
             </li>
           </ul>
         </section>
@@ -1075,17 +1197,18 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
-              <strong>Save</strong> commits the current state. The deal&apos;s
-              roll-up totals + margin update at the same time.
+              <strong>Save</strong> — commits the current state. The
+              deal&apos;s roll-up totals and margin update at the same
+              time.
             </li>
             <li>
-              <strong>Export CSV</strong> downloads a spreadsheet of the
+              <strong>Export CSV</strong> — downloads a spreadsheet of the
               line items.
             </li>
             <li>
-              <strong>Generate proposal</strong> builds the client-facing
-              document (the client never sees cost or margin — just the
-              scope and total).
+              <strong>Generate proposal</strong> — builds the client-facing
+              document. The client never sees cost or margin, just the
+              scope and total.
             </li>
           </ul>
         </section>
