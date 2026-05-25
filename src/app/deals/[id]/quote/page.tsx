@@ -951,6 +951,30 @@ function LineEditor({
     return map;
   }, [lines]);
 
+  // Sort lines for display so same-phase rows cluster together. First
+  // appearance of a phase locks in its position; subsequent lines with
+  // that phase fall in beside the cluster. Empty-phase lines sort
+  // last. Display index is independent of the underlying array index
+  // — the original index is what onUpdate / onRemove need.
+  const displayLines = useMemo(() => {
+    const phaseOrder = new Map<string, number>();
+    for (const line of lines) {
+      const phase = line.product_code?.trim() ?? "";
+      if (!phaseOrder.has(phase)) phaseOrder.set(phase, phaseOrder.size);
+    }
+    const empty = phaseOrder.size; // empty phase sorts after named phases
+    const indexed = lines.map((line, origIdx) => ({ line, origIdx }));
+    return indexed.sort((a, b) => {
+      const pa = a.line.product_code?.trim() ?? "";
+      const pb = b.line.product_code?.trim() ?? "";
+      const oa = pa ? (phaseOrder.get(pa) ?? empty) : empty;
+      const ob = pb ? (phaseOrder.get(pb) ?? empty) : empty;
+      if (oa !== ob) return oa - ob;
+      // Within same phase: preserve original insertion order.
+      return a.origIdx - b.origIdx;
+    });
+  }, [lines]);
+
   // Outer chrome (rounded, border, shadow) is provided by the parent
   // CollapsibleLineEditor wrapper — keep this as a plain container.
   return (
@@ -1013,12 +1037,14 @@ function LineEditor({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {lines.map((line, i) => (
+            {displayLines.map(({ line, origIdx }, displayIdx) => (
               <tr
                 key={line.id}
                 className={`hover:bg-slate-50 ${matches(line) ? "" : "hidden"}`}
               >
-                <td className="px-3 py-2 text-xs text-slate-500">{line.line_number}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">
+                  {displayIdx + 1}
+                </td>
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span
@@ -1035,7 +1061,7 @@ function LineEditor({
                     />
                     <CellInput
                       value={line.product_code}
-                      onChange={(v) => onUpdate(i, { product_code: v })}
+                      onChange={(v) => onUpdate(origIdx, { product_code: v })}
                       className="w-36 text-xs"
                       placeholder="Foundation"
                     />
@@ -1044,21 +1070,21 @@ function LineEditor({
                 <td className="px-2 py-1.5">
                   <CellInput
                     value={line.description}
-                    onChange={(v) => onUpdate(i, { description: v })}
+                    onChange={(v) => onUpdate(origIdx, { description: v })}
                     className="w-full min-w-[320px]"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <NumInput
                     value={line.qty}
-                    onChange={(v) => onUpdate(i, { qty: v })}
+                    onChange={(v) => onUpdate(origIdx, { qty: v })}
                     width="w-20"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <NumInput
                     value={line.list_price}
-                    onChange={(v) => onUpdate(i, { list_price: v })}
+                    onChange={(v) => onUpdate(origIdx, { list_price: v })}
                     width="w-28"
                     decimals
                   />
@@ -1066,7 +1092,7 @@ function LineEditor({
                 <td className="px-2 py-1.5 text-right">
                   <NumInput
                     value={line.markup_percent}
-                    onChange={(v) => onUpdate(i, { markup_percent: v })}
+                    onChange={(v) => onUpdate(origIdx, { markup_percent: v })}
                     width="w-20"
                     decimals
                   />
@@ -1094,7 +1120,7 @@ function LineEditor({
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button
-                    onClick={() => onRemove(i)}
+                    onClick={() => onRemove(origIdx)}
                     className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                     title="Remove line"
                   >
