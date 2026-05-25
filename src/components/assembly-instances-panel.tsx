@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -16,20 +16,29 @@ import {
 } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
 import NumberInput from "@/components/number-input";
-import type {
-  Assembly,
-  AssemblyInstance,
-  AssemblyProperty,
+import {
+  activeVariantOf,
+  type Assembly,
+  type AssemblyInstance,
+  type AssemblyProperty,
+  type AssemblyVariant,
 } from "@/types/assembly";
 
-/** Roll up an instance to a single dollar total via the shared compute. */
-function instanceTotal(instance: AssemblyInstance): number {
-  const assembly = findStubAssembly(instance.assemblyId);
+/** Roll up a single variant to a dollar total via the shared compute. */
+function variantTotal(variant: AssemblyVariant): number {
+  const assembly = findStubAssembly(variant.assemblyId);
   if (!assembly) return 0;
   const propertyMap = Object.fromEntries(
-    instance.propertyValues.map((p) => [p.name, p.value]),
+    variant.propertyValues.map((p) => [p.name, p.value]),
   );
   return computeMaterials(assembly, propertyMap).total;
+}
+
+/** Roll up the ACTIVE variant of an instance — the one that drives the
+ *  estimate's QuoteLines + project totals. Inactive variants are
+ *  reference state and don't contribute to project totals. */
+function instanceTotal(instance: AssemblyInstance): number {
+  return variantTotal(activeVariantOf(instance));
 }
 
 /** Trade buckets ordered by construction sequence — same order the GC
@@ -76,7 +85,11 @@ interface TradeBucket {
 function groupByTrade(instances: AssemblyInstance[]): TradeBucket[] {
   const map = new Map<Assembly["trade"], AssemblyInstance[]>();
   for (const inst of instances) {
-    const a = findStubAssembly(inst.assemblyId);
+    // Trade comes from the ACTIVE variant's assembly — that's what
+    // currently drives the QuoteLines, so it determines where this
+    // instance belongs in the GC's read-order.
+    const variant = activeVariantOf(inst);
+    const a = findStubAssembly(variant.assemblyId);
     const trade = a?.trade ?? "other";
     if (!map.has(trade)) map.set(trade, []);
     map.get(trade)!.push(inst);
@@ -484,17 +497,28 @@ function AssemblyInstanceCard({
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
+
+  const activeVariant = activeVariantOf(instance);
   const assembly: Assembly | null = useMemo(
-    () => findStubAssembly(instance.assemblyId),
-    [instance.assemblyId],
+    () => findStubAssembly(activeVariant.assemblyId),
+    [activeVariant.assemblyId],
   );
+
+  // Roll up every variant once so the chips can show their own price +
+  // delta vs active without re-computing inside each chip render.
+  const variantTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of instance.variants) m.set(v.id, variantTotal(v));
+    return m;
+  }, [instance.variants]);
+  const activeTotal = variantTotals.get(activeVariant.id) ?? 0;
 
   const propertyMap = useMemo(
     () =>
       Object.fromEntries(
-        instance.propertyValues.map((p) => [p.name, p.value]),
+        activeVariant.propertyValues.map((p) => [p.name, p.value]),
       ),
-    [instance.propertyValues],
+    [activeVariant.propertyValues],
   );
 
   const computed = useMemo(
@@ -506,11 +530,74 @@ function AssemblyInstanceCard({
     onChange({ ...instance, instanceLabel: label });
   }
 
-  function updateProperty(name: string, value: number) {
+  function switchActive(variantId: string) {
+    if (variantId === instance.activeVariantId) return;
+    onChange({ ...instance, activeVariantId: variantId });
+  }
+
+  function renameVariant(variantId: string, label: string) {
     onChange({
       ...instance,
-      propertyValues: instance.propertyValues.map((p) =>
-        p.name === name ? { ...p, value } : p,
+      variants: instance.variants.map((v) =>
+        v.id === variantId ? { ...v, label } : v,
+      ),
+    });
+  }
+
+  function addVariant() {
+    // Clone the currently active variant and switch to it — user lands
+    // ready to tweak the differentiator.
+    const newId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `var_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Auto-name "Option A", "Option B", … unless that name's already
+    // used, in which case fall back to "Variant N".
+    const letter = String.fromCharCode(65 + instance.variants.length);
+    const proposed = `Option ${letter}`;
+    const labelTaken = instance.variants.some((v) => v.label === proposed);
+    const label = labelTaken
+      ? `Variant ${instance.variants.length + 1}`
+      : proposed;
+    const newVariant: AssemblyVariant = {
+      id: newId,
+      label,
+      assemblyId: activeVariant.assemblyId,
+      propertyValues: activeVariant.propertyValues.map((p) => ({ ...p })),
+    };
+    onChange({
+      ...instance,
+      variants: [...instance.variants, newVariant],
+      activeVariantId: newId,
+    });
+  }
+
+  function deleteVariant(variantId: string) {
+    if (instance.variants.length <= 1) return;
+    const remaining = instance.variants.filter((v) => v.id !== variantId);
+    const nextActive =
+      instance.activeVariantId === variantId
+        ? remaining[0].id
+        : instance.activeVariantId;
+    onChange({
+      ...instance,
+      variants: remaining,
+      activeVariantId: nextActive,
+    });
+  }
+
+  function updateActiveProperty(name: string, value: number) {
+    onChange({
+      ...instance,
+      variants: instance.variants.map((v) =>
+        v.id === activeVariant.id
+          ? {
+              ...v,
+              propertyValues: v.propertyValues.map((p) =>
+                p.name === name ? { ...p, value } : p,
+              ),
+            }
+          : v,
       ),
     });
   }
@@ -519,8 +606,8 @@ function AssemblyInstanceCard({
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         Assembly definition for{" "}
-        <span className="font-mono">{instance.assemblyId}</span> was not
-        found. It may have been removed from the catalog.{" "}
+        <span className="font-mono">{activeVariant.assemblyId}</span> was
+        not found. It may have been removed from the catalog.{" "}
         <button
           onClick={onRemove}
           className="font-semibold underline hover:no-underline"
@@ -531,11 +618,9 @@ function AssemblyInstanceCard({
     );
   }
 
-  // Compact property summary shown in the collapsed-card header — gives
-  // the GC enough info to recognize the assembly without expanding it.
-  // Skips long string options ("Vinyl") and zero/empty values, joins with
-  // dots so the line stays short.
-  const propSummary = instance.propertyValues
+  // Compact property summary for the collapsed card header — built from
+  // the active variant's property values.
+  const propSummary = activeVariant.propertyValues
     .map(({ name, value }) => {
       const p = assembly.properties.find((x) => x.name === name);
       if (!p) return null;
@@ -550,9 +635,12 @@ function AssemblyInstanceCard({
     .filter(Boolean)
     .join(" · ");
 
+  const hasMultipleVariants = instance.variants.length > 1;
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      {/* Header */}
+      {/* Header — instance-level controls (label, swap active variant's
+       *  assembly type, duplicate the whole card, remove the card). */}
       <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
         <button
           type="button"
@@ -576,10 +664,10 @@ function AssemblyInstanceCard({
         />
         {!collapsed ? (
           <select
-            value={instance.assemblyId}
+            value={activeVariant.assemblyId}
             onChange={(e) => onSwap(e.target.value)}
             className="hidden rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-300 focus:border-sky-500 focus:outline-none sm:block"
-            title="Swap to a different assembly — properties with matching names carry over."
+            title="Swap the active variant's assembly type — properties with matching names carry over."
           >
             {STUB_ASSEMBLIES.map((a) => (
               <option key={a.id} value={a.id}>
@@ -589,13 +677,13 @@ function AssemblyInstanceCard({
           </select>
         ) : null}
         <span className="text-sm font-semibold tabular-nums text-slate-900">
-          ${computed ? computed.total.toFixed(2) : "—"}
+          ${activeTotal.toFixed(2)}
         </span>
         <button
           onClick={onDuplicate}
           className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-sky-700"
-          aria-label="Duplicate assembly"
-          title="Duplicate this assembly to compare a what-if side by side"
+          aria-label="Duplicate this card"
+          title="Duplicate the entire card (a separate sibling assembly — for compare options within the same assembly, use + Add variant below instead)"
         >
           <DocumentDuplicateIcon className="h-4 w-4" />
         </button>
@@ -610,33 +698,70 @@ function AssemblyInstanceCard({
       </header>
 
       {collapsed ? (
-        // Collapsed: one-line property summary so the GC can see what
-        // configuration this instance is at without expanding.
         propSummary ? (
-          <div className="px-4 py-2 text-xs text-slate-500">{propSummary}</div>
+          <div className="px-4 py-2 text-xs text-slate-500">
+            {hasMultipleVariants ? (
+              <span className="mr-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
+                {activeVariant.label}
+              </span>
+            ) : null}
+            {propSummary}
+          </div>
         ) : null
       ) : (
         <>
-          {/* Property inputs — each pill flex-1 so they distribute across
-           *  the full card width on one line, instead of sizing to
-           *  content and leaving gaps. With many properties, they'll get
-           *  narrower but stay on the row (min-w-0 lets them shrink). */}
+          {/* Variant chips — one per variant, plus an + Add chip. Active
+           *  variant is sky-filled; inactive variants show the delta to
+           *  active so the builder can read "Wood is +$2,400 vs Vinyl"
+           *  at a glance. */}
+          <div className="flex flex-wrap items-stretch gap-2 px-4 pt-3">
+            {instance.variants.map((v) => (
+              <VariantChip
+                key={v.id}
+                variant={v}
+                isActive={v.id === instance.activeVariantId}
+                total={variantTotals.get(v.id) ?? 0}
+                activeTotal={activeTotal}
+                onSelect={() => switchActive(v.id)}
+                onRename={(label) => renameVariant(v.id, label)}
+                onDelete={
+                  hasMultipleVariants ? () => deleteVariant(v.id) : undefined
+                }
+              />
+            ))}
+            <button
+              type="button"
+              onClick={addVariant}
+              className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-sky-500 hover:bg-sky-50 hover:text-sky-700"
+              title="Add a variant — clones the active variant so you can tweak one property to compare"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Add variant
+            </button>
+          </div>
+
+          {/* Active variant's property editors. Edits write back to
+           *  the active variant only — inactive variants are untouched. */}
           <div className="flex gap-2 px-4 py-3">
             {assembly.properties.map((p) => (
               <PropertyEditor
                 key={p.name}
                 property={p}
                 value={propertyMap[p.name] ?? 0}
-                onChange={(v) => updateProperty(p.name, v)}
+                onChange={(v) => updateActiveProperty(p.name, v)}
               />
             ))}
           </div>
 
-          {/* Footer summary */}
           <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
             <span>
+              Editing{" "}
+              <strong className="text-slate-700">
+                {activeVariant.label}
+              </strong>
+              {" — "}
               {computed?.lines.length ?? 0} material line
-              {computed?.lines.length === 1 ? "" : "s"} regenerated on every edit
+              {computed?.lines.length === 1 ? "" : "s"} regenerate on every edit
             </span>
             {computed?.error ? (
               <span className="text-rose-600">{computed.error}</span>
@@ -645,6 +770,125 @@ function AssemblyInstanceCard({
         </>
       )}
     </article>
+  );
+}
+
+/** One variant chip in the strip on an instance card. The active variant
+ *  shows a filled sky pill; inactive variants outline with a "Δ vs
+ *  active" indicator. Single-click selects; double-click renames inline;
+ *  hover reveals a trash icon when more than one variant exists. */
+function VariantChip({
+  variant,
+  isActive,
+  total,
+  activeTotal,
+  onSelect,
+  onRename,
+  onDelete,
+}: {
+  variant: AssemblyVariant;
+  isActive: boolean;
+  total: number;
+  activeTotal: number;
+  onSelect: () => void;
+  onRename: (label: string) => void;
+  onDelete?: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(variant.label);
+  // Mirror external label changes while not renaming.
+  useEffect(() => {
+    if (!renaming) setDraft(variant.label);
+  }, [variant.label, renaming]);
+
+  const delta = total - activeTotal;
+  const deltaColor =
+    delta < -0.005
+      ? "text-emerald-700"
+      : delta > 0.005
+        ? "text-amber-700"
+        : "text-slate-500";
+
+  if (renaming) {
+    return (
+      <span className="inline-flex items-center rounded-lg border border-sky-500 bg-white px-2 py-1">
+        <input
+          autoFocus
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            const clean = draft.trim() || variant.label;
+            onRename(clean);
+            setRenaming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setDraft(variant.label);
+              setRenaming(false);
+            }
+          }}
+          className="w-24 bg-transparent text-xs font-semibold text-slate-900 focus:outline-none"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={
+        "group relative inline-flex items-stretch overflow-hidden rounded-lg border transition-colors " +
+        (isActive
+          ? "border-sky-600 bg-sky-50 text-sky-900 ring-1 ring-sky-600"
+          : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50")
+      }
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        onDoubleClick={() => setRenaming(true)}
+        className="flex flex-col items-start px-3 py-1.5 text-left"
+        title={
+          isActive
+            ? `Active variant — drives totals. Double-click to rename.`
+            : `Switch to ${variant.label} (double-click to rename)`
+        }
+      >
+        <span className="flex items-center gap-1">
+          <span
+            className={
+              "inline-block h-2 w-2 rounded-full " +
+              (isActive ? "bg-sky-600" : "border border-slate-400 bg-white")
+            }
+            aria-hidden
+          />
+          <span className="text-xs font-semibold">{variant.label}</span>
+        </span>
+        <span className="mt-0.5 text-xs tabular-nums text-slate-900">
+          ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {!isActive && Math.abs(delta) >= 0.5 ? (
+            <span className={`ml-1.5 ${deltaColor}`}>
+              {delta > 0 ? "+" : "−"}$
+              {Math.abs(delta).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}
+            </span>
+          ) : null}
+        </span>
+      </button>
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex w-6 items-center justify-center text-slate-400 opacity-0 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+          aria-label={`Delete variant ${variant.label}`}
+          title={`Delete ${variant.label}`}
+        >
+          <XMarkIcon className="h-3 w-3" />
+        </button>
+      ) : null}
+    </span>
   );
 }
 

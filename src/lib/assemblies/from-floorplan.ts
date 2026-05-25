@@ -19,7 +19,7 @@
  * extractor button calls this and the panel handles the rest.
  */
 
-import type { AssemblyInstance } from "@/types/assembly";
+import { activeVariantOf, type AssemblyInstance } from "@/types/assembly";
 import type { QuoteLine } from "@/types";
 import { findStubAssembly } from "./stub-catalog";
 import { computeMaterials } from "./compute";
@@ -130,12 +130,23 @@ function makeInstance(
 ): AssemblyInstance | null {
   const a = findStubAssembly(assemblyId);
   if (!a) return null;
+  // Floor-plan-generated instances start with a single variant — the
+  // builder can add alternatives from the card UI later. The variant's
+  // label defaults to the assembly's name so the chip looks meaningful
+  // out of the gate.
+  const variantId = newId();
   return {
     id: newId(),
-    assemblyId,
-    assemblyName: a.name,
     instanceLabel,
-    propertyValues: propValues(assemblyId, overrides),
+    variants: [
+      {
+        id: variantId,
+        label: a.name,
+        assemblyId,
+        propertyValues: propValues(assemblyId, overrides),
+      },
+    ],
+    activeVariantId: variantId,
   };
 }
 
@@ -398,10 +409,13 @@ export function linesFromInstance(
   markupPercent: number,
   newId: () => string,
 ): QuoteLine[] {
-  const assembly = findStubAssembly(instance.assemblyId);
+  // Active variant drives the derived QuoteLines. Inactive variants are
+  // reference-only state and never contribute to the project totals.
+  const variant = activeVariantOf(instance);
+  const assembly = findStubAssembly(variant.assemblyId);
   if (!assembly) return [];
   const propertyValues = Object.fromEntries(
-    instance.propertyValues.map((p) => [p.name, p.value]),
+    variant.propertyValues.map((p) => [p.name, p.value]),
   );
   const { lines } = computeMaterials(assembly, propertyValues);
   return lines.map((m, i) => {

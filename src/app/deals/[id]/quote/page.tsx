@@ -25,7 +25,12 @@ import AssemblyInstancesPanel from "@/components/assembly-instances-panel";
 import NumberInput from "@/components/number-input";
 import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
 import { computeMaterials } from "@/lib/assemblies/compute";
-import type { AssemblyInstance } from "@/types/assembly";
+import {
+  activeVariantOf,
+  migrateInstance,
+  type AssemblyInstance,
+  type AssemblyVariant,
+} from "@/types/assembly";
 import { useAuth } from "@/lib/auth-context";
 import {
   getDeal,
@@ -98,7 +103,10 @@ export default function DealQuotePage({
       setDeal(d);
       setLines(theLines);
       setSavedLinesSnapshot(JSON.stringify(theLines));
-      const instances = d.assembly_instances ?? [];
+      // Migrate any legacy single-property-bag instances into the new
+      // variants schema on load so the rest of this page only ever
+      // touches the new shape.
+      const instances = (d.assembly_instances ?? []).map(migrateInstance);
       setAssemblyInstances(instances);
       setSavedInstancesSnapshot(JSON.stringify(instances));
       setSettings(theSettings);
@@ -255,7 +263,7 @@ export default function DealQuotePage({
       // from one assembly instance shares the same label so it groups
       // cleanly into milestones / draws downstream.
       product_code: instance.instanceLabel,
-      description: `${material.name} (from ${instance.assemblyName})`,
+      description: `${material.name} (from ${activeVariantOf(instance).label})`,
       // The link to the persistent instance — editing the instance
       // regenerates every line carrying this id.
       instance_id: instance.id,
@@ -277,15 +285,18 @@ export default function DealQuotePage({
     });
   }
 
-  /** Derive a fresh QuoteLine block from an instance's current properties. */
+  /** Derive a fresh QuoteLine block from the instance's ACTIVE variant.
+   *  Inactive variants are reference state and never contribute to the
+   *  project's line items — switching active causes a full regeneration. */
   function instanceToQuoteLines(
     instance: AssemblyInstance,
     startingLineNumber: number,
   ): QuoteLine[] {
-    const assembly = findStubAssembly(instance.assemblyId);
+    const variant = activeVariantOf(instance);
+    const assembly = findStubAssembly(variant.assemblyId);
     if (!assembly) return [];
     const propertyValues = Object.fromEntries(
-      instance.propertyValues.map((p) => [p.name, p.value]),
+      variant.propertyValues.map((p) => [p.name, p.value]),
     );
     const result = computeMaterials(assembly, propertyValues);
     const markup = settings?.default_markup_percent ?? 20;
@@ -347,15 +358,25 @@ export default function DealQuotePage({
   function duplicateInstance(instanceId: string) {
     const source = assemblyInstances.find((i) => i.id === instanceId);
     if (!source) return;
-    const newId =
+    const mintId = () =>
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
-        : `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        : `id_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Deep-copy variants so editing the duplicate doesn't mutate the
+    // original's property values.
+    const dupVariants = source.variants.map((v) => ({
+      ...v,
+      id: mintId(),
+      propertyValues: v.propertyValues.map((p) => ({ ...p })),
+    }));
+    const sourceActiveIdx = source.variants.findIndex(
+      (v) => v.id === source.activeVariantId,
+    );
     const copy: AssemblyInstance = {
-      ...source,
-      id: newId,
+      id: mintId(),
       instanceLabel: `${source.instanceLabel} (copy)`,
-      propertyValues: source.propertyValues.map((p) => ({ ...p })),
+      variants: dupVariants,
+      activeVariantId: dupVariants[Math.max(0, sourceActiveIdx)].id,
     };
 
     // Insert the copy directly after the source instance in the panel.
@@ -398,13 +419,16 @@ export default function DealQuotePage({
     if (!next) return;
     const current = assemblyInstances.find((i) => i.id === instanceId);
     if (!current) return;
+    // Swap operates on the ACTIVE variant only — other variants keep
+    // their own assembly definitions. This lets a single instance carry
+    // mixed types (e.g. Variant A = 2×6 wall, Variant B = 2×4 wall).
+    const activeVariant = activeVariantOf(current);
     const oldByName = Object.fromEntries(
-      current.propertyValues.map((p) => [p.name, p.value]),
+      activeVariant.propertyValues.map((p) => [p.name, p.value]),
     );
     const newPropertyValues = next.properties.map((p) => {
       const carried = oldByName[p.name];
       if (carried != null) return { name: p.name, value: carried };
-      // Fall back to the new property's default for its kind.
       const fallback =
         p.defaultValue ??
         (p.kind === "option" ? p.options?.[0]?.value : undefined) ??
@@ -412,11 +436,17 @@ export default function DealQuotePage({
         0;
       return { name: p.name, value: fallback };
     });
+    const updatedVariant: AssemblyVariant = {
+      ...activeVariant,
+      assemblyId: next.id,
+      label: next.name,
+      propertyValues: newPropertyValues,
+    };
     updateInstance({
       ...current,
-      assemblyId: next.id,
-      assemblyName: next.name,
-      propertyValues: newPropertyValues,
+      variants: current.variants.map((v) =>
+        v.id === activeVariant.id ? updatedVariant : v,
+      ),
     });
   }
 

@@ -66,17 +66,27 @@ export default function AddAssemblyModal({
   function handleConfirm() {
     if (!state || !canConfirm) return;
     const label = instanceLabel.trim() || state.assembly.name;
+    const newId = () =>
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `id_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // New instances start with one variant — the configuration the user
+    // just set up. Additional variants get added later from the card UI.
+    const variantId = newId();
     const instance: AssemblyInstance = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      assemblyId: state.assembly.id,
-      assemblyName: state.assembly.name,
+      id: newId(),
       instanceLabel: label,
-      propertyValues: Object.entries(state.propertyValues).map(
-        ([name, value]) => ({ name, value }),
-      ),
+      variants: [
+        {
+          id: variantId,
+          label: state.assembly.name,
+          assemblyId: state.assembly.id,
+          propertyValues: Object.entries(state.propertyValues).map(
+            ([name, value]) => ({ name, value }),
+          ),
+        },
+      ],
+      activeVariantId: variantId,
     };
     onConfirm({ instance, materials: state.result.lines });
   }

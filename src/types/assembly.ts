@@ -113,25 +113,88 @@ export interface AssemblyMaterialLine {
 }
 
 /**
+ * One variant within an AssemblyInstance — represents "an alternative
+ * configuration of the same thing." E.g. a Window Unit instance might
+ * have variants "Vinyl" and "Wood," each with its own property values.
+ *
+ * Exactly one variant is active at a time on its parent instance; the
+ * active variant is the source of truth for derived QuoteLines and
+ * all roll-up totals. Inactive variants are reference state only —
+ * they appear as comparison chips on the card but never contribute
+ * to costs.
+ */
+export interface AssemblyVariant {
+  /** Stable id within the instance. */
+  id: string;
+  /** Display label, e.g. "Vinyl" or "Variant B". User-editable. */
+  label: string;
+  /** Reference to the Assembly definition this variant uses. Swap
+   *  operates on this — different variants of the same instance can
+   *  point to different assemblies (e.g. 2×6 wall vs 2×4 wall). */
+  assemblyId: string;
+  /** Property values that feed the assembly's formulas for this variant. */
+  propertyValues: AssemblyPropertyValue[];
+}
+
+/**
  * An Assembly instance placed on an estimate — the editable record we
  * persist on the Deal. Materials are NOT snapshotted here; they're
- * derived on demand from the Assembly definition + propertyValues so
- * tweaking a property (live during a client conversation) regenerates
- * the cost lines without any reconciliation.
+ * derived on demand from the active variant's Assembly + property
+ * values so tweaking a property (live during a client conversation)
+ * regenerates the cost lines without any reconciliation.
  *
  * Each instance owns a contiguous block of derived QuoteLines, linked
- * via QuoteLine.instance_id. Editing the instance regenerates that
- * block in place.
+ * via QuoteLine.instance_id. Editing the active variant — or switching
+ * to a different one — regenerates that block in place.
  */
 export interface AssemblyInstance {
   /** Stable id within the deal. Used to tag derived QuoteLines. */
   id: string;
-  /** Reference to the Assembly definition this was built from. */
-  assemblyId: string;
-  /** Snapshot of the assembly's name at the time it was added. */
-  assemblyName: string;
   /** Phase label — shows in the panel + on every derived QuoteLine. */
   instanceLabel: string;
-  /** Property values that feed the assembly's formulas. */
-  propertyValues: AssemblyPropertyValue[];
+  /** All variants this instance currently carries. Always at least one. */
+  variants: AssemblyVariant[];
+  /** Which variant is currently active. Drives totals + QuoteLines. */
+  activeVariantId: string;
+  /** Legacy field — pre-variants instances stored a single property
+   *  bag here. Read-only after migration; new writes go to variants[]. */
+  assemblyId?: string;
+  /** Legacy field — see assemblyId. */
+  assemblyName?: string;
+  /** Legacy field — see assemblyId. */
+  propertyValues?: AssemblyPropertyValue[];
+}
+
+/** Read the active variant of an instance, falling back to the first
+ *  variant if activeVariantId points to a deleted one (defensive). */
+export function activeVariantOf(instance: AssemblyInstance): AssemblyVariant {
+  return (
+    instance.variants.find((v) => v.id === instance.activeVariantId) ??
+    instance.variants[0]
+  );
+}
+
+/** Migrate a legacy pre-variants instance shape into the new variants
+ *  schema. Idempotent — returns the input unchanged if it's already
+ *  in the new shape. Used by load paths so persisted data continues to
+ *  work after the upgrade. */
+export function migrateInstance(raw: AssemblyInstance): AssemblyInstance {
+  if (raw.variants && raw.variants.length > 0 && raw.activeVariantId) {
+    return raw;
+  }
+  // Legacy: assemblyId + propertyValues at the top level → wrap into one variant.
+  const variantId = `var_${Math.random().toString(36).slice(2, 10)}`;
+  return {
+    id: raw.id,
+    instanceLabel: raw.instanceLabel,
+    variants: [
+      {
+        id: variantId,
+        label: raw.assemblyName ?? "Default",
+        assemblyId: raw.assemblyId ?? "",
+        propertyValues: raw.propertyValues ?? [],
+      },
+    ],
+    activeVariantId: variantId,
+  };
 }
