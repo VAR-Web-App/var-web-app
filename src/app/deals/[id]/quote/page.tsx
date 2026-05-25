@@ -936,13 +936,12 @@ function LineEditor({
     (l.notes ?? "").toLowerCase().includes(q);
   const visibleCount = q ? lines.filter(matches).length : lines.length;
 
-  // Soft tint per Phase — first phase gets slate-50, second sky-50,
-  // then alternates. Whole-row background so contiguous same-phase
-  // rows read as a section. Kept very pale (50 weights) so 100+ rows
-  // never feel busy; hover bumps to 100 for the row under the cursor.
+  // Soft tint per Phase — alternates plain white and sky-50 so every
+  // other phase group reads as a tinted section without the page
+  // feeling busy. Hover bumps a shade for the row under the cursor.
   const phaseRowClass = useMemo(() => {
     const palette = [
-      "bg-slate-50 hover:bg-slate-100",
+      "hover:bg-slate-50",
       "bg-sky-50 hover:bg-sky-100",
     ];
     const map = new Map<string, string>();
