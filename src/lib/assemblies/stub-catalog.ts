@@ -1189,6 +1189,449 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     ],
   },
   {
+    id: "stub-plumbing-rough",
+    name: "Plumbing — rough-in (per fixture)",
+    description:
+      "Whole-house plumbing rough-in: supply lines (PEX or copper), " +
+      "DWV (drain-waste-vent), and pressure test. Priced per fixture " +
+      "count because that's how plumbers bid it.",
+    trade: "plumbing",
+    properties: [
+      { name: "Fixture Count", uom: "EA", defaultValue: 12 },
+      {
+        name: "Supply Line",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "PEX (standard)", value: 1.0 },
+          { label: "Copper (premium)", value: 1.8 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Rough-in per fixture (supply + DWV)",
+        uom: "EA",
+        quantityFormula: "{Fixture Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "180 * {Supply Line}",
+        laborCostUsd: 320,
+        csiDivision: "22",
+      },
+      {
+        name: "Main waste stack + cleanouts",
+        uom: "EA",
+        quantityFormula: "1",
+        unitCostUsd: 240,
+        laborCostUsd: 380,
+        csiDivision: "22",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "PEX standard (12 fixtures)",
+        propertyOverrides: { "Fixture Count": 12, "Supply Line": 1.0 },
+      },
+      {
+        label: "PEX large home (18 fixtures)",
+        propertyOverrides: { "Fixture Count": 18, "Supply Line": 1.0 },
+      },
+      {
+        label: "Copper premium (12 fixtures)",
+        description: "Higher material cost, longer service life",
+        propertyOverrides: { "Fixture Count": 12, "Supply Line": 1.8 },
+      },
+    ],
+  },
+  {
+    id: "stub-electrical-whole-home",
+    name: "Electrical — whole-home rough + finish",
+    description:
+      "Service entrance, panel, branch circuits, outlets, switches, " +
+      "and basic fixtures (recessed cans + standard outlets). Priced " +
+      "per SF for the wiring + per-outlet for the trim-out. Doesn't " +
+      "include decorative fixtures — see Lighting allowances.",
+    trade: "electrical",
+    properties: [
+      { name: "Conditioned Area", uom: "SF", defaultValue: 2400 },
+      {
+        name: "Service Size",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "200 A (standard)", value: 1.0 },
+          { label: "320 A (whole-home heat pump)", value: 1.4 },
+          { label: "400 A (large home / shop / EV)", value: 1.9 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Wiring + boxes + circuit runs",
+        uom: "SF",
+        quantityFormula: "{Conditioned Area}",
+        unitCostUsd: 2.8,
+        laborCostUsd: 2.4,
+        csiDivision: "26",
+      },
+      {
+        name: "Service entrance + panel",
+        uom: "EA",
+        quantityFormula: "1",
+        unitCostUsd: 0,
+        unitCostFormula: "1850 * {Service Size}",
+        laborCostUsd: 0,
+        laborCostFormula: "1100 * {Service Size}",
+        csiDivision: "26",
+      },
+      {
+        name: "Recessed cans + standard fixtures (per SF estimate)",
+        uom: "SF",
+        quantityFormula: "{Conditioned Area}",
+        unitCostUsd: 1.2,
+        laborCostUsd: 0.8,
+        csiDivision: "26",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "200 A standard",
+        propertyOverrides: { "Service Size": 1.0 },
+      },
+      {
+        label: "320 A (heat pump-ready)",
+        description: "Sized for whole-home electric heat",
+        propertyOverrides: { "Service Size": 1.4 },
+      },
+      {
+        label: "400 A (large home / EV / shop)",
+        propertyOverrides: { "Service Size": 1.9 },
+      },
+    ],
+  },
+  {
+    id: "stub-hvac-ducted",
+    name: "HVAC — ducted central system",
+    description:
+      "Forced-air ducted system: condenser, air handler, ductwork, " +
+      "registers, and thermostat. Per-ton sizing scales every component. " +
+      "Rule of thumb: 1 ton per 600–800 SF (climate-dependent).",
+    trade: "hvac",
+    properties: [
+      { name: "System Size", uom: "TON", defaultValue: 4 },
+      {
+        name: "System Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Gas furnace + AC (split)", value: 1.0 },
+          { label: "Heat pump (electric)", value: 1.2 },
+          { label: "Variable-speed inverter (high SEER)", value: 1.6 },
+          { label: "Geothermal", value: 3.2 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Equipment (condenser + air handler / furnace)",
+        uom: "TON",
+        quantityFormula: "{System Size}",
+        unitCostUsd: 0,
+        unitCostFormula: "1450 * {System Type}",
+        laborCostUsd: 380,
+        csiDivision: "23",
+      },
+      {
+        name: "Ductwork + registers + thermostat",
+        uom: "TON",
+        quantityFormula: "{System Size}",
+        unitCostUsd: 720,
+        laborCostUsd: 560,
+        csiDivision: "23",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Gas furnace + AC (standard 4-ton)",
+        propertyOverrides: { "System Size": 4, "System Type": 1.0 },
+      },
+      {
+        label: "Heat pump (4-ton)",
+        description: "Electric-only home; no gas line",
+        propertyOverrides: { "System Size": 4, "System Type": 1.2 },
+      },
+      {
+        label: "High-SEER variable speed",
+        description: "Energy-efficient premium tier",
+        propertyOverrides: { "System Size": 4, "System Type": 1.6 },
+      },
+      {
+        label: "Geothermal (luxury)",
+        description: "Highest upfront, lowest operating cost",
+        propertyOverrides: { "System Size": 4, "System Type": 3.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-kitchen-cabinetry",
+    name: "Kitchen Cabinetry (installed)",
+    description:
+      "Cabinet runs sold per linear foot — counts both base + upper. " +
+      "Grade scales the per-LF cost from builder stock (knockdown boxes) " +
+      "to fully custom shop-built. Includes installation labor + " +
+      "standard hardware (no specialty drawer pulls).",
+    trade: "millwork",
+    properties: [
+      { name: "Cabinet Run", uom: "LF", defaultValue: 22 },
+      {
+        name: "Cabinet Grade",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Stock (knockdown)", value: 1.0 },
+          { label: "Semi-custom", value: 1.8 },
+          { label: "Custom (shop-built)", value: 3.0 },
+          { label: "Luxury (inset + premium wood)", value: 4.5 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Cabinet boxes + doors + drawers (per LF)",
+        uom: "LF",
+        quantityFormula: "{Cabinet Run}",
+        unitCostUsd: 0,
+        unitCostFormula: "280 * {Cabinet Grade}",
+        laborCostUsd: 85,
+        csiDivision: "12",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Stock builder-grade",
+        propertyOverrides: { "Cabinet Grade": 1.0 },
+      },
+      {
+        label: "Semi-custom (standard upgrade)",
+        propertyOverrides: { "Cabinet Grade": 1.8 },
+      },
+      {
+        label: "Full custom (shop-built)",
+        description: "Locally fabricated, any door style",
+        propertyOverrides: { "Cabinet Grade": 3.0 },
+      },
+      {
+        label: "Luxury inset",
+        description: "Inset doors + premium hardwoods",
+        propertyOverrides: { "Cabinet Grade": 4.5 },
+      },
+    ],
+  },
+  {
+    id: "stub-countertops",
+    name: "Countertops (fabricated + installed)",
+    description:
+      "Countertop slab material + fabrication + installation. Priced " +
+      "per SF of finished surface. Includes one undermount sink cutout " +
+      "in the base price; multiple cutouts or edge profiles are extras.",
+    trade: "finishes",
+    properties: [
+      { name: "Countertop Area", uom: "SF", defaultValue: 55 },
+      {
+        name: "Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Laminate", value: 1.0 },
+          { label: "Butcher block", value: 1.6 },
+          { label: "Solid surface (Corian)", value: 2.2 },
+          { label: "Granite", value: 3.0 },
+          { label: "Quartz (engineered stone)", value: 3.4 },
+          { label: "Marble", value: 4.5 },
+          { label: "Soapstone / Quartzite (premium)", value: 5.5 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Slab + fabrication + edge profile",
+        uom: "SF",
+        quantityFormula: "{Countertop Area}",
+        unitCostUsd: 0,
+        unitCostFormula: "22 * {Material}",
+        laborCostUsd: 12,
+        csiDivision: "12",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Laminate (budget)",
+        propertyOverrides: { Material: 1.0 },
+      },
+      {
+        label: "Butcher block",
+        description: "Warm wood; needs sealing maintenance",
+        propertyOverrides: { Material: 1.6 },
+      },
+      {
+        label: "Granite (standard upgrade)",
+        propertyOverrides: { Material: 3.0 },
+      },
+      {
+        label: "Quartz (popular premium)",
+        description: "Non-porous, low-maintenance",
+        propertyOverrides: { Material: 3.4 },
+      },
+      {
+        label: "Marble (luxury)",
+        propertyOverrides: { Material: 4.5 },
+      },
+    ],
+  },
+  {
+    id: "stub-bath-suite",
+    name: "Bathroom suite (vanity + toilet + tub/shower)",
+    description:
+      "Per-bathroom bundle: vanity + faucet + toilet + tub or shower. " +
+      "Grade option scales the whole bundle — from rental-spec fixtures " +
+      "to designer level. Fixture rough-in lives in the Plumbing assembly; " +
+      "this is the visible-fixtures + finish cost.",
+    trade: "millwork",
+    properties: [
+      { name: "Bathroom Count", uom: "EA", defaultValue: 3 },
+      {
+        name: "Bath Grade",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder / rental spec", value: 1.0 },
+          { label: "Standard (mid-market)", value: 1.6 },
+          { label: "Designer", value: 2.6 },
+          { label: "Luxury (stone tile / freestanding tub)", value: 4.5 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Vanity + faucet + mirror (per bathroom)",
+        uom: "EA",
+        quantityFormula: "{Bathroom Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "750 * {Bath Grade}",
+        laborCostUsd: 220,
+        csiDivision: "12",
+      },
+      {
+        name: "Toilet + supply (per bathroom)",
+        uom: "EA",
+        quantityFormula: "{Bathroom Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "280 * {Bath Grade}",
+        laborCostUsd: 140,
+        csiDivision: "22",
+      },
+      {
+        name: "Tub or shower + valve (per bathroom)",
+        uom: "EA",
+        quantityFormula: "{Bathroom Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "950 * {Bath Grade}",
+        laborCostUsd: 320,
+        csiDivision: "22",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder spec (3 baths)",
+        propertyOverrides: { "Bathroom Count": 3, "Bath Grade": 1.0 },
+      },
+      {
+        label: "Mid-market (3 baths)",
+        propertyOverrides: { "Bathroom Count": 3, "Bath Grade": 1.6 },
+      },
+      {
+        label: "Designer (3 baths)",
+        description: "Quality faucets, vessel sinks, tiled shower",
+        propertyOverrides: { "Bathroom Count": 3, "Bath Grade": 2.6 },
+      },
+      {
+        label: "Luxury master + 2 standard",
+        description: "Set Bathroom Count = 1 + clone for the standard ones",
+        propertyOverrides: { "Bathroom Count": 1, "Bath Grade": 4.5 },
+      },
+    ],
+  },
+  {
+    id: "stub-interior-trim",
+    name: "Interior trim — baseboard + casing",
+    description:
+      "Baseboard run around every room's perimeter + door and window " +
+      "casing. Profile complexity drives both material and labor.",
+    trade: "finishes",
+    properties: [
+      { name: "Baseboard Length", uom: "LF", defaultValue: 480 },
+      { name: "Door + Window Openings", uom: "EA", defaultValue: 22 },
+      {
+        name: "Trim Profile",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: 'Basic (3-1/4" colonial)', value: 1.0 },
+          { label: 'Standard (5-1/4" w/ chair rail)', value: 1.5 },
+          { label: 'Premium (custom 7" base + crown)', value: 2.4 },
+          { label: "Craftsman (built-up profile)", value: 3.0 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Baseboard (primed MDF or pine)",
+        uom: "LF",
+        // 5% waste for cuts.
+        quantityFormula: "{Baseboard Length} * 1.05",
+        unitCostUsd: 0,
+        unitCostFormula: "1.40 * {Trim Profile}",
+        laborCostUsd: 1.6,
+        csiDivision: "06",
+      },
+      {
+        name: "Door + window casing (~16 LF per opening)",
+        uom: "LF",
+        quantityFormula: "{Door + Window Openings} * 16 * 1.05",
+        unitCostUsd: 0,
+        unitCostFormula: "1.30 * {Trim Profile}",
+        laborCostUsd: 1.5,
+        csiDivision: "06",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Basic colonial",
+        propertyOverrides: { "Trim Profile": 1.0 },
+      },
+      {
+        label: "Standard w/ chair rail",
+        propertyOverrides: { "Trim Profile": 1.5 },
+      },
+      {
+        label: 'Premium 7" base + crown',
+        propertyOverrides: { "Trim Profile": 2.4 },
+      },
+      {
+        label: "Craftsman built-up",
+        description: "Multi-piece profile; high labor",
+        propertyOverrides: { "Trim Profile": 3.0 },
+      },
+    ],
+  },
+  {
     id: "stub-drywall",
     name: "Drywall — hung, taped, finished",
     description:
