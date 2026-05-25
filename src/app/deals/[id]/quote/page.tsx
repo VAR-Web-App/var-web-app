@@ -77,6 +77,23 @@ export default function DealQuotePage({
   const [showAssemblyModal, setShowAssemblyModal] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
+  // Toast queue for destructive-action undo. Each toast carries the
+  // restore closure that the Undo button calls; toasts auto-dismiss
+  // after 7s. Capturing the state BEFORE the destructive write is what
+  // makes undo work without persisted history.
+  const [toasts, setToasts] = useState<
+    Array<{ id: string; message: string; undo: () => void }>
+  >([]);
+  function showUndoToast(message: string, undo: () => void) {
+    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    setToasts((prev) => [...prev, { id, message, undo }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 7000);
+  }
+  function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
   const [assemblyInstances, setAssemblyInstances] = useState<
     AssemblyInstance[]
   >([]);
@@ -209,9 +226,20 @@ export default function DealQuotePage({
   }
 
   function removeLine(idx: number) {
+    // Capture the line + its position before the destructive write so
+    // Undo can splice it back exactly where it was.
+    const removed = lines[idx];
+    if (!removed) return;
     setLines((prev) => {
       const next = prev.filter((_, i) => i !== idx);
       return next.map((l, i) => ({ ...l, line_number: i + 1 }));
+    });
+    showUndoToast("Line removed", () => {
+      setLines((prev) => {
+        const restored = [...prev];
+        restored.splice(Math.min(idx, restored.length), 0, removed);
+        return restored.map((l, i) => ({ ...l, line_number: i + 1 }));
+      });
     });
   }
 
@@ -341,11 +369,36 @@ export default function DealQuotePage({
   }
 
   function removeInstance(instanceId: string) {
+    // Capture instance + its derived lines + position before the write
+    // so Undo can fully restore both the panel card and the line block.
+    const instanceIdx = assemblyInstances.findIndex((i) => i.id === instanceId);
+    const removedInstance = assemblyInstances[instanceIdx];
+    const removedLines = lines.filter((l) => l.instance_id === instanceId);
+    if (!removedInstance) return;
+
     setAssemblyInstances((prev) => prev.filter((i) => i.id !== instanceId));
     setLines((prev) =>
       prev
         .filter((l) => l.instance_id !== instanceId)
         .map((l, i) => ({ ...l, line_number: i + 1 })),
+    );
+
+    const n = removedLines.length;
+    showUndoToast(
+      `Assembly removed${n > 0 ? ` (${n} line${n === 1 ? "" : "s"})` : ""}`,
+      () => {
+        setAssemblyInstances((prev) => {
+          const next = [...prev];
+          next.splice(Math.min(instanceIdx, next.length), 0, removedInstance);
+          return next;
+        });
+        setLines((prev) =>
+          [...prev, ...removedLines].map((l, i) => ({
+            ...l,
+            line_number: i + 1,
+          })),
+        );
+      },
     );
   }
 
@@ -587,6 +640,41 @@ export default function DealQuotePage({
         onClose={() => setShowAssemblyModal(false)}
         onConfirm={importFromAssembly}
       />
+
+      {/* Undo toasts for destructive actions — bottom-right on desktop,
+       *  raised above the mobile sticky bar on phones so they don't get
+       *  hidden behind it. Each toast auto-dismisses after 7s. */}
+      {toasts.length > 0 ? (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 sm:bottom-6 sm:right-6">
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              role="status"
+              className="flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-xl"
+            >
+              <span>{t.message}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  t.undo();
+                  dismissToast(t.id);
+                }}
+                className="rounded bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-500"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={() => dismissToast(t.id)}
+                className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Sticky mobile-only bottom bar — phone real estate is precious,
        *  keep the running total + Save action thumb-reachable while the
