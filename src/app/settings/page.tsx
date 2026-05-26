@@ -114,7 +114,14 @@ export default function SettingsPage() {
           >
             <GCPushOptIn
               settings={settings}
-              onChange={(next) => setSettings(next)}
+              onChange={(next) => {
+                setSettings(next);
+                // Persist immediately — subscriptions are useless
+                // until they're written to Firestore (the server
+                // reads from there to dispatch pushes). Don't make
+                // the user remember to click Save below.
+                void saveSettings(next);
+              }}
             />
           </Card>
 
