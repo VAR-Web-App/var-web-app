@@ -46,7 +46,8 @@ import {
   saveQuoteLines,
   newId,
 } from "@/lib/store";
-import { Deal, QuoteLine, OrgSettings } from "@/types";
+import { Deal, QuoteLine, OrgSettings, QuoteScenario, SoftCosts } from "@/types";
+import ScenariosBar from "@/components/scenarios-bar";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -107,6 +108,10 @@ export default function DealQuotePage({
   );
   const [savedSoftCostsSnapshot, setSavedSoftCostsSnapshot] =
     useState<string>("");
+  const [scenarios, setScenarios] = useState<QuoteScenario[]>([]);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     if (!profile) return;
@@ -134,6 +139,8 @@ export default function DealQuotePage({
       setAssemblyInstances(instances);
       setSavedInstancesSnapshot(JSON.stringify(instances));
       setSavedSoftCostsSnapshot(JSON.stringify(d.soft_costs ?? null));
+      setScenarios(d.scenarios ?? []);
+      setActiveScenarioId(d.active_scenario_id);
       setSettings(theSettings);
       // Pull parsed BOM cache from sessionStorage (set by the deal detail
       // page when a PDF was uploaded + parsed). Filter to attachments that
@@ -516,6 +523,162 @@ export default function DealQuotePage({
     });
   }
 
+  // ── Named scenarios (Standard / Premium / Budget) ────────────────
+  // Each scenario is a snapshot of (assembly_instances, quote_lines,
+  // soft_costs). Switching loads the snapshot back into the working
+  // state; editing while a scenario is active marks it unsaved and
+  // the GC clicks "Update {name}" to sync edits back into the record.
+
+  /** Whether the current working state differs from the active
+   *  scenario's snapshot. Drives the unsaved-changes pill + the
+   *  "Update {name}" button visibility. */
+  const hasUnsavedScenarioChanges = useMemo(() => {
+    if (!activeScenarioId) return false;
+    const active = scenarios.find((s) => s.id === activeScenarioId);
+    if (!active) return false;
+    return (
+      JSON.stringify(active.assembly_instances) !==
+        JSON.stringify(assemblyInstances) ||
+      JSON.stringify(active.quote_lines) !== JSON.stringify(lines) ||
+      JSON.stringify(active.soft_costs ?? null) !==
+        JSON.stringify(deal?.soft_costs ?? null)
+    );
+  }, [
+    activeScenarioId,
+    scenarios,
+    assemblyInstances,
+    lines,
+    deal?.soft_costs,
+  ]);
+
+  /** Snapshot the current working state into a QuoteScenario shape.
+   *  Used by saveAsNewScenario + updateActiveScenario. */
+  function snapshotCurrentState(
+    id: string,
+    name: string,
+    createdAt: string,
+  ): QuoteScenario {
+    return {
+      id,
+      name,
+      assembly_instances: assemblyInstances,
+      quote_lines: lines,
+      ...(deal?.soft_costs ? { soft_costs: deal.soft_costs } : {}),
+      total_quote_value: totals.grandTotal,
+      total_cost: totals.cost,
+      margin_percent: totals.margin,
+      created_at: createdAt,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  async function saveAsNewScenario(name: string) {
+    if (!deal) return;
+    const now = new Date().toISOString();
+    const sid = `sc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const snapshot = snapshotCurrentState(sid, name, now);
+    const nextScenarios = [...scenarios, snapshot];
+    setScenarios(nextScenarios);
+    setActiveScenarioId(sid);
+    // Persist immediately so the GC doesn't lose the named save if
+    // they navigate away before hitting the main Save button.
+    const updatedDeal: Deal = {
+      ...deal,
+      scenarios: nextScenarios,
+      active_scenario_id: sid,
+      updated_at: now,
+    };
+    await saveDeal(updatedDeal);
+    setDeal(updatedDeal);
+  }
+
+  async function updateActiveScenario() {
+    if (!deal || !activeScenarioId) return;
+    const existing = scenarios.find((s) => s.id === activeScenarioId);
+    if (!existing) return;
+    const refreshed = snapshotCurrentState(
+      existing.id,
+      existing.name,
+      existing.created_at,
+    );
+    const nextScenarios = scenarios.map((s) =>
+      s.id === activeScenarioId ? refreshed : s,
+    );
+    setScenarios(nextScenarios);
+    const updatedDeal: Deal = {
+      ...deal,
+      scenarios: nextScenarios,
+      updated_at: new Date().toISOString(),
+    };
+    await saveDeal(updatedDeal);
+    setDeal(updatedDeal);
+  }
+
+  async function switchScenario(scenarioId: string) {
+    if (!deal) return;
+    const target = scenarios.find((s) => s.id === scenarioId);
+    if (!target) return;
+    if (hasUnsavedScenarioChanges) {
+      if (
+        !confirm(
+          `Switch to "${target.name}"? You have unsaved changes in the current scenario — they'll be lost unless you cancel and click Update first.`,
+        )
+      ) {
+        return;
+      }
+    }
+    // Replace working state with the target scenario's snapshot.
+    setAssemblyInstances(target.assembly_instances);
+    setLines(target.quote_lines);
+    // Push soft_costs onto the deal so SoftCostsPanel re-renders.
+    const nextSoftCosts: SoftCosts | undefined = target.soft_costs;
+    setActiveScenarioId(scenarioId);
+    const updatedDeal: Deal = {
+      ...deal,
+      soft_costs: nextSoftCosts,
+      active_scenario_id: scenarioId,
+      updated_at: new Date().toISOString(),
+    };
+    setDeal(updatedDeal);
+    // Persist immediately so the active flip + soft costs survive
+    // navigation. Lines + instances persist on the next Save.
+    await saveDeal(updatedDeal);
+  }
+
+  async function renameScenario(scenarioId: string, name: string) {
+    if (!deal) return;
+    const nextScenarios = scenarios.map((s) =>
+      s.id === scenarioId
+        ? { ...s, name, updated_at: new Date().toISOString() }
+        : s,
+    );
+    setScenarios(nextScenarios);
+    const updatedDeal: Deal = {
+      ...deal,
+      scenarios: nextScenarios,
+      updated_at: new Date().toISOString(),
+    };
+    await saveDeal(updatedDeal);
+    setDeal(updatedDeal);
+  }
+
+  async function deleteScenario(scenarioId: string) {
+    if (!deal) return;
+    const nextScenarios = scenarios.filter((s) => s.id !== scenarioId);
+    const nextActive =
+      activeScenarioId === scenarioId ? undefined : activeScenarioId;
+    setScenarios(nextScenarios);
+    setActiveScenarioId(nextActive);
+    const updatedDeal: Deal = {
+      ...deal,
+      scenarios: nextScenarios,
+      active_scenario_id: nextActive,
+      updated_at: new Date().toISOString(),
+    };
+    await saveDeal(updatedDeal);
+    setDeal(updatedDeal);
+  }
+
   async function onSave() {
     if (!profile || !deal) return;
     setSaving(true);
@@ -537,6 +700,17 @@ export default function DealQuotePage({
       // Update deal totals so the kanban + deal detail reflect the latest
       // quote roll-up. This is a separate write — race-safe since deal docs
       // and quote lines are independent.
+      // If a scenario is active, sync this save into its snapshot so
+      // hasUnsavedScenarioChanges goes false. Otherwise persist the
+      // scenarios list as-is.
+      const syncedScenarios = activeScenarioId
+        ? scenarios.map((s) =>
+            s.id === activeScenarioId
+              ? snapshotCurrentState(s.id, s.name, s.created_at)
+              : s,
+          )
+        : scenarios;
+
       const updatedDeal: Deal = {
         ...deal,
         // total_quote_value reflects the GRAND total (with soft costs)
@@ -547,10 +721,13 @@ export default function DealQuotePage({
         margin_percent: totals.margin,
         assembly_instances: assemblyInstances,
         soft_costs: deal.soft_costs,
+        scenarios: syncedScenarios,
+        active_scenario_id: activeScenarioId,
         updated_at: new Date().toISOString(),
       };
       await saveDeal(updatedDeal);
       setDeal(updatedDeal);
+      setScenarios(syncedScenarios);
       setLines(renumbered);
       setSavedLinesSnapshot(JSON.stringify(renumbered));
       setSavedInstancesSnapshot(JSON.stringify(assemblyInstances));
@@ -663,6 +840,17 @@ export default function DealQuotePage({
             onImport={importFromBom}
           />
         )}
+
+        <ScenariosBar
+          scenarios={scenarios}
+          activeScenarioId={activeScenarioId}
+          hasUnsavedChanges={hasUnsavedScenarioChanges}
+          onSaveAsNew={(name) => void saveAsNewScenario(name)}
+          onSwitch={(id) => void switchScenario(id)}
+          onRename={(id, name) => void renameScenario(id, name)}
+          onDelete={(id) => void deleteScenario(id)}
+          onUpdateActive={() => void updateActiveScenario()}
+        />
 
         <TotalsBar totals={totals} lineCount={lines.length} />
 

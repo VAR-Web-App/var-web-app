@@ -84,22 +84,51 @@ export interface Deal {
    *  add these as percentage (or flat) layers for taxes, contingency
    *  reserve, and general conditions / project overhead. All optional
    *  — zero/undefined means "don't apply this line." */
-  soft_costs?: {
-    /** Sales tax percentage applied to the materials subtotal. */
-    tax_percent?: number;
-    /** Tax applies to: "materials" (cost basis), "all" (full customer
-     *  subtotal), or undefined / "materials" by default. */
-    tax_basis?: "materials" | "all";
-    /** Contingency reserve percentage applied to the cost subtotal —
-     *  builder's buffer for change orders / market price swings. */
-    contingency_percent?: number;
-    /** General Conditions: project overhead (supervision, dumpsters,
-     *  port-a-john, etc.). Either a percentage on cost, or a flat
-     *  dollar amount — gc_mode picks which. */
-    gc_mode?: "percent" | "flat";
-    gc_percent?: number;
-    gc_amount?: number;
-  };
+  soft_costs?: SoftCosts;
+  /** Named whole-quote scenarios — "Standard Spec" / "Premium Spec" /
+   *  "Budget Spec". Each is a frozen snapshot of the full estimate
+   *  state (assembly_instances + quote_lines + soft_costs) that the
+   *  builder can switch between at the kitchen table to show the
+   *  client side-by-side variations. Edits while a scenario is
+   *  active sync back into that scenario's record on save. */
+  scenarios?: QuoteScenario[];
+  /** ID of the currently active scenario, or undefined when the
+   *  builder is editing the base draft (no scenario loaded). */
+  active_scenario_id?: string;
+}
+
+export interface SoftCosts {
+  /** Sales tax percentage applied to the materials subtotal. */
+  tax_percent?: number;
+  /** Tax applies to: "materials" (cost basis), "all" (full customer
+   *  subtotal), or undefined / "materials" by default. */
+  tax_basis?: "materials" | "all";
+  /** Contingency reserve percentage applied to the cost subtotal —
+   *  builder's buffer for change orders / market price swings. */
+  contingency_percent?: number;
+  /** General Conditions: project overhead (supervision, dumpsters,
+   *  port-a-john, etc.). Either a percentage on cost, or a flat
+   *  dollar amount — gc_mode picks which. */
+  gc_mode?: "percent" | "flat";
+  gc_percent?: number;
+  gc_amount?: number;
+}
+
+/** A named, frozen snapshot of an estimate. Lives on Deal.scenarios.
+ *  Switching scenarios loads this record's three fields back into the
+ *  Deal's working state; editing while active syncs back here on save. */
+export interface QuoteScenario {
+  id: string;
+  name: string;
+  assembly_instances: import("./assembly").AssemblyInstance[];
+  quote_lines: QuoteLine[];
+  soft_costs?: SoftCosts;
+  /** Cached totals so the chip strip shows $ without recomputing. */
+  total_quote_value: number;
+  total_cost: number;
+  margin_percent: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface QuoteLine {
