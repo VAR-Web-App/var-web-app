@@ -271,7 +271,7 @@ function SubscriptionRow({
         });
         setTestMsg(
           data.error === "not_configured"
-            ? "Push isn't configured (VAPID keys)"
+            ? "Server can't reach Firebase — admin credentials missing on Vercel"
             : "Send failed",
         );
       }
