@@ -79,10 +79,13 @@ export default function DistributorsPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subs & Suppliers</h1>
-          <p className="mt-1 text-sm text-slate-500">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+            <span className="md:hidden">Subs</span>
+            <span className="hidden md:inline">Subs & Suppliers</span>
+          </h1>
+          <p className="mt-1 hidden text-sm text-slate-500 md:block">
             Subcontractors and material suppliers — your trade partners and vendor list for RFQs.
           </p>
         </div>
@@ -93,15 +96,17 @@ export default function DistributorsPage() {
         >
           <button
             onClick={startNew}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800 sm:px-4"
           >
             <PlusIcon className="h-4 w-4" />
-            New Sub / Supplier
+            <span className="hidden sm:inline">New Sub / Supplier</span>
+            <span className="sm:hidden">New</span>
           </button>
         </Tooltip>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Desktop table — hidden on mobile in favor of the card list below. */}
+      <section className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
@@ -155,6 +160,79 @@ export default function DistributorsPage() {
             )}
           </tbody>
         </table>
+      </section>
+
+      {/* Mobile card list — table doesn't work at phone widths. Same
+       *  data: name + trade + contact + phone + address + actions, but
+       *  stacked vertically per row. */}
+      <section className="space-y-2 md:hidden">
+        {distributors.length === 0 ? (
+          <p className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
+            No subs or suppliers yet.
+          </p>
+        ) : (
+          distributors.map((d) => (
+            <div
+              key={d.id}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900">{d.name}</p>
+                  {d.account_number && (
+                    <p className="mt-0.5 font-mono text-[11px] text-slate-500">
+                      {d.account_number}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => onDelete(d.id)}
+                  aria-label="Delete"
+                  className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+              {(d.order_poc_name || d.phone) && (
+                <p className="mt-2 text-xs text-slate-600">
+                  {d.order_poc_name || "—"}
+                  {d.phone && (
+                    <>
+                      {" · "}
+                      <a
+                        href={`tel:${d.phone}`}
+                        className="text-sky-700"
+                      >
+                        {d.phone}
+                      </a>
+                    </>
+                  )}
+                </p>
+              )}
+              {d.address && (
+                <p className="mt-1 whitespace-pre-line text-xs text-slate-500">
+                  {d.address}
+                </p>
+              )}
+              <div className="mt-3 flex gap-3">
+                <button
+                  onClick={() => void previewPortal(d)}
+                  disabled={previewingId === d.id}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800 disabled:opacity-50"
+                >
+                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                  {previewingId === d.id ? "Opening…" : "Preview portal"}
+                </button>
+                <button
+                  onClick={() => setEditing(d)}
+                  className="text-xs font-medium text-slate-700 hover:text-slate-900"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </section>
 
       {editing && (

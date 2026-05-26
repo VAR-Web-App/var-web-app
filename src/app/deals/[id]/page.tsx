@@ -123,12 +123,12 @@ function DealMetadataCard({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-6 py-4">
+      <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <h2 className="text-sm font-semibold text-slate-900">
           Project Details
         </h2>
       </div>
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-6 text-sm">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-4 text-sm sm:p-6">
         {items.map(([label, value]) => (
           <div
             key={label}
@@ -167,7 +167,7 @@ function NotesCard({
   useEffect(() => setDraft(deal.notes), [deal.notes]);
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <h2 className="text-sm font-semibold text-slate-900">Notes</h2>
         {editing ? (
           <div className="flex gap-2">
@@ -199,7 +199,7 @@ function NotesCard({
           </button>
         )}
       </div>
-      <div className="p-6 text-sm">
+      <div className="p-4 text-sm sm:p-6">
         {editing ? (
           <textarea
             value={draft}

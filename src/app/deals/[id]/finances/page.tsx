@@ -70,12 +70,12 @@ function EstimateSummary({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-6 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">
             Project Estimate
           </h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 hidden text-xs text-slate-500 md:block">
             {lines.length === 0
               ? "No line items yet — open the quote editor to build it out."
               : `${lines.length} line item${lines.length === 1 ? "" : "s"} · saved`}
@@ -83,35 +83,36 @@ function EstimateSummary({
         </div>
         <Link
           href={`/deals/${dealId}/quote`}
-          className="rounded-md bg-sky-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 sm:px-4"
         >
           {lines.length === 0 ? "Build estimate →" : "Edit estimate →"}
         </Link>
       </div>
       {lines.length > 0 ? (
         <div className="grid grid-cols-3 divide-x divide-slate-200">
-          <div className="px-6 py-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
-              Total Cost
+          <div className="px-3 py-3 sm:px-6 sm:py-4">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
+              Cost
             </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+            <div className="mt-1 text-sm font-semibold tabular-nums text-slate-900 sm:text-lg">
               {fmtMoney(costTotal)}
             </div>
           </div>
-          <div className="px-6 py-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
-              Estimate to Client
+          <div className="px-3 py-3 sm:px-6 sm:py-4">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
+              <span className="sm:hidden">Client</span>
+              <span className="hidden sm:inline">Estimate to Client</span>
             </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-700">
+            <div className="mt-1 text-sm font-semibold tabular-nums text-emerald-700 sm:text-lg">
               {fmtMoney(customerTotal)}
             </div>
           </div>
-          <div className="px-6 py-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="px-3 py-3 sm:px-6 sm:py-4">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
               Margin
             </div>
             <div
-              className={`mt-1 text-lg font-semibold tabular-nums ${
+              className={`mt-1 text-sm font-semibold tabular-nums sm:text-lg ${
                 margin >= 15
                   ? "text-emerald-700"
                   : margin >= 5
