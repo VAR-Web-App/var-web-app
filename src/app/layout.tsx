@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import IosInstallHint from "@/components/ios-install-hint";
+import SwAutoUpdate from "@/components/sw-auto-update";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,6 +54,10 @@ export default function RootLayout({
         {/* One-time iOS Safari install hint. No-op on Android, desktop,
          *  or already-installed PWAs. */}
         <IosInstallHint />
+        {/* Registers the SW + auto-reloads when a new deploy lands.
+         *  Pairs with the dynamic /sw.js handler so the browser
+         *  actually detects updates. */}
+        <SwAutoUpdate />
       </body>
     </html>
   );
