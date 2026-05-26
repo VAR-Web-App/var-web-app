@@ -436,6 +436,15 @@ function MaterialsEditorModal({
     entry.extra_materials ?? [],
   );
 
+  // AI-assist state — safety net for the 5% case where the simple
+  // schema (base qty + scale property × multiplier) is hard to set
+  // up by hand. Builder describes in plain English; Claude returns
+  // suggested field values that prepend as an editable new line.
+  const [aiInput, setAiInput] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiReasoning, setAiReasoning] = useState<string | null>(null);
+
   // Number properties become eligible scale targets — option/choice
   // properties don't make sense to scale a quantity by (they're cost
   // multipliers, not unit counts).
@@ -469,6 +478,46 @@ function MaterialsEditorModal({
         unit_cost_usd: 0,
       },
     ]);
+  }
+
+  async function askAi() {
+    if (!assembly || !aiInput.trim() || aiBusy) return;
+    setAiBusy(true);
+    setAiError(null);
+    setAiReasoning(null);
+    try {
+      const res = await fetch("/api/assembly/ai-line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assembly_id: assembly.id,
+          description: aiInput.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        suggestion?: ExtraMaterial & { reasoning?: string };
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.suggestion) {
+        setAiError(
+          data.error === "not_configured"
+            ? "AI assist isn't configured — set ANTHROPIC_API_KEY."
+            : "Couldn't get a suggestion. Try a more specific description.",
+        );
+        return;
+      }
+      const { reasoning, ...fields } = data.suggestion;
+      // Prepend the suggested line so the builder sees it immediately
+      // at the top of the extras list, where it's easy to review + edit.
+      setExtras([fields, ...extras]);
+      setAiReasoning(reasoning ?? null);
+      setAiInput("");
+    } catch {
+      setAiError("Network error — try again.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function removeExtra(idx: number) {
@@ -584,6 +633,54 @@ function MaterialsEditorModal({
                 <PlusIcon className="h-3.5 w-3.5" />
                 Add line
               </button>
+            </div>
+
+            {/* AI-assist — describe in plain English, get pre-filled
+             *  field values. Safety net only; most cases should be
+             *  handled by the curated catalog or hand-authoring. */}
+            <div className="mt-3 rounded-md border border-violet-200 bg-violet-50 p-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-semibold text-violet-900">
+                  ✨ AI assist
+                </span>
+                <span className="text-[10px] text-violet-700">
+                  describe what you want, Claude fills the fields
+                </span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !aiBusy) {
+                      e.preventDefault();
+                      void askAi();
+                    }
+                  }}
+                  placeholder="e.g. vapor barrier under slab, $0.45/SF, scales with floor area + 10% waste"
+                  disabled={aiBusy}
+                  className="min-w-0 flex-1 rounded-md border border-violet-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:bg-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => void askAi()}
+                  disabled={aiBusy || !aiInput.trim()}
+                  className="shrink-0 rounded-md bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-300"
+                >
+                  {aiBusy ? "Thinking…" : "Suggest"}
+                </button>
+              </div>
+              {aiReasoning && (
+                <p className="mt-2 text-[11px] italic text-violet-800">
+                  {aiReasoning}
+                </p>
+              )}
+              {aiError && (
+                <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-700 ring-1 ring-red-200">
+                  {aiError}
+                </p>
+              )}
             </div>
             {extras.length === 0 ? (
               <p className="mt-2 rounded-md border-2 border-dashed border-slate-200 p-4 text-center text-xs italic text-slate-400">
