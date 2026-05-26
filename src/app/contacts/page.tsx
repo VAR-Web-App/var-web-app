@@ -225,15 +225,15 @@ export default function ContactsPage() {
       {editing && (
         <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Contact" : "New Contact"}>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Name" required value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
               <Input label="Title" value={editing.title} onChange={(v) => setEditing({ ...editing, title: v })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Email" value={editing.email} onChange={(v) => setEditing({ ...editing, email: v })} />
               <Input label="Phone" value={editing.phone} onChange={(v) => setEditing({ ...editing, phone: v })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField
                 label="Linked to"
                 value={editing.linked_type}

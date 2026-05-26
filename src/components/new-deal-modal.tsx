@@ -134,12 +134,15 @@ export default function NewDealModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <h2 className="text-base font-semibold text-slate-900">New Project</h2>
           <button
             onClick={onClose}
@@ -148,7 +151,7 @@ export default function NewDealModal({
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={submit} className="space-y-4 p-6">
+        <form onSubmit={submit} className="space-y-4 p-4 sm:p-6">
           <Field label="Project name" required>
             <input
               type="text"
@@ -161,7 +164,7 @@ export default function NewDealModal({
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Client">
               {creatingClient ? (
                 <div className="flex gap-1">
@@ -251,7 +254,7 @@ export default function NewDealModal({
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Estimate type">
               <Tooltip
                 label="Detailed Estimate = firm line-item pricing the client signs against. Ballpark / Budget = early-stage rough numbers, no commitment. You can change this later."

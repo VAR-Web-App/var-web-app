@@ -1,6 +1,8 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import NextActionCard from "@/components/next-action-card";
 import ProjectAIChat from "@/components/project-ai-chat";
 import DealPageShell, {
@@ -63,6 +65,26 @@ export default function DealOverviewPage({
 
   return (
     <DealPageShell deal={deal} active="overview">
+      <Link
+        href={`/deals/${deal.id}/quote`}
+        className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:from-sky-100 sm:px-5 sm:py-4"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+            <PencilSquareIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900">
+              Open quote editor
+            </p>
+            <p className="hidden text-xs text-slate-500 sm:block">
+              Build or edit this project&apos;s estimate, assemblies, and
+              scenarios.
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-sky-700">→</span>
+      </Link>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <NextActionCard deal={deal} />

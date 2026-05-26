@@ -79,7 +79,11 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
+    // allSettled, not all — if any one of these 8 reads rejects
+    // (e.g. a missing-index error, a brand-new org with no ack
+    // collection, an offline cache miss) we still want the page to
+    // load with whatever data we got.
+    Promise.allSettled([
       listMilestones(deal.id),
       listQuoteLines(deal.id),
       listDistributors(deal.org_ref),
@@ -88,40 +92,56 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       listSubAcknowledgmentsByDeal(deal.id),
       listAllMilestonesForOrg(deal.org_ref),
       listDeals(deal.org_ref),
-    ]).then(
-      ([m, lines, subList, cos, settings, ackList, orgMs, orgDls]) => {
-        if (!active) return;
-        setMilestones(m);
-        setSubs(subList);
-        setChangeOrders(cos);
-        setQuoteLines(lines);
-        setAcks(ackList);
-        setOrgMilestones(orgMs);
-        setOrgDeals(orgDls);
-        setCompanyName(settings?.company_name || "");
-        // Compute estimate total live from saved lines so we don't depend
-        // on deal.total_quote_value being kept in sync (some flows like
-        // floor-plan apply-to-estimate save lines but not the deal record).
-        const live = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
-        setLiveEstimateTotal(live);
-
-        // Self-heal: if the cached deal.total_quote_value drifted from the
-        // line total, persist the correction so other surfaces (pipeline
-        // cards, etc.) read the right number.
-        if (live > 0 && Math.abs(deal.total_quote_value - live) > 0.01) {
-          const cost = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
-          const margin = live > 0 ? ((live - cost) / live) * 100 : 0;
-          void saveDeal({
-            ...deal,
-            total_quote_value: live,
-            total_cost: cost,
-            margin_percent: margin,
-            updated_at: new Date().toISOString(),
-          });
-        }
-        setLoaded(true);
+    ]).then((results) => {
+      if (!active) return;
+      const pick = <T,>(r: PromiseSettledResult<T>, fallback: T): T => {
+        if (r.status === "fulfilled") return r.value;
+        console.warn("[schedule] load rejected", r.reason);
+        return fallback;
+      };
+      const m = pick(results[0] as PromiseSettledResult<ProjectMilestone[]>, []);
+      const lines = pick(results[1] as PromiseSettledResult<QuoteLine[]>, []);
+      const subList = pick(results[2] as PromiseSettledResult<Distributor[]>, []);
+      const cos = pick(
+        results[3] as PromiseSettledResult<ProjectChangeOrder[]>,
+        [],
+      );
+      const settings = pick(
+        results[4] as PromiseSettledResult<Awaited<ReturnType<typeof getSettings>>>,
+        null,
+      );
+      const ackList = pick(
+        results[5] as PromiseSettledResult<SubAcknowledgment[]>,
+        [],
+      );
+      const orgMs = pick(
+        results[6] as PromiseSettledResult<ProjectMilestone[]>,
+        [],
+      );
+      const orgDls = pick(results[7] as PromiseSettledResult<Deal[]>, []);
+      setMilestones(m);
+      setSubs(subList);
+      setChangeOrders(cos);
+      setQuoteLines(lines);
+      setAcks(ackList);
+      setOrgMilestones(orgMs);
+      setOrgDeals(orgDls);
+      setCompanyName(settings?.company_name || "");
+      const live = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+      setLiveEstimateTotal(live);
+      if (live > 0 && Math.abs(deal.total_quote_value - live) > 0.01) {
+        const cost = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
+        const margin = live > 0 ? ((live - cost) / live) * 100 : 0;
+        void saveDeal({
+          ...deal,
+          total_quote_value: live,
+          total_cost: cost,
+          margin_percent: margin,
+          updated_at: new Date().toISOString(),
+        });
       }
-    );
+      setLoaded(true);
+    });
     return () => { active = false; };
   }, [deal]);
 

@@ -7,6 +7,8 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EyeIcon,
+  EyeSlashIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   PrinterIcon,
@@ -82,6 +84,10 @@ export default function DealQuotePage({
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
   const [showAssemblyModal, setShowAssemblyModal] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Client-presentation mode — hides cost columns + margin from the
+  // screen so the builder can turn the laptop / phone toward the
+  // homeowner without exposing internals. Session-only, defaults off.
+  const [clientMode, setClientMode] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   // Toast queue for destructive-action undo. Each toast carries the
   // restore closure that the Undo button calls; toasts auto-dismiss
@@ -783,6 +789,39 @@ export default function DealQuotePage({
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Client-presentation toggle — hides cost columns + margin
+             *  so the screen is safe to turn toward the homeowner. */}
+            <Tooltip
+              label={
+                clientMode
+                  ? "Showing client-safe view: costs and margin are hidden. Tap to show your internals again."
+                  : "Hide your costs and margin so you can turn the screen toward the client."
+              }
+            >
+              <button
+                type="button"
+                onClick={() => setClientMode((v) => !v)}
+                aria-pressed={clientMode}
+                aria-label={
+                  clientMode ? "Show internals" : "Hide internals (client view)"
+                }
+                className={
+                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-2 text-sm font-medium sm:px-3 " +
+                  (clientMode
+                    ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")
+                }
+              >
+                {clientMode ? (
+                  <EyeSlashIcon className="h-4 w-4" />
+                ) : (
+                  <EyeIcon className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {clientMode ? "Client view" : "Client view"}
+                </span>
+              </button>
+            </Tooltip>
             {/* Export CSV + Generate proposal — desktop-only actions.
              *  Kitchen-table flow on mobile doesn't need them; keep Save
              *  as the primary action and everything else accessible from
@@ -853,7 +892,11 @@ export default function DealQuotePage({
           onUpdateActive={() => void updateActiveScenario()}
         />
 
-        <TotalsBar totals={totals} lineCount={lines.length} />
+        <TotalsBar
+          totals={totals}
+          lineCount={lines.length}
+          clientMode={clientMode}
+        />
 
         <AssemblyInstancesPanel
           instances={assemblyInstances}
@@ -872,6 +915,7 @@ export default function DealQuotePage({
             assemblyCount={assemblyInstances.length}
             onUpdate={updateLine}
             onRemove={removeLine}
+            clientMode={clientMode}
           />
         )}
 
@@ -912,10 +956,13 @@ export default function DealQuotePage({
       />
 
       {/* Undo toasts for destructive actions — bottom-right on desktop,
-       *  raised above the mobile sticky bar on phones so they don't get
-       *  hidden behind it. Each toast auto-dismisses after 7s. */}
+       *  raised above the mobile sticky bar + bottom nav on phones so
+       *  they don't get hidden. Each toast auto-dismisses after 7s. */}
       {toasts.length > 0 ? (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 sm:bottom-6 sm:right-6">
+        <div
+          className="fixed right-4 z-50 flex flex-col gap-2 sm:bottom-6 sm:right-6"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 7.5rem)" }}
+        >
           {toasts.map((t) => (
             <div
               key={t.id}
@@ -948,8 +995,13 @@ export default function DealQuotePage({
 
       {/* Sticky mobile-only bottom bar — phone real estate is precious,
        *  keep the running total + Save action thumb-reachable while the
-       *  builder scrolls long assembly + line lists. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white px-4 py-2 shadow-lg sm:hidden">
+       *  builder scrolls long assembly + line lists. Sits just above the
+       *  global MobileBottomNav (4rem tall + safe area), so they stack
+       *  rather than overlap. */}
+      <div
+        className="fixed inset-x-0 z-30 border-t border-slate-200 bg-white px-4 py-2 shadow-lg sm:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 4rem)" }}
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate text-[10px] uppercase tracking-wider text-slate-500">
@@ -990,11 +1042,13 @@ function CollapsibleLineEditor({
   assemblyCount,
   onUpdate,
   onRemove,
+  clientMode,
 }: {
   lines: QuoteLine[];
   assemblyCount: number;
   onUpdate: (idx: number, patch: Partial<QuoteLine>) => void;
   onRemove: (idx: number) => void;
+  clientMode: boolean;
 }) {
   const [open, setOpen] = useState<boolean>(
     !(assemblyCount > 0 && lines.length > 5),
@@ -1025,7 +1079,12 @@ function CollapsibleLineEditor({
       </button>
       {open ? (
         <div className="border-t border-slate-200">
-          <LineEditor lines={lines} onUpdate={onUpdate} onRemove={onRemove} />
+          <LineEditor
+            lines={lines}
+            onUpdate={onUpdate}
+            onRemove={onRemove}
+            clientMode={clientMode}
+          />
         </div>
       ) : null}
     </section>
@@ -1066,6 +1125,7 @@ function ImportBanner({
 function TotalsBar({
   totals,
   lineCount,
+  clientMode,
 }: {
   totals: {
     customer: number;
@@ -1074,6 +1134,7 @@ function TotalsBar({
     grandTotal: number;
   };
   lineCount: number;
+  clientMode: boolean;
 }) {
   // The full 4-tile grid stays in normal document flow at all times —
   // never changes height or position. A separate compact overlay (below)
@@ -1100,20 +1161,32 @@ function TotalsBar({
 
   return (
     <>
-      {/* Full bar — always rendered, always in normal flow, same height. */}
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* Full bar — always rendered, always in normal flow, same height.
+       *  Client-presentation mode collapses to just Line Items +
+       *  Estimate to Client (Cost + Margin hidden). */}
+      <section
+        className={
+          clientMode
+            ? "grid grid-cols-2 gap-4"
+            : "grid grid-cols-2 gap-4 sm:grid-cols-4"
+        }
+      >
         <Stat label="Line Items" value={String(lineCount)} />
-        <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
+        {!clientMode && (
+          <Stat label="Total Cost" value={fmtMoney(totals.cost)} />
+        )}
         <Stat
           label="Estimate to Client"
           value={fmtMoney(totals.grandTotal)}
           accent="emerald"
         />
-        <Stat
-          label="Profit Margin"
-          value={`${totals.margin.toFixed(1)}%`}
-          accent={marginAccent}
-        />
+        {!clientMode && (
+          <Stat
+            label="Profit Margin"
+            value={`${totals.margin.toFixed(1)}%`}
+            accent={marginAccent}
+          />
+        )}
       </section>
       {/* Sentinel sits just below the full bar; observer fires when it
        *  leaves the top of the viewport (i.e. the user scrolled past
@@ -1129,33 +1202,41 @@ function TotalsBar({
           style={{ top: "env(safe-area-inset-top)" }}
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
-            {/* Mobile compact: 2 most-important stats. */}
+            {/* Mobile compact: 2 most-important stats — or just Client
+             *  in presentation mode. */}
             <div className="flex items-baseline gap-4 sm:hidden">
               <CompactStat
                 label="Client"
                 value={fmtMoney(totals.grandTotal)}
                 accent="emerald"
               />
-              <CompactStat
-                label="Margin"
-                value={`${totals.margin.toFixed(1)}%`}
-                accent={marginAccent}
-              />
+              {!clientMode && (
+                <CompactStat
+                  label="Margin"
+                  value={`${totals.margin.toFixed(1)}%`}
+                  accent={marginAccent}
+                />
+              )}
             </div>
-            {/* Desktop full: 4 stats. */}
+            {/* Desktop full: 4 stats — or Lines + Client in presentation
+             *  mode. */}
             <div className="hidden items-baseline gap-5 sm:flex">
               <CompactStat label="Lines" value={String(lineCount)} />
-              <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
+              {!clientMode && (
+                <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
+              )}
               <CompactStat
                 label="Client"
                 value={fmtMoney(totals.grandTotal)}
                 accent="emerald"
               />
-              <CompactStat
-                label="Margin"
-                value={`${totals.margin.toFixed(1)}%`}
-                accent={marginAccent}
-              />
+              {!clientMode && (
+                <CompactStat
+                  label="Margin"
+                  value={`${totals.margin.toFixed(1)}%`}
+                  accent={marginAccent}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1239,10 +1320,12 @@ function LineEditor({
   lines,
   onUpdate,
   onRemove,
+  clientMode,
 }: {
   lines: QuoteLine[];
   onUpdate: (idx: number, patch: Partial<QuoteLine>) => void;
   onRemove: (idx: number) => void;
+  clientMode: boolean;
 }) {
   // Filter via CSS hide — keeps the array indices stable so `onUpdate`
   // and `onRemove` still address the right line, no matter what the
@@ -1334,27 +1417,33 @@ function LineEditor({
               </th>
               <th className="px-3 py-3 text-left">Description</th>
               <th className="px-3 py-3 text-right">Qty</th>
-              <th className="px-3 py-3 text-right">
-                <Tooltip label="What you pay (sub bid, supplier invoice, internal labor cost). The client never sees this column.">
-                  <span>Unit Cost</span>
-                </Tooltip>
-              </th>
-              <th className="px-3 py-3 text-right">
-                <Tooltip label="Your markup over cost. Defaults to your settings markup (typically 15-25% for residential builders). Editable per line.">
-                  <span>Markup %</span>
-                </Tooltip>
-              </th>
+              {!clientMode && (
+                <>
+                  <th className="px-3 py-3 text-right">
+                    <Tooltip label="What you pay (sub bid, supplier invoice, internal labor cost). The client never sees this column.">
+                      <span>Unit Cost</span>
+                    </Tooltip>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <Tooltip label="Your markup over cost. Defaults to your settings markup (typically 15-25% for residential builders). Editable per line.">
+                      <span>Markup %</span>
+                    </Tooltip>
+                  </th>
+                </>
+              )}
               <th className="px-3 py-3 text-right">
                 <Tooltip label="What the client pays per unit. Calculated as Unit Cost × (1 + Markup %). This is the only price the client sees.">
                   <span>Unit Price</span>
                 </Tooltip>
               </th>
               <th className="px-3 py-3 text-right">Line Total</th>
-              <th className="px-3 py-3 text-right">
-                <Tooltip label="Profit margin on this line as a percentage of the client price. Green ≥ 15%, sky ≥ 5%, red below 5%.">
-                  <span>Margin</span>
-                </Tooltip>
-              </th>
+              {!clientMode && (
+                <th className="px-3 py-3 text-right">
+                  <Tooltip label="Profit margin on this line as a percentage of the client price. Green ≥ 15%, sky ≥ 5%, red below 5%.">
+                    <span>Margin</span>
+                  </Tooltip>
+                </th>
+              )}
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
@@ -1393,22 +1482,28 @@ function LineEditor({
                     width="w-20"
                   />
                 </td>
-                <td className="px-2 py-1.5 text-right">
-                  <NumInput
-                    value={line.list_price}
-                    onChange={(v) => onUpdate(origIdx, { list_price: v })}
-                    width="w-28"
-                    decimals
-                  />
-                </td>
-                <td className="px-2 py-1.5 text-right">
-                  <NumInput
-                    value={line.markup_percent}
-                    onChange={(v) => onUpdate(origIdx, { markup_percent: v })}
-                    width="w-20"
-                    decimals
-                  />
-                </td>
+                {!clientMode && (
+                  <>
+                    <td className="px-2 py-1.5 text-right">
+                      <NumInput
+                        value={line.list_price}
+                        onChange={(v) => onUpdate(origIdx, { list_price: v })}
+                        width="w-28"
+                        decimals
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <NumInput
+                        value={line.markup_percent}
+                        onChange={(v) =>
+                          onUpdate(origIdx, { markup_percent: v })
+                        }
+                        width="w-20"
+                        decimals
+                      />
+                    </td>
+                  </>
+                )}
                 <td
                   className="cursor-default px-3 py-2 text-right tabular-nums text-slate-500"
                   title="Calculated — Unit Cost × (1 + Markup %)"
@@ -1421,24 +1516,26 @@ function LineEditor({
                 >
                   {fmtMoney(line.customer_extended)}
                 </td>
-                <td
-                  className="cursor-default px-3 py-2 text-right text-xs"
-                  title="Calculated margin"
-                >
-                  <span
-                    className={
-                      line.margin_percent >= 15
-                        ? "text-emerald-700"
-                        : line.margin_percent >= 5
-                        ? "text-sky-700"
-                        : line.margin_percent === 0
-                        ? "text-slate-400"
-                        : "text-red-700"
-                    }
+                {!clientMode && (
+                  <td
+                    className="cursor-default px-3 py-2 text-right text-xs"
+                    title="Calculated margin"
                   >
-                    {line.margin_percent.toFixed(1)}%
-                  </span>
-                </td>
+                    <span
+                      className={
+                        line.margin_percent >= 15
+                          ? "text-emerald-700"
+                          : line.margin_percent >= 5
+                          ? "text-sky-700"
+                          : line.margin_percent === 0
+                          ? "text-slate-400"
+                          : "text-red-700"
+                      }
+                    >
+                      {line.margin_percent.toFixed(1)}%
+                    </span>
+                  </td>
+                )}
                 <td className="px-3 py-2 text-right">
                   <button
                     onClick={() => onRemove(origIdx)}

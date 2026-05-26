@@ -61,18 +61,27 @@ export default function PaymentsSection({ deal }: { deal: Deal }) {
   useEffect(() => {
     if (!profile) return;
     let active = true;
-    (async () => {
-      const [p, s, m] = await Promise.all([
-        listPayments(deal.id),
-        listDistributors(profile.org_ref),
-        listMilestones(deal.id),
-      ]);
+    // allSettled, not all — a single failing read (eg. missing
+    // Firestore index, brand-new org with no payments collection)
+    // shouldn't strand the section on "Loading…" forever.
+    Promise.allSettled([
+      listPayments(deal.id),
+      listDistributors(profile.org_ref),
+      listMilestones(deal.id),
+    ]).then((results) => {
       if (!active) return;
-      setPayments(p);
-      setSubs(s);
-      setMilestones(m);
+      const pick = <T,>(r: PromiseSettledResult<T>, fallback: T): T => {
+        if (r.status === "fulfilled") return r.value;
+        console.warn("[payments] load rejected", r.reason);
+        return fallback;
+      };
+      setPayments(pick(results[0] as PromiseSettledResult<Payment[]>, []));
+      setSubs(pick(results[1] as PromiseSettledResult<Distributor[]>, []));
+      setMilestones(
+        pick(results[2] as PromiseSettledResult<ProjectMilestone[]>, []),
+      );
       setLoaded(true);
-    })();
+    });
     return () => {
       active = false;
     };
@@ -534,7 +543,7 @@ function PaymentForm({
           {scanError}
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Party */}
         <Field label={value.direction === "in" ? "Paid by" : "Paid to"}>
           {value.direction === "out" ? (
@@ -630,22 +639,30 @@ function PaymentForm({
           </Field>
         ) : null}
 
-        {/* Milestone */}
+        {/* Milestone — empty for projects that haven't generated their
+         *  schedule yet. Soft hint instead of an empty dropdown. */}
         <Field label="Milestone (optional)">
-          <select
-            value={value.milestone_ref ?? ""}
-            onChange={(e) =>
-              patch({ milestone_ref: e.target.value || undefined })
-            }
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          >
-            <option value="">— not tied to a milestone —</option>
-            {milestones.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+          {milestones.length === 0 ? (
+            <p className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-500">
+              No milestones yet. Open this project&apos;s Schedule tab and
+              regenerate to tie payments to phases.
+            </p>
+          ) : (
+            <select
+              value={value.milestone_ref ?? ""}
+              onChange={(e) =>
+                patch({ milestone_ref: e.target.value || undefined })
+              }
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            >
+              <option value="">— not tied to a milestone —</option>
+              {milestones.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
       </div>
 

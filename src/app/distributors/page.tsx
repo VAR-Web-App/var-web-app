@@ -239,11 +239,11 @@ export default function DistributorsPage() {
         <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Sub / Supplier" : "New Sub / Supplier"}>
           <div className="space-y-4">
             <Input label="Name" required value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Trade or Account #" value={editing.account_number} onChange={(v) => setEditing({ ...editing, account_number: v })} placeholder="Plumber, Electrician, Lumber yard…" />
               <Input label="Primary contact" value={editing.order_poc_name ?? ""} onChange={(v) => setEditing({ ...editing, order_poc_name: v })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Mobile number" value={editing.phone ?? ""} onChange={(v) => setEditing({ ...editing, phone: v })} placeholder="(210) 555-0142" />
               <Input label="Email" value={editing.email ?? ""} onChange={(v) => setEditing({ ...editing, email: v })} placeholder="mike@example.com" />
             </div>

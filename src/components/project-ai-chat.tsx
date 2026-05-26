@@ -20,13 +20,6 @@ interface Message {
   content: string;
 }
 
-const SUGGESTED_QUESTIONS = [
-  "Where's our margin coming from?",
-  "When does framing finish?",
-  "How much have we billed the client so far?",
-  "What's the status of MEP rough-in?",
-];
-
 export default function ProjectAIChat({ deal }: { deal: Deal }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -142,7 +135,9 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
         className="max-h-[420px] min-h-[180px] overflow-y-auto px-4 py-3"
       >
         {messages.length === 0 ? (
-          <EmptyState onPick={(q) => send(q)} />
+          <p className="py-6 text-center text-xs text-slate-400">
+            Ask anything about this project.
+          </p>
         ) : (
           <div className="space-y-3">
             {messages.map((m, i) => (
@@ -180,9 +175,6 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
             <PaperAirplaneIcon className="h-4 w-4" />
           </button>
         </div>
-        <p className="mt-1.5 text-[10px] text-slate-400">
-          Grounded in this project&apos;s data. Verify before relying on numbers.
-        </p>
       </div>
     </section>
   );
@@ -225,27 +217,6 @@ function DotPulse() {
       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "150ms" }} />
       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "300ms" }} />
     </span>
-  );
-}
-
-function EmptyState({ onPick }: { onPick: (q: string) => void }) {
-  return (
-    <div className="space-y-3 py-2 text-center">
-      <p className="text-xs text-slate-500">
-        Ask anything about this project. Try one of these:
-      </p>
-      <div className="flex flex-wrap justify-center gap-1.5">
-        {SUGGESTED_QUESTIONS.map((q) => (
-          <button
-            key={q}
-            onClick={() => onPick(q)}
-            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 
