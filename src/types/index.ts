@@ -264,9 +264,9 @@ export interface Distributor {
   org_ref: string;
 }
 
-/** Web Push subscription stored on a Distributor record. Shape matches
- *  what PushManager.subscribe() returns, plus a couple of fields for
- *  bookkeeping (when registered, optional friendly device label). */
+/** Web Push subscription stored on a Distributor record (or OrgSettings
+ *  for GC-side alerts). Shape matches what PushManager.subscribe()
+ *  returns, plus bookkeeping fields. */
 export interface PushSubscriptionRecord {
   /** Apple's APNs / Google's FCM endpoint the server POSTs to. */
   endpoint: string;
@@ -276,9 +276,13 @@ export interface PushSubscriptionRecord {
   };
   /** ISO timestamp when the subscription was registered. */
   subscribed_at: string;
-  /** Optional UA-derived label so the sub recognizes the device when
-   *  managing subscriptions (e.g. "iPhone 15 — Chrome"). */
+  /** Friendly device label — auto-derived from UA on subscribe
+   *  ("iPhone — Safari"), editable by the GC inline in Settings. */
   device_label?: string;
+  /** ISO timestamp of the most recent successful "test push" send.
+   *  Lets the GC verify a device still receives pushes without waiting
+   *  for a real event. Updated only by /api/push/test on success. */
+  last_test_at?: string;
 }
 
 export interface OrgSettings {

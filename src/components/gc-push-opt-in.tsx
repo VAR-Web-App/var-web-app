@@ -166,32 +166,39 @@ export default function GCPushOptIn({
           </p>
           <ul className="space-y-1.5">
             {subscriptions.map((s) => (
-              <li
+              <SubscriptionRow
                 key={s.endpoint}
-                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
-              >
-                <div className="min-w-0">
-                  <div className="font-medium text-slate-900">
-                    {s.device_label || "Device"}
-                    {s.device_label === thisDeviceLabel && (
-                      <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                        this device
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Added {new Date(s.subscribed_at).toLocaleDateString()}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void disable(s.endpoint)}
-                  disabled={busy}
-                  className="shrink-0 text-[11px] font-medium text-rose-600 hover:text-rose-800 disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              </li>
+                subscription={s}
+                isThisDevice={s.device_label === thisDeviceLabel}
+                orgRef={settings.org_ref}
+                disabled={busy}
+                onRename={(label) => {
+                  const next = subscriptions.map((x) =>
+                    x.endpoint === s.endpoint
+                      ? { ...x, device_label: label }
+                      : x,
+                  );
+                  onChange({ ...settings, push_subscriptions: next });
+                }}
+                onRemove={() => void disable(s.endpoint)}
+                onTestResult={(result) => {
+                  if (result.kind === "ok" && result.last_test_at) {
+                    const next = subscriptions.map((x) =>
+                      x.endpoint === s.endpoint
+                        ? { ...x, last_test_at: result.last_test_at }
+                        : x,
+                    );
+                    onChange({ ...settings, push_subscriptions: next });
+                  } else if (result.kind === "gone") {
+                    // Server pruned a 410-Gone subscription server-side.
+                    // Mirror the prune locally so the row disappears.
+                    const next = subscriptions.filter(
+                      (x) => x.endpoint !== s.endpoint,
+                    );
+                    onChange({ ...settings, push_subscriptions: next });
+                  }
+                }}
+              />
             ))}
           </ul>
           {state === "not-subscribed" && (
@@ -207,6 +214,156 @@ export default function GCPushOptIn({
         </div>
       )}
     </div>
+  );
+}
+
+function SubscriptionRow({
+  subscription: s,
+  isThisDevice,
+  orgRef,
+  disabled,
+  onRename,
+  onRemove,
+  onTestResult,
+}: {
+  subscription: PushSubscriptionRecord;
+  isThisDevice: boolean;
+  orgRef: string;
+  disabled: boolean;
+  onRename: (label: string) => void;
+  onRemove: () => void;
+  onTestResult: (
+    result:
+      | { kind: "ok"; last_test_at: string }
+      | { kind: "gone" }
+      | { kind: "error"; reason: string },
+  ) => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(s.device_label ?? "");
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState<string | null>(null);
+
+  async function sendTest() {
+    setTesting(true);
+    setTestMsg(null);
+    try {
+      const res = await fetch("/api/push/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ org_ref: orgRef, endpoint: s.endpoint }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        last_test_at?: string;
+        error?: string;
+      };
+      if (data.ok && data.last_test_at) {
+        onTestResult({ kind: "ok", last_test_at: data.last_test_at });
+        setTestMsg("Sent — check this device");
+      } else if (data.error === "subscription_gone") {
+        onTestResult({ kind: "gone" });
+        setTestMsg("This device unsubscribed — removed");
+      } else {
+        onTestResult({
+          kind: "error",
+          reason: data.error || "unknown",
+        });
+        setTestMsg(
+          data.error === "not_configured"
+            ? "Push isn't configured (VAPID keys)"
+            : "Send failed",
+        );
+      }
+    } catch {
+      setTestMsg("Network error");
+    } finally {
+      setTesting(false);
+      window.setTimeout(() => setTestMsg(null), 4000);
+    }
+  }
+
+  return (
+    <li className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {renaming ? (
+            <input
+              autoFocus
+              type="text"
+              value={draft}
+              maxLength={80}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                const clean = draft.trim();
+                onRename(clean || "Device");
+                setRenaming(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") {
+                  setDraft(s.device_label ?? "");
+                  setRenaming(false);
+                }
+              }}
+              className="w-full rounded border border-sky-500 bg-white px-2 py-1 text-xs font-medium text-slate-900 focus:outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(s.device_label ?? "");
+                setRenaming(true);
+              }}
+              className="text-left text-xs font-medium text-slate-900 hover:text-sky-700"
+              title="Click to rename"
+            >
+              {s.device_label || "Device"}
+              {isThisDevice && (
+                <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  this device
+                </span>
+              )}
+            </button>
+          )}
+          <div className="mt-0.5 text-[11px] text-slate-500">
+            Added {new Date(s.subscribed_at).toLocaleDateString()}
+            {s.last_test_at && (
+              <>
+                {" · "}
+                <span className="text-emerald-700">
+                  tested {new Date(s.last_test_at).toLocaleString()}
+                </span>
+              </>
+            )}
+          </div>
+          {testMsg && (
+            <div className="mt-1 text-[11px] italic text-slate-600">
+              {testMsg}
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void sendTest()}
+            disabled={disabled || testing}
+            className="rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+            title="Send a test notification to this device right now"
+          >
+            {testing ? "Sending…" : "Test"}
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={disabled}
+            className="text-[11px] font-medium text-rose-600 hover:text-rose-800 disabled:opacity-50"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    </li>
   );
 }
 
