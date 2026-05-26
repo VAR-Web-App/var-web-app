@@ -512,14 +512,20 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     <div className="space-y-4">
       <WeatherBanner deal={deal} milestones={milestones} />
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Project Schedule + Draws</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-slate-900">
+            <span className="md:hidden">Schedule</span>
+            <span className="hidden md:inline">Project Schedule + Draws</span>
+          </h2>
+          {/* Subtext: hidden on mobile (companion mode); the stats footer
+           *  at the bottom carries the same info more prominently. */}
+          <p className="mt-0.5 hidden text-xs text-slate-500 md:block">
             {totals.completedCount} of {milestones.length} milestones complete · {fmtMoney(totals.released)} of {fmtMoney(totals.totalAmount)} paid
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Regenerate + Reset — desktop-only admin actions. */}
+        <div className="hidden items-center gap-3 md:flex">
           {estimatePhases.length > 0 && (
             <button
               onClick={generateFromEstimate}
@@ -543,11 +549,16 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
 
       <ScheduleTimeline milestones={milestones} />
 
-      <GanttChart
-        milestones={milestones}
-        onChangeDates={updateMilestoneDates}
-        onReschedule={notifyRescheduledSubs}
-      />
+      {/* Gantt: percentage-bar timeline. Useful for planning on desktop;
+       *  mobile is field-use where the milestone list below is what
+       *  matters. Hidden < md to save vertical real estate. */}
+      <div className="hidden md:block">
+        <GanttChart
+          milestones={milestones}
+          onChangeDates={updateMilestoneDates}
+          onReschedule={notifyRescheduledSubs}
+        />
+      </div>
 
       <ul className="divide-y divide-slate-100">
         {milestones.map((m) => (
@@ -585,7 +596,7 @@ function ScheduleTimeline({ milestones }: { milestones: ProjectMilestone[] }) {
   // Visual horizontal timeline: each milestone gets a flex-1 segment whose
   // width is proportional to its percentage. Color reflects status.
   return (
-    <div className="border-b border-slate-200 px-6 py-4">
+    <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100">
         {milestones.map((m, i) => (
           <div
@@ -669,7 +680,7 @@ function MilestoneRow({
   const assignedSubs = subs.filter((s) => assignedRefs.includes(s.id));
 
   return (
-    <li className="flex items-start gap-3 px-6 py-4 hover:bg-slate-50">
+    <li className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 sm:px-6 sm:py-4">
       <StatusIcon status={m.status} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">

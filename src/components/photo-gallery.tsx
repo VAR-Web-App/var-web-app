@@ -121,10 +121,10 @@ export default function PhotoGallery({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Project Photos</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 hidden text-xs text-slate-500 md:block">
             {photos.length} photo{photos.length === 1 ? "" : "s"} across the build · organized by phase
           </p>
         </div>
