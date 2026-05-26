@@ -97,6 +97,7 @@ export default function AssemblyCostOverridesCard({
     assemblyId: string,
     removed: string[],
     extras: ExtraMaterial[],
+    lineFactors: Record<string, number>,
   ) {
     const nextPer: PerAssembly = { ...perAssembly };
     const entry: PerAssemblyEntry = { ...(nextPer[assemblyId] ?? {}) };
@@ -109,6 +110,16 @@ export default function AssemblyCostOverridesCard({
       delete entry.extra_materials;
     } else {
       entry.extra_materials = extras;
+    }
+    // line_overrides: store one entry per line with a non-default factor.
+    const lineOverrides: Record<string, { quantity_factor?: number }> = {};
+    for (const [name, factor] of Object.entries(lineFactors)) {
+      if (factor !== 1) lineOverrides[name] = { quantity_factor: factor };
+    }
+    if (Object.keys(lineOverrides).length === 0) {
+      delete entry.line_overrides;
+    } else {
+      entry.line_overrides = lineOverrides;
     }
     if (Object.keys(entry).length === 0) {
       delete nextPer[assemblyId];
@@ -229,8 +240,8 @@ export default function AssemblyCostOverridesCard({
             STUB_ASSEMBLIES.find((a) => a.id === materialsOpenFor) ?? null
           }
           entry={perAssembly[materialsOpenFor] ?? {}}
-          onSave={(removed, extras) =>
-            setMaterialEdits(materialsOpenFor, removed, extras)
+          onSave={(removed, extras, lineFactors) =>
+            setMaterialEdits(materialsOpenFor, removed, extras, lineFactors)
           }
           onClose={() => setMaterialsOpenFor(null)}
         />
@@ -263,7 +274,8 @@ function TradeGroup({
       e?.material_multiplier != null ||
       e?.labor_multiplier != null ||
       (e?.removed_materials && e.removed_materials.length > 0) ||
-      (e?.extra_materials && e.extra_materials.length > 0)
+      (e?.extra_materials && e.extra_materials.length > 0) ||
+      (e?.line_overrides && Object.keys(e.line_overrides).length > 0)
     );
   }).length;
 
@@ -308,7 +320,8 @@ function TradeGroup({
                 const e = perAssembly[a.id] ?? {};
                 const lineEditCount =
                   (e.removed_materials?.length ?? 0) +
-                  (e.extra_materials?.length ?? 0);
+                  (e.extra_materials?.length ?? 0) +
+                  Object.keys(e.line_overrides ?? {}).length;
                 return (
                   <tr key={a.id} className="hover:bg-slate-50">
                     <td className="px-3 py-2 text-slate-900">{a.name}</td>
@@ -426,7 +439,11 @@ function MaterialsEditorModal({
 }: {
   assembly: Assembly | null;
   entry: PerAssemblyEntry;
-  onSave: (removed: string[], extras: ExtraMaterial[]) => void;
+  onSave: (
+    removed: string[],
+    extras: ExtraMaterial[],
+    lineFactors: Record<string, number>,
+  ) => void;
   onClose: () => void;
 }) {
   const [removed, setRemoved] = useState<Set<string>>(
@@ -435,6 +452,32 @@ function MaterialsEditorModal({
   const [extras, setExtras] = useState<ExtraMaterial[]>(
     entry.extra_materials ?? [],
   );
+  // Per-stock-line quantity factor map. Empty = no overrides; values
+  // !== 1 are real overrides applied during compute.
+  const [lineFactors, setLineFactors] = useState<Record<string, number>>(
+    () => {
+      const out: Record<string, number> = {};
+      const lo = entry.line_overrides ?? {};
+      for (const [name, ov] of Object.entries(lo)) {
+        if (ov?.quantity_factor != null && ov.quantity_factor !== 1) {
+          out[name] = ov.quantity_factor;
+        }
+      }
+      return out;
+    },
+  );
+
+  function updateLineFactor(name: string, factor: number | undefined) {
+    setLineFactors((prev) => {
+      const next = { ...prev };
+      if (factor == null || factor === 1) {
+        delete next[name];
+      } else {
+        next[name] = factor;
+      }
+      return next;
+    });
+  }
 
   // AI-assist state — safety net for the 5% case where the simple
   // schema (base qty + scale property × multiplier) is hard to set
@@ -532,7 +575,7 @@ function MaterialsEditorModal({
         uom: e.uom.trim() || "EA",
       }))
       .filter((e) => e.name && e.unit_cost_usd >= 0);
-    onSave(Array.from(removed), cleanExtras);
+    onSave(Array.from(removed), cleanExtras, lineFactors);
     onClose();
   }
 
@@ -572,12 +615,15 @@ function MaterialsEditorModal({
               Stock lines
             </h4>
             <p className="mt-0.5 text-xs text-slate-500">
-              Uncheck a line to suppress it from this assembly's output on
-              your projects.
+              Uncheck a line to suppress it from this assembly&apos;s output.
+              Or set <strong>Qty ×</strong> to scale the stock quantity for
+              this org — e.g. 1.05 = 5% more material than the catalog
+              defaults (handy when your crew&apos;s waste differs).
             </p>
             <ul className="mt-2 divide-y divide-slate-100 rounded-md border border-slate-200">
               {assembly.materials.map((m) => {
                 const isRemoved = removed.has(m.name);
+                const factor = lineFactors[m.name];
                 return (
                   <li
                     key={m.name}
@@ -604,8 +650,44 @@ function MaterialsEditorModal({
                       <p className="text-[11px] text-slate-500">
                         Quantity: <code>{m.quantityFormula}</code>
                         {m.uom && ` ${m.uom}`}
+                        {factor && factor !== 1 && (
+                          <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                            × {factor}
+                          </span>
+                        )}
                       </p>
                     </div>
+                    {!isRemoved && (
+                      <label
+                        className="flex flex-col items-end gap-1"
+                        title="Per-stock-line quantity multiplier. 1.00 = no change. 1.05 = add 5% extra material (e.g. for higher waste than the catalog assumes)."
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Qty ×
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.1"
+                          max="10"
+                          defaultValue={factor != null ? String(factor) : ""}
+                          placeholder="1.00"
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim();
+                            if (raw === "")
+                              return updateLineFactor(m.name, undefined);
+                            const parsed = parseFloat(raw);
+                            updateLineFactor(
+                              m.name,
+                              Number.isFinite(parsed) && parsed > 0
+                                ? parsed
+                                : undefined,
+                            );
+                          }}
+                          className="w-20 rounded border border-slate-300 px-2 py-1 text-right text-xs tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        />
+                      </label>
+                    )}
                   </li>
                 );
               })}

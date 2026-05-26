@@ -353,6 +353,13 @@ export interface OrgSettings {
          *  scaled either by a fixed base quantity or proportional to an
          *  existing property (e.g. vapor barrier = Floor Area × 1.10). */
         extra_materials?: ExtraMaterial[];
+        /** Per-stock-line quantity multipliers, keyed by material name.
+         *  1.05 = "add 5% extra material to this line's stock formula
+         *  output" — for builders whose actual waste differs from the
+         *  catalog's built-in factor (e.g. 12% framing waste instead of
+         *  the stock 10%). Doesn't touch the formula itself; just scales
+         *  the result. */
+        line_overrides?: Record<string, { quantity_factor?: number }>;
       }
     >;
   };

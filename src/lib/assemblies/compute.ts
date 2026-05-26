@@ -41,6 +41,9 @@ export interface AssemblyCostOverrides {
     unit_cost_usd: number;
     labor_cost_usd?: number;
   }>;
+  /** Per-stock-line quantity multipliers, keyed by material name.
+   *  1.05 = "add 5% extra to this line's stock formula output". */
+  line_overrides?: Record<string, { quantity_factor?: number }>;
 }
 
 export function computeMaterials(
@@ -56,6 +59,7 @@ export function computeMaterials(
     (overrides?.global_labor_multiplier ?? 1);
 
   const removed = new Set(overrides?.removed_materials ?? []);
+  const lineOverrides = overrides?.line_overrides ?? {};
 
   const lines: AssemblyMaterialLine[] = [];
   let total = 0;
@@ -64,7 +68,12 @@ export function computeMaterials(
     // V1.6: skip any stock line the builder marked removed for this org.
     if (removed.has(m.name)) continue;
     try {
-      const quantity = evaluateFormula(m.quantityFormula, propertyValues);
+      // V1.7: per-line quantity factor scales the formula result.
+      // Default 1 = no change. Builder sets 1.05 to add 5% extra
+      // material on top of the stock waste already in the formula.
+      const lineQtyFactor = lineOverrides[m.name]?.quantity_factor ?? 1;
+      const quantity =
+        evaluateFormula(m.quantityFormula, propertyValues) * lineQtyFactor;
       // Cost formulas override the fixed unit costs when present. This lets
       // an assembly express e.g. "vinyl vs wood frame" as a multiplier in
       // the formula instead of forcing one assembly per material grade.
@@ -134,6 +143,7 @@ export function resolveOverrides(
             labor_multiplier?: number;
             removed_materials?: string[];
             extra_materials?: AssemblyCostOverrides["extra_materials"];
+            line_overrides?: AssemblyCostOverrides["line_overrides"];
           }
         >;
       }
@@ -155,5 +165,7 @@ export function resolveOverrides(
     out.removed_materials = per.removed_materials;
   if (per?.extra_materials && per.extra_materials.length > 0)
     out.extra_materials = per.extra_materials;
+  if (per?.line_overrides && Object.keys(per.line_overrides).length > 0)
+    out.line_overrides = per.line_overrides;
   return Object.keys(out).length > 0 ? out : undefined;
 }
