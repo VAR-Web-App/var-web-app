@@ -781,10 +781,6 @@ export default function DealQuotePage({
                 <QuestionMarkCircleIcon className="h-5 w-5" />
               </button>
             </div>
-            <p className="mt-1 hidden text-sm text-slate-500 md:block">
-              Build the estimate you&apos;ll send your client. Cost + markup feeds the
-              project totals on save.
-            </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Export CSV + Generate proposal — desktop-only actions.
@@ -1124,12 +1120,30 @@ function TotalsBar({
        *  the full bar). */}
       <div ref={sentinelRef} aria-hidden className="h-px" />
       {/* Compact overlay — fixed-position so it doesn't change document
-       *  flow when it appears/disappears. Desktop-only; mobile already
-       *  has a sticky bottom bar with totals + save. */}
+       *  flow when it appears/disappears. Visible on every viewport;
+       *  mobile gets a slimmer 2-stat version focused on what matters
+       *  in the kitchen-table flow (client total + margin). */}
       {scrolledOut ? (
-        <div className="fixed inset-x-0 top-0 z-30 hidden border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur sm:block">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">
-            <div className="flex items-baseline gap-5">
+        <div
+          className="fixed inset-x-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur"
+          style={{ top: "env(safe-area-inset-top)" }}
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
+            {/* Mobile compact: 2 most-important stats. */}
+            <div className="flex items-baseline gap-4 sm:hidden">
+              <CompactStat
+                label="Client"
+                value={fmtMoney(totals.grandTotal)}
+                accent="emerald"
+              />
+              <CompactStat
+                label="Margin"
+                value={`${totals.margin.toFixed(1)}%`}
+                accent={marginAccent}
+              />
+            </div>
+            {/* Desktop full: 4 stats. */}
+            <div className="hidden items-baseline gap-5 sm:flex">
               <CompactStat label="Lines" value={String(lineCount)} />
               <CompactStat label="Cost" value={fmtMoney(totals.cost)} />
               <CompactStat

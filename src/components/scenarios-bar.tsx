@@ -72,8 +72,7 @@ export default function ScenariosBar({
 
         {scenarios.length === 0 ? (
           <span className="text-xs italic text-slate-400">
-            No saved scenarios yet — save your current estimate as a named
-            scenario to start showing the client side-by-side variations.
+            No saved scenarios yet.
           </span>
         ) : (
           scenarios.map((s) => (
@@ -133,20 +132,6 @@ export default function ScenariosBar({
           </button>
         )}
       </div>
-
-      {activeScenario && (
-        <div className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-600">
-          Editing <strong className="text-slate-900">{activeScenario.name}</strong> —{" "}
-          {hasUnsavedChanges ? (
-            <span className="text-amber-700">
-              unsaved changes. Click <em>Update {activeScenario.name}</em> to sync
-              back, or switch scenarios to abandon them.
-            </span>
-          ) : (
-            <span>up to date. Switch scenarios anytime.</span>
-          )}
-        </div>
-      )}
     </section>
   );
 }

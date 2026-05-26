@@ -265,7 +265,12 @@ function TradeGroup({
               // or fewer assemblies total; otherwise start collapsed
               // (except the first of the first group) so a 13-assembly
               // floor-plan import isn't a wall of text.
-              defaultCollapsed={totalInstances > 3 && !(group.trade === "foundation" && idx === 0)}
+              // Default collapsed everywhere — the property strip
+              // inside is dense enough that having 6+ cards open at
+              // once is overwhelming. Builder expands the one they're
+              // working on. Variant chips + price stay visible on the
+              // collapsed card so they can compare at a glance.
+              defaultCollapsed={true}
             />
           ))}
         </div>
