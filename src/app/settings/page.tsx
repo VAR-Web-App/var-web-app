@@ -119,6 +119,13 @@ export default function SettingsPage() {
           </Card>
 
           <Card
+            title="Reset app cache"
+            subtitle="Clears stored data on this device and reloads. Use if the app feels stuck on an old version after an update, or if push notifications won't enable. Your projects, photos, and settings stay safe in the cloud."
+          >
+            <ResetCacheButton />
+          </Card>
+
+          <Card
             title="Assembly cost overrides"
             subtitle="Tune the stock catalog's pricing to your local market. Multipliers apply to every estimate you build — material × scales the unit cost, labor × scales install time. Set 1.00 = unchanged."
           >
@@ -154,5 +161,37 @@ function Card({ title, subtitle, children }: { title: string; subtitle: string; 
       </div>
       <div className="p-6">{children}</div>
     </section>
+  );
+}
+
+function ResetCacheButton() {
+  const [busy, setBusy] = useState(false);
+  async function reset() {
+    if (!confirm("Reload the app with a fresh cache?")) return;
+    setBusy(true);
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      window.location.reload();
+    } catch (e) {
+      console.warn("[reset-cache]", e);
+      window.location.reload();
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void reset()}
+      disabled={busy}
+      className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+    >
+      {busy ? "Clearing…" : "Clear cache & reload"}
+    </button>
   );
 }
