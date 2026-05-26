@@ -112,7 +112,7 @@ function pickAction(deal: Deal): NextAction {
       return {
         banner: "Pre-construction",
         headline: "Permits + sub scheduling.",
-        body: "Pull permits, lock in sub start dates, mobilize equipment. Updates posted here show up in the client portal.",
+        body: "",
         primary: {
           label: "Open schedule",
           href: "/schedule",
@@ -209,7 +209,9 @@ export default function NextActionCard({ deal }: { deal: Deal }) {
       <h2 className="mt-1 text-lg font-bold tracking-tight text-slate-900">
         {action.headline}
       </h2>
-      <p className="mt-1 max-w-2xl text-sm text-slate-600">{action.body}</p>
+      {action.body && (
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">{action.body}</p>
+      )}
       {(action.primary || action.secondary) && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {action.primary && (

@@ -221,33 +221,36 @@ export default function DealsPage() {
         })}
       </div>
 
-      {/* Mobile list — sticky stage chip strip + filtered list of deals.
-       *  Kanban columns don't work at phone widths, so we flip to a
-       *  "pick a stage → see those projects" pattern that's one-tap-
-       *  friendly. Stage is changed from inside the deal page, not by
-       *  dragging here. */}
+      {/* Mobile list — sticky stage filter dropdown + filtered list of
+       *  deals. Kanban columns don't work at phone widths, so we flip
+       *  to a "pick a stage → see those projects" pattern. A select
+       *  beats a scrollable chip strip on a phone — no horizontal
+       *  scrolling, and the OS picker gives a full-screen tap target. */}
       <div className="md:hidden">
         <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-10 -mx-4 mb-3 border-y border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur">
-          <div className="flex gap-2 overflow-x-auto">
-            <MobileStageChip
-              label={`All (${deals.length})`}
-              active={mobileStageFilter === null}
-              onClick={() => setMobileStageFilter(null)}
-            />
+          <select
+            value={mobileStageFilter ?? ""}
+            onChange={(e) =>
+              setMobileStageFilter(
+                e.target.value
+                  ? (e.target.value as Deal["stage"])
+                  : null,
+              )
+            }
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            aria-label="Filter projects by stage"
+          >
+            <option value="">All ({deals.length})</option>
             {BUILDER_STAGES.map((stage) => {
               const count = dealsByStage(stage.key).length;
               if (count === 0) return null;
               return (
-                <MobileStageChip
-                  key={stage.key}
-                  label={`${stage.label} (${count})`}
-                  active={mobileStageFilter === stage.key}
-                  activeColor={STAGE_STYLES[stage.key].headerColor}
-                  onClick={() => setMobileStageFilter(stage.key)}
-                />
+                <option key={stage.key} value={stage.key}>
+                  {stage.label} ({count})
+                </option>
               );
             })}
-          </div>
+          </select>
         </div>
 
         {loaded && deals.length > 0 && (
@@ -444,33 +447,6 @@ function DealCard({
         </p>
       )}
     </Link>
-  );
-}
-
-/** Stage filter chip used in the mobile list view. */
-function MobileStageChip({
-  label,
-  active,
-  activeColor,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  activeColor?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex shrink-0 items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-        active
-          ? `bg-white ring-1 ring-sky-600 ${activeColor ?? "text-sky-700"}`
-          : "bg-white/80 text-slate-600 ring-1 ring-slate-200 hover:bg-white hover:text-slate-900"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

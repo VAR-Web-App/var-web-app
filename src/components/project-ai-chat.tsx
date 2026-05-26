@@ -161,7 +161,7 @@ export default function ProjectAIChat({ deal }: { deal: Deal }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Ask about this project — costs, schedule, status…"
+            placeholder="Ask about this project…"
             rows={1}
             className="flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
