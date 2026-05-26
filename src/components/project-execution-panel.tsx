@@ -48,6 +48,7 @@ import {
   composeRescheduleEmail,
   isLikelyEmail,
 } from "@/lib/email-compose";
+import { pushNotifySub } from "@/lib/push-client";
 import Tooltip from "@/components/tooltip";
 import WeatherBanner from "@/components/weather-banner";
 
@@ -336,6 +337,14 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       if (isLikelyEmail(sub.email)) {
         void sendEmail(sub.email!, composeAssignmentEmail(params));
       }
+      // Web push fires for every device the sub has registered via the
+      // portal's PushOptIn banner. No-op if sub has no subscriptions.
+      void pushNotifySub(sub.id, {
+        title: `${companyName || "FrameFlow"}: scheduled for ${m.name}`,
+        body: `${deal.name}${m.planned_start_date ? ` (${m.planned_start_date})` : ""}`,
+        ...(scheduleLink ? { url: scheduleLink } : {}),
+        tag: `assignment-${m.id}`,
+      });
     }
   }
 
@@ -361,6 +370,12 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       if (isLikelyEmail(sub.email)) {
         void sendEmail(sub.email!, composeRescheduleEmail(params));
       }
+      void pushNotifySub(sub.id, {
+        title: `${companyName || "FrameFlow"}: schedule change`,
+        body: `${m.name} on ${deal.name} → ${m.planned_start_date ?? "TBD"} – ${m.planned_end_date ?? "TBD"}`,
+        ...(scheduleLink ? { url: scheduleLink } : {}),
+        tag: `reschedule-${m.id}`,
+      });
     }
   }
 

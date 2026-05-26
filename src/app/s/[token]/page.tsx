@@ -97,7 +97,19 @@ export default function SubSchedulePage({
         if (!active) return;
         if (!l) setMissing(true);
         else setLink(l);
-        if (portalRes?.ok && portalRes.data) setPortal(portalRes.data);
+        // Always populate `portal` once the fetch resolves — even on
+        // error — so the tabs render their empty states instead of
+        // perpetual "Loading…". The 503 case (admin SDK not set in
+        // env) is the most common reason this falls through.
+        if (portalRes?.ok && portalRes.data) {
+          setPortal(portalRes.data);
+        } else {
+          setPortal({
+            payments: [],
+            awarded_rfqs: [],
+            totals: { paid: 0, awarded: 0, pending: 0 },
+          });
+        }
         setLoaded(true);
       })
       .catch((e) => {

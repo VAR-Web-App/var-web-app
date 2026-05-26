@@ -27,6 +27,7 @@ import {
   composeConflictNotifyEmail,
   isLikelyEmail,
 } from "@/lib/email-compose";
+import { sendPushToAll } from "@/lib/push";
 import type { SubAcknowledgment, SubScheduleLink } from "@/types/builder";
 import type { Deal, OrgSettings } from "@/types";
 
@@ -190,6 +191,29 @@ async function notifyGcOfConflict(
           reason,
         }),
       });
+    }
+
+    // Push branch — fires for every device the GC has registered via
+    // Settings → Instant alerts. Same prune-stale pattern as the
+    // bid-arrival path.
+    const orgSubscriptions = settings.push_subscriptions ?? [];
+    if (orgSubscriptions.length > 0) {
+      const stillActive = await sendPushToAll(orgSubscriptions, {
+        title: `⚠ ${subName} flagged a conflict`,
+        body: `${assignment.phase_name} on ${assignment.project_name}${reason ? ` — "${reason}"` : ""}`,
+        url: `/deals/${dealRef}`,
+        tag: `conflict-${dealRef}`,
+      });
+      if (stillActive.length !== orgSubscriptions.length) {
+        try {
+          await db
+            .collection("settings")
+            .doc(deal.org_ref)
+            .update({ push_subscriptions: stillActive });
+        } catch (e) {
+          console.warn("[sub/acknowledge] org push prune failed", e);
+        }
+      }
     }
 
     // SMS branch — gated on valid phone + Twilio configured.

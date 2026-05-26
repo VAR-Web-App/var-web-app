@@ -288,6 +288,12 @@ export interface OrgSettings {
     subaccount_sid?: string;
   };
   /**
+   * Web-push subscriptions registered by the GC for org-level alerts
+   * (sub bid arrivals, conflict flags, etc.). One entry per device
+   * the GC opted in on. Same shape as Distributor.push_subscriptions.
+   */
+  push_subscriptions?: PushSubscriptionRecord[];
+  /**
    * Per-org cost-multiplier overrides on the assembly catalog. The
    * stub catalog ships with national-average pricing; builders tune
    * to their local market via these multipliers without editing

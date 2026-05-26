@@ -41,6 +41,7 @@ import {
   isLikelyEmail,
   sendEmail,
 } from "@/lib/email-compose";
+import { pushNotifySub } from "@/lib/push-client";
 import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
@@ -436,6 +437,16 @@ function RFQModal({
               );
               if (result.ok) anyOk = true;
             }
+            // Web push fires alongside SMS + email for any device this
+            // sub has registered. Counts toward anyOk so a push-only
+            // sub still flips notified_at and isn't re-pinged.
+            const pushResult = await pushNotifySub(sub.id, {
+              title: `${builderName || "FrameFlow"}: bid request — ${params.scopeTitle}`,
+              body: `${params.projectName}`,
+              url: bidLink,
+              tag: `rfq-invite-${rfqId}`,
+            });
+            if (pushResult.ok && (pushResult.sent ?? 0) > 0) anyOk = true;
             if (anyOk) {
               sentCount++;
               return { ...inv, notified_at: new Date().toISOString() };

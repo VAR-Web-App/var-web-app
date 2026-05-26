@@ -19,6 +19,7 @@ import { adminConfigured, adminDb } from "@/lib/firebase-admin";
 import { composeBidArrivedSms, toE164 } from "@/lib/sms";
 import { sendEmail } from "@/lib/email";
 import { composeBidArrivedEmail, isLikelyEmail } from "@/lib/email-compose";
+import { sendPushToAll } from "@/lib/push";
 import type { ProjectRFQ, RFQInvitee, SubScheduleLink } from "@/types/builder";
 import type { Attachment, Deal, OrgSettings } from "@/types";
 
@@ -291,6 +292,30 @@ async function notifyGc(
         bidAmount,
       }),
     });
+  }
+
+  // Push branch — fires for every device the GC has registered via
+  // Settings → Instant alerts. Stale subscriptions pruned back to
+  // Firestore inline.
+  const orgSubscriptions = settings.push_subscriptions ?? [];
+  if (orgSubscriptions.length > 0) {
+    const fmt = `$${Math.round(bidAmount).toLocaleString("en-US")}`;
+    const stillActive = await sendPushToAll(orgSubscriptions, {
+      title: `${builderName}: 💰 ${subName} bid ${fmt}`,
+      body: rfq.scope_title,
+      url: `/deals/${deal.id}/finances`,
+      tag: `bid-${rfq.id}`,
+    });
+    if (stillActive.length !== orgSubscriptions.length) {
+      try {
+        await db
+          .collection("settings")
+          .doc(deal.org_ref)
+          .update({ push_subscriptions: stillActive });
+      } catch (e) {
+        console.warn("[sub/bid] org push prune failed", e);
+      }
+    }
   }
 
   // SMS branch — only if a valid phone is on file + Twilio configured.

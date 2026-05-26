@@ -127,6 +127,42 @@ export async function unsubscribeFromPush(token: string): Promise<void> {
   );
 }
 
+/** Fire-and-forget push notification to a sub's registered devices.
+ *  Server looks up subscriptions via admin SDK and dispatches via the
+ *  web-push library. Failures resolve to { ok: false } — never throw,
+ *  so a push problem can't break the caller's primary action.
+ *
+ *  Pair this with sendSms + sendEmail at the call site for full
+ *  multi-channel coverage. */
+export async function pushNotifySub(
+  subRef: string,
+  payload: { title: string; body: string; url?: string; tag?: string },
+): Promise<{ ok: boolean; sent?: number; reason?: string }> {
+  try {
+    const res = await fetch("/api/push/send-to-sub", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sub_ref: subRef, payload }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      sent?: number;
+      reason?: string;
+      error?: string;
+    };
+    return {
+      ok: !!data.ok,
+      sent: data.sent,
+      reason: data.reason || data.error,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: e instanceof Error ? e.message : "network_error",
+    };
+  }
+}
+
 /** "iPhone — Safari", "Pixel 7 — Chrome", etc. Best-effort UA parse;
  *  the value is just a label for the sub to recognize the device. */
 function deriveDeviceLabel(): string {

@@ -6,6 +6,7 @@ import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
+import GCPushOptIn from "@/components/gc-push-opt-in";
 import { Input, TextArea } from "../accounts/page";
 
 const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
@@ -105,6 +106,16 @@ export default function SettingsPage() {
                 <Input label="Phone (on estimates)" value={settings.prepared_by_phone} onChange={(v) => setSettings({ ...settings, prepared_by_phone: v })} />
               </div>
             </div>
+          </Card>
+
+          <Card
+            title="Instant alerts (push notifications)"
+            subtitle="Get notified the moment a sub flags a conflict, submits a bid, or hits any other alert. Per-device — enable on each phone or computer you want pinged."
+          >
+            <GCPushOptIn
+              settings={settings}
+              onChange={(next) => setSettings(next)}
+            />
           </Card>
 
           <Card
