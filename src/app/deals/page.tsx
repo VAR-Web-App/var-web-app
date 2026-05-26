@@ -111,6 +111,17 @@ export default function DealsPage() {
 
   const dealsByStage = (stage: DealStage) => deals.filter((d) => d.stage === stage);
 
+  /** All deals sorted by stage order (matches the desktop kanban
+   *  left-to-right flow). Used by the mobile "All" list so projects
+   *  read in their workflow position instead of last-updated order. */
+  const stageOrder = new Map<DealStage, number>(
+    BUILDER_STAGES.map((s, i) => [s.key, i]),
+  );
+  const dealsSortedByStage = [...deals].sort(
+    (a, b) =>
+      (stageOrder.get(a.stage) ?? 999) - (stageOrder.get(b.stage) ?? 999),
+  );
+
   return (
     <AppShell>
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -243,7 +254,7 @@ export default function DealsPage() {
           <div className="space-y-2">
             {(mobileStageFilter
               ? dealsByStage(mobileStageFilter)
-              : deals
+              : dealsSortedByStage
             ).map((deal) => (
               <DealCard
                 key={deal.id}

@@ -764,10 +764,11 @@ export default function DealQuotePage({
         </div>
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Project Estimate
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                <span className="md:hidden">Estimate</span>
+                <span className="hidden md:inline">Project Estimate</span>
               </h1>
               <button
                 type="button"
@@ -780,19 +781,23 @@ export default function DealQuotePage({
                 <QuestionMarkCircleIcon className="h-5 w-5" />
               </button>
             </div>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 hidden text-sm text-slate-500 md:block">
               Build the estimate you&apos;ll send your client. Cost + markup feeds the
               project totals on save.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Export CSV + Generate proposal — desktop-only actions.
+             *  Kitchen-table flow on mobile doesn't need them; keep Save
+             *  as the primary action and everything else accessible from
+             *  desktop. */}
             {!dirty && !saving && lines.length > 0 && (
               <>
                 <Tooltip label="Download these line items as CSV. Opens in Excel / Numbers / Google Sheets, or imports into QuickBooks via Bulk Add.">
                   <button
                     type="button"
                     onClick={() => exportLinesCsv(deal, lines)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="hidden items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 md:inline-flex"
                   >
                     <ArrowDownTrayIcon className="h-4 w-4" />
                     Export CSV
@@ -804,7 +809,7 @@ export default function DealQuotePage({
                 >
                   <Link
                     href={`/deals/${id}/proposal`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50"
+                    className="hidden items-center gap-1.5 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50 md:inline-flex"
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
                     Generate proposal
@@ -816,7 +821,7 @@ export default function DealQuotePage({
               // Resting state: button area shows a green "Saved" pill so the
               // user knows their work is persisted (rather than seeing a
               // disabled grey button).
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 sm:px-5">
                 <CheckIcon className="h-4 w-4" />
                 Saved
               </span>
@@ -892,9 +897,10 @@ export default function DealQuotePage({
             <PlusIcon className="h-4 w-4" />
             Add blank line
           </button>
+          {/* Takeoff PDF — desktop-only (printing/lumber-yard workflow). */}
           <Link
             href={`/deals/${id}/takeoff`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="hidden items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 md:inline-flex"
             title="Open the printable takeoff document — internal/lumber-yard facing with full cost + markup detail. Print to PDF from the browser."
           >
             <PrinterIcon className="h-4 w-4" />
