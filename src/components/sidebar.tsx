@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
   SparklesIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
@@ -66,10 +68,46 @@ const NAV: NavItem[] = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  /** Drawer-open state for mobile (< md). Ignored on desktop where
+   *  the sidebar is always pinned. */
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const { profile, logout } = useAuth();
   const router = useRouter();
+
+  // Auto-close the mobile drawer on route change. Without this, tapping
+  // a nav item navigates but leaves the drawer covering the new page.
+  useEffect(() => {
+    if (mobileOpen && onClose) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // Lock body scroll while the drawer is open on mobile.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [mobileOpen]);
+
+  // Escape closes the drawer.
+  useEffect(() => {
+    if (!mobileOpen || !onClose) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose!();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen, onClose]);
 
   async function onLogout() {
     await logout();
@@ -77,29 +115,48 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-full w-56 flex-col bg-slate-900 text-white">
-      <div className="border-b border-slate-700 px-5 py-5">
-        <div className="flex items-center gap-2">
-          <svg
-            viewBox="0 0 64 64"
-            className="h-7 w-7 flex-shrink-0"
-            aria-label="KeystonePro logo"
-          >
-            <circle cx="32" cy="32" r="32" fill="#0369a1" />
-            <path
-              d="M18 40 L32 24 L46 40"
-              stroke="#ffffff"
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </svg>
-          <h1 className="text-lg font-bold tracking-tight">KeystonePro</h1>
+    <aside
+      className={
+        "fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-slate-900 text-white transition-transform duration-200 md:w-56 md:translate-x-0 " +
+        (mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full")
+      }
+      aria-label="Main navigation"
+    >
+      <div className="flex items-start justify-between border-b border-slate-700 px-5 py-5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <svg
+              viewBox="0 0 64 64"
+              className="h-7 w-7 flex-shrink-0"
+              aria-label="KeystonePro logo"
+            >
+              <circle cx="32" cy="32" r="32" fill="#0369a1" />
+              <path
+                d="M18 40 L32 24 L46 40"
+                stroke="#ffffff"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+            <h1 className="text-lg font-bold tracking-tight">KeystonePro</h1>
+          </div>
+          <p className="mt-1 truncate text-xs text-slate-400">
+            {profile?.display_name ?? "Custom home builder — Beta"}
+          </p>
         </div>
-        <p className="mt-1 truncate text-xs text-slate-400">
-          {profile?.display_name ?? "Custom home builder — Beta"}
-        </p>
+        {/* Close button — mobile drawer only. */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="-mr-2 -mt-1 flex h-9 w-9 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
