@@ -36,6 +36,11 @@ import {
   sendSms,
   toE164,
 } from "@/lib/sms";
+import {
+  composeRfqInviteEmail,
+  isLikelyEmail,
+  sendEmail,
+} from "@/lib/email-compose";
 import Tooltip from "@/components/tooltip";
 
 const fmtMoney = (n: number) =>
@@ -390,13 +395,15 @@ function RFQModal({
             failures.push(`${inv.sub_name}: missing distributor`);
             return inv;
           }
-          if (sub.sms_consent !== true) {
-            failures.push(`${inv.sub_name}: no SMS consent`);
-            return inv;
-          }
-          const to = toE164(sub.phone ?? "");
-          if (!to) {
-            failures.push(`${inv.sub_name}: no valid phone`);
+          // Multi-channel: try every channel the sub is configured for.
+          // SMS gates on consent + valid phone; email gates only on a
+          // well-formed address. At least one channel must succeed for
+          // notified_at to stamp.
+          const phoneOk =
+            sub.sms_consent === true && !!toE164(sub.phone ?? "");
+          const emailOk = isLikelyEmail(sub.email);
+          if (!phoneOk && !emailOk) {
+            failures.push(`${inv.sub_name}: no SMS or email on file`);
             return inv;
           }
           try {
@@ -406,20 +413,34 @@ function RFQModal({
               builderName || "your builder",
             );
             const bidLink = `https://${host}/s/${token}/bid/${rfqId}`;
-            const body = composeRfqInviteSms({
+            const params = {
               builderName,
               projectName: deal.name,
               scopeTitle: title.trim() || "bid request",
               bidLink,
-            });
-            const result = await sendSms(to, body, { fromNumberHint });
-            if (result.ok) {
+            };
+            let anyOk = false;
+            if (phoneOk) {
+              const to = toE164(sub.phone ?? "");
+              const result = await sendSms(
+                to!,
+                composeRfqInviteSms(params),
+                { fromNumberHint },
+              );
+              if (result.ok) anyOk = true;
+            }
+            if (emailOk) {
+              const result = await sendEmail(
+                sub.email!,
+                composeRfqInviteEmail(params),
+              );
+              if (result.ok) anyOk = true;
+            }
+            if (anyOk) {
               sentCount++;
               return { ...inv, notified_at: new Date().toISOString() };
             } else {
-              failures.push(
-                `${inv.sub_name}: ${result.reason || "send failed"}`,
-              );
+              failures.push(`${inv.sub_name}: all channels failed`);
               return inv;
             }
           } catch (e) {

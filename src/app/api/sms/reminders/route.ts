@@ -28,6 +28,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminConfigured, adminDb } from "@/lib/firebase-admin";
 import { composeReminderSms, toE164 } from "@/lib/sms";
+import { sendEmail } from "@/lib/email";
+import { composeReminderEmail, isLikelyEmail } from "@/lib/email-compose";
+import { sendPushToAll } from "@/lib/push";
 import type { ProjectMilestone } from "@/types/builder";
 import type { Deal, Distributor, OrgSettings } from "@/types";
 
@@ -203,33 +206,83 @@ async function handle(req: NextRequest): Promise<NextResponse> {
       try {
         const sub = await getSub(subId);
         if (!sub) continue;
-        if (sub.sms_consent !== true) continue;
-        const to = toE164(sub.phone ?? "");
-        if (!to) continue;
-        if (!sub.schedule_token) {
-          // No portal link yet — we still text the reminder, but
-          // without the schedule URL. (The token gets minted on first
-          // assignment SMS, so most established subs will have one.)
-        }
+
         const scheduleLink = sub.schedule_token
           ? `https://${getHostHeader(req)}/s/${sub.schedule_token}`
           : undefined;
-
-        const body = composeReminderSms({
+        const params = {
           builderName,
           projectName: deal.name,
           phaseName: milestone.name,
           lead,
           startDate,
           scheduleLink,
-        });
+        };
 
-        const ok = await sendTwilio(to, body, fromNumber);
-        if (ok) {
-          sent++;
-          anySent = true;
-        } else {
-          errors++;
+        // SMS — gated on consent + valid phone.
+        const to = toE164(sub.phone ?? "");
+        if (to && sub.sms_consent === true) {
+          const ok = await sendTwilio(
+            to,
+            composeReminderSms(params),
+            fromNumber,
+          );
+          if (ok) {
+            sent++;
+            anySent = true;
+          } else {
+            errors++;
+          }
+        }
+
+        // Email fallback — gated only on a well-formed address. Sub
+        // gets both channels if both are set up; either channel alone
+        // is enough to count this milestone as reminded.
+        if (isLikelyEmail(sub.email)) {
+          const emailRes = await sendEmail({
+            to: sub.email!,
+            ...composeReminderEmail(params),
+          });
+          if (emailRes.ok) {
+            sent++;
+            anySent = true;
+          } else if (emailRes.reason && emailRes.reason !== "not_configured") {
+            errors++;
+          }
+        }
+
+        // Web push fallback — fires for every device the sub has
+        // subscribed (after they installed the PWA + granted
+        // permission). Stale subscriptions get pruned from the
+        // returned list and persisted back so the next run doesn't
+        // retry dead endpoints.
+        const subscriptions = sub.push_subscriptions ?? [];
+        if (subscriptions.length > 0) {
+          const stillActive = await sendPushToAll(subscriptions, {
+            title: `${builderName || "FrameFlow"}: ${milestone.name} starts in ${lead}`,
+            body: `${deal.name}${startDate ? ` (${startDate})` : ""}`,
+            url: sub.schedule_token ? `/s/${sub.schedule_token}` : "/",
+            tag: `reminder-${milestone.id}-${kind}`,
+          });
+          if (stillActive.length !== subscriptions.length) {
+            // Drop the gone subscriptions back to Firestore so we
+            // don't retry them next tick.
+            try {
+              await db
+                .collection("distributors")
+                .doc(sub.id)
+                .update({ push_subscriptions: stillActive });
+            } catch (e) {
+              console.warn(
+                "[sms/reminders] push subscription prune failed",
+                e,
+              );
+            }
+          }
+          if (stillActive.length > 0) {
+            sent++;
+            anySent = true;
+          }
         }
       } catch (e) {
         errors++;

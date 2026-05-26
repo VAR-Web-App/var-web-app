@@ -214,16 +214,42 @@ export interface Distributor {
   /** Mobile number for SMS schedule notifications. Stored as entered;
    *  normalized to E.164 at send time. */
   phone?: string;
+  /** Email address — universal fallback when SMS isn't possible
+   *  (no consent / no phone / pre-A2P-approval window). Notifications
+   *  are sent to both channels when both are available. */
+  email?: string;
   /** The sub confirmed they agree to receive schedule text messages.
    *  Gates every SMS send — recorded consent for A2P 10DLC compliance. */
   sms_consent?: boolean;
   /** Stable token for this sub's no-login schedule page (/s/{token}).
    *  Generated on first schedule notification. */
   schedule_token?: string;
+  /** Push notification subscriptions for this sub, registered when
+   *  they install the PWA and grant notification permission. One
+   *  subscription per device. Server-side sends use these in
+   *  parallel with SMS / email. */
+  push_subscriptions?: PushSubscriptionRecord[];
   order_poc_ref?: string;
   order_poc_name?: string;
   notes: string;
   org_ref: string;
+}
+
+/** Web Push subscription stored on a Distributor record. Shape matches
+ *  what PushManager.subscribe() returns, plus a couple of fields for
+ *  bookkeeping (when registered, optional friendly device label). */
+export interface PushSubscriptionRecord {
+  /** Apple's APNs / Google's FCM endpoint the server POSTs to. */
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  /** ISO timestamp when the subscription was registered. */
+  subscribed_at: string;
+  /** Optional UA-derived label so the sub recognizes the device when
+   *  managing subscriptions (e.g. "iPhone 15 — Chrome"). */
+  device_label?: string;
 }
 
 export interface OrgSettings {

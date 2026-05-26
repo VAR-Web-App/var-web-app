@@ -42,6 +42,12 @@ import {
   effectiveContractValue,
 } from "@/lib/store";
 import { toE164, sendSms, composeAssignmentSms, composeRescheduleSms } from "@/lib/sms";
+import {
+  sendEmail,
+  composeAssignmentEmail,
+  composeRescheduleEmail,
+  isLikelyEmail,
+} from "@/lib/email-compose";
 import Tooltip from "@/components/tooltip";
 import WeatherBanner from "@/components/weather-banner";
 
@@ -304,48 +310,57 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     void notifyAssignedSubs(updated, added);
   }
 
-  // Fire-and-forget SMS to subs newly assigned to a phase. Silent if the
-  // sub has no mobile on file, the number is unparseable, or Twilio
-  // isn't configured server-side — never blocks the assignment save.
+  // Fire-and-forget multi-channel notification to subs newly assigned
+  // to a phase. SMS fires when sub has consent + valid phone; email
+  // fires when sub has an email on file. Both channels are independent
+  // — sub gets whichever they're set up for (or both). Never blocks
+  // the assignment save.
   async function notifyAssignedSubs(m: ProjectMilestone, subIds: string[]) {
     for (const subId of subIds) {
       const sub = subs.find((s) => s.id === subId);
-      if (!sub?.phone || !sub.sms_consent) continue;
-      const to = toE164(sub.phone);
-      if (!to) continue;
-      void sendSms(
-        to,
-        composeAssignmentSms({
-          builderName: companyName,
-          projectName: deal.name,
-          phaseName: m.name,
-          address: deal.ship_to_address,
-          startDate: m.planned_start_date,
-          endDate: m.planned_end_date,
-          scheduleLink: await subScheduleLink(sub.id),
-        })
-      );
+      if (!sub) continue;
+      const scheduleLink = await subScheduleLink(sub.id);
+      const params = {
+        builderName: companyName,
+        projectName: deal.name,
+        phaseName: m.name,
+        address: deal.ship_to_address,
+        startDate: m.planned_start_date,
+        endDate: m.planned_end_date,
+        scheduleLink,
+      };
+      const to = toE164(sub.phone ?? "");
+      if (to && sub.sms_consent) {
+        void sendSms(to, composeAssignmentSms(params));
+      }
+      if (isLikelyEmail(sub.email)) {
+        void sendEmail(sub.email!, composeAssignmentEmail(params));
+      }
     }
   }
 
-  // Fire-and-forget SMS to every sub on a phase whose dates just changed.
+  // Fire-and-forget multi-channel notification to every sub on a phase
+  // whose dates just changed. Same channel logic as notifyAssignedSubs.
   async function notifyRescheduledSubs(m: ProjectMilestone) {
     for (const subId of m.assigned_subs || []) {
       const sub = subs.find((s) => s.id === subId);
-      if (!sub?.phone || !sub.sms_consent) continue;
-      const to = toE164(sub.phone);
-      if (!to) continue;
-      void sendSms(
-        to,
-        composeRescheduleSms({
-          builderName: companyName,
-          projectName: deal.name,
-          phaseName: m.name,
-          startDate: m.planned_start_date,
-          endDate: m.planned_end_date,
-          scheduleLink: await subScheduleLink(sub.id),
-        })
-      );
+      if (!sub) continue;
+      const scheduleLink = await subScheduleLink(sub.id);
+      const params = {
+        builderName: companyName,
+        projectName: deal.name,
+        phaseName: m.name,
+        startDate: m.planned_start_date,
+        endDate: m.planned_end_date,
+        scheduleLink,
+      };
+      const to = toE164(sub.phone ?? "");
+      if (to && sub.sms_consent) {
+        void sendSms(to, composeRescheduleSms(params));
+      }
+      if (isLikelyEmail(sub.email)) {
+        void sendEmail(sub.email!, composeRescheduleEmail(params));
+      }
     }
   }
 

@@ -17,6 +17,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminConfigured, adminDb } from "@/lib/firebase-admin";
 import { composeBidArrivedSms, toE164 } from "@/lib/sms";
+import { sendEmail } from "@/lib/email";
+import { composeBidArrivedEmail, isLikelyEmail } from "@/lib/email-compose";
 import type { ProjectRFQ, RFQInvitee, SubScheduleLink } from "@/types/builder";
 import type { Attachment, Deal, OrgSettings } from "@/types";
 
@@ -275,11 +277,28 @@ async function notifyGc(
   const settingsSnap = await db.collection("settings").doc(deal.org_ref).get();
   if (!settingsSnap.exists) return;
   const settings = settingsSnap.data() as OrgSettings;
+  const builderName = settings.company_name?.trim() || "FrameFlow";
+
+  // Email branch — fires whenever the org has a valid company_email,
+  // independent of SMS configuration / approval state.
+  if (isLikelyEmail(settings.company_email)) {
+    void sendEmail({
+      to: settings.company_email!,
+      ...composeBidArrivedEmail({
+        builderName,
+        subName,
+        scopeTitle: rfq.scope_title,
+        bidAmount,
+      }),
+    });
+  }
+
+  // SMS branch — only if a valid phone is on file + Twilio configured.
   const to = toE164(settings.company_phone ?? "");
   if (!to) return;
 
   const body = composeBidArrivedSms({
-    builderName: settings.company_name?.trim() || "FrameFlow",
+    builderName,
     subName,
     scopeTitle: rfq.scope_title,
     bidAmount,

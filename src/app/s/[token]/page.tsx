@@ -15,6 +15,7 @@
 
 import { use, useEffect, useState } from "react";
 import { getSubScheduleLink } from "@/lib/store";
+import PushOptIn from "@/components/push-opt-in";
 import {
   SubScheduleLink,
   SubScheduleAssignment,
@@ -190,6 +191,7 @@ export default function SubSchedulePage({
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-8">
+        <PushOptIn token={token} />
         {tab === "schedule" && (
           <ScheduleTab link={link} token={token} onPatch={patchAssignment} />
         )}

@@ -22,6 +22,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminConfigured, adminDb } from "@/lib/firebase-admin";
 import { toE164 } from "@/lib/sms";
+import { sendEmail } from "@/lib/email";
+import {
+  composeConflictNotifyEmail,
+  isLikelyEmail,
+} from "@/lib/email-compose";
 import type { SubAcknowledgment, SubScheduleLink } from "@/types/builder";
 import type { Deal, OrgSettings } from "@/types";
 
@@ -169,16 +174,34 @@ async function notifyGcOfConflict(
     if (!settingsSnap.exists) return;
     const settings = settingsSnap.data() as OrgSettings;
 
+    const builder = settings.company_name?.trim() || "FrameFlow";
+
+    // Email branch — fires whenever org has a valid company_email,
+    // independent of SMS. Captures GC alerts even pre-A2P approval.
+    if (isLikelyEmail(settings.company_email)) {
+      void sendEmail({
+        to: settings.company_email!,
+        ...composeConflictNotifyEmail({
+          builderName: builder,
+          subName,
+          phaseName: assignment.phase_name,
+          projectName: assignment.project_name,
+          startDate: assignment.start_date,
+          reason,
+        }),
+      });
+    }
+
+    // SMS branch — gated on valid phone + Twilio configured.
     const to = toE164(settings.company_phone ?? "");
     if (!to) {
       console.warn(
-        "[sub/acknowledge] no E.164 company_phone — skipping GC notify",
+        "[sub/acknowledge] no E.164 company_phone — SMS GC notify skipped (email may still fire)",
         { dealRef, org: deal.org_ref },
       );
       return;
     }
 
-    const builder = settings.company_name?.trim() || "FrameFlow";
     const startStr = assignment.start_date
       ? ` (${assignment.start_date})`
       : "";

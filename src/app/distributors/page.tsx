@@ -165,7 +165,10 @@ export default function DistributorsPage() {
               <Input label="Trade or Account #" value={editing.account_number} onChange={(v) => setEditing({ ...editing, account_number: v })} placeholder="Plumber, Electrician, Lumber yard…" />
               <Input label="Primary contact" value={editing.order_poc_name ?? ""} onChange={(v) => setEditing({ ...editing, order_poc_name: v })} />
             </div>
-            <Input label="Mobile number" value={editing.phone ?? ""} onChange={(v) => setEditing({ ...editing, phone: v })} placeholder="(210) 555-0142 — for schedule text alerts" />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Mobile number" value={editing.phone ?? ""} onChange={(v) => setEditing({ ...editing, phone: v })} placeholder="(210) 555-0142" />
+              <Input label="Email" value={editing.email ?? ""} onChange={(v) => setEditing({ ...editing, email: v })} placeholder="mike@example.com" />
+            </div>
             <label className="flex items-start gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
