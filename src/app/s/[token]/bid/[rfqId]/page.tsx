@@ -240,12 +240,12 @@ export default function BidPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-2xl px-6 py-4">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-2xl px-4 py-3 sm:px-6 sm:py-4">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">
             Bid request · {view.phase}
           </div>
-          <div className="mt-0.5 text-base font-semibold text-slate-900">
+          <div className="mt-0.5 text-lg font-semibold text-slate-900 sm:text-base">
             {view.scope_title}
           </div>
           <div className="text-xs text-slate-500">
@@ -254,7 +254,7 @@ export default function BidPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-8 space-y-4">
+      <main className="mx-auto max-w-2xl space-y-4 px-4 py-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:px-6 sm:py-8">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Scope of work
@@ -329,7 +329,7 @@ export default function BidPage({
                   Bid amount (USD)
                 </span>
                 <div className="relative mt-1">
-                  <span className="absolute inset-y-0 left-3 flex items-center text-sm text-slate-500">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-base text-slate-500">
                     $
                   </span>
                   <input
@@ -340,7 +340,7 @@ export default function BidPage({
                     onChange={(e) => setBidAmount(e.target.value)}
                     placeholder="0.00"
                     disabled={submitting}
-                    className="w-full rounded-md border border-slate-300 py-2 pl-7 pr-3 text-sm tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50"
+                    className="block min-h-[44px] w-full rounded-md border border-slate-300 py-2 pl-8 pr-3 text-base tabular-nums focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50"
                   />
                 </div>
               </label>
@@ -355,7 +355,8 @@ export default function BidPage({
                   disabled={submitting}
                   placeholder="e.g. Includes materials and labor. Excludes permit fees. Available start week of June 10."
                   maxLength={2000}
-                  className="mt-1 w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50"
+                  // text-base (16px) avoids iOS Safari auto-zoom on focus.
+                  className="mt-1 w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-base focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50 sm:text-sm"
                 />
                 <span className="mt-1 block text-[10px] text-slate-400">
                   {bidNotes.length}/2000
@@ -430,7 +431,7 @@ export default function BidPage({
               <button
                 onClick={submit}
                 disabled={submitting || !bidAmount}
-                className="w-full rounded-md bg-sky-700 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+                className="flex min-h-[48px] w-full items-center justify-center rounded-md bg-sky-700 px-4 text-sm font-semibold text-white hover:bg-sky-800 active:bg-sky-900 disabled:cursor-not-allowed disabled:bg-sky-300"
               >
                 {submitting
                   ? "Submitting…"
