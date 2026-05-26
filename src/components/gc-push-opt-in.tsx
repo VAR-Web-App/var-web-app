@@ -272,7 +272,7 @@ function SubscriptionRow({
         setTestMsg(
           data.error === "not_configured"
             ? "Server can't reach Firebase — admin credentials missing on Vercel"
-            : "Send failed",
+            : `Send failed: ${data.error || "unknown"}`,
         );
       }
     } catch {
