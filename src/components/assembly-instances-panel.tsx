@@ -592,8 +592,11 @@ function AssemblyInstanceCard({
           <div
             className="grid gap-3 px-4 py-3"
             style={{
+              // 180px min lets option labels up to ~27 chars show
+              // without overflowing the native select's intrinsic
+              // min-width (which derives from the longest option text).
               gridTemplateColumns:
-                "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
+                "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
             }}
           >
             {assembly.properties.map((p) => (

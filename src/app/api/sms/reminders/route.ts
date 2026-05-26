@@ -259,7 +259,7 @@ async function handle(req: NextRequest): Promise<NextResponse> {
         const subscriptions = sub.push_subscriptions ?? [];
         if (subscriptions.length > 0) {
           const stillActive = await sendPushToAll(subscriptions, {
-            title: `${builderName || "FrameFlow"}: ${milestone.name} starts in ${lead}`,
+            title: `${builderName || "KeystonePro"}: ${milestone.name} starts in ${lead}`,
             body: `${deal.name}${startDate ? ` (${startDate})` : ""}`,
             url: sub.schedule_token ? `/s/${sub.schedule_token}` : "/",
             tag: `reminder-${milestone.id}-${kind}`,
@@ -338,7 +338,7 @@ function ymd(d: Date): string {
 }
 
 function getHostHeader(req: NextRequest): string {
-  return req.headers.get("host") ?? "frameflow.app";
+  return req.headers.get("host") ?? "keystonepro.app";
 }
 
 /** Direct Twilio Messages API call — same shape as /api/sms/route.ts

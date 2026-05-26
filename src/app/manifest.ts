@@ -10,8 +10,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FrameFlow — project + estimate + draw management",
-    short_name: "FrameFlow",
+    name: "KeystonePro — project + estimate + draw management",
+    short_name: "KeystonePro",
     description:
       "AI-assisted estimating, draw schedule + lender-ready requests, sub coordination, and customer portal — the custom-home builder workflow in one app.",
     start_url: "/",

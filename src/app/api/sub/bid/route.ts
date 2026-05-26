@@ -278,7 +278,7 @@ async function notifyGc(
   const settingsSnap = await db.collection("settings").doc(deal.org_ref).get();
   if (!settingsSnap.exists) return;
   const settings = settingsSnap.data() as OrgSettings;
-  const builderName = settings.company_name?.trim() || "FrameFlow";
+  const builderName = settings.company_name?.trim() || "KeystonePro";
 
   // Email branch — fires whenever the org has a valid company_email,
   // independent of SMS configuration / approval state.

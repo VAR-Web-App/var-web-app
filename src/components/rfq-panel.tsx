@@ -441,7 +441,7 @@ function RFQModal({
             // sub has registered. Counts toward anyOk so a push-only
             // sub still flips notified_at and isn't re-pinged.
             const pushResult = await pushNotifySub(sub.id, {
-              title: `${builderName || "FrameFlow"}: bid request — ${params.scopeTitle}`,
+              title: `${builderName || "KeystonePro"}: bid request — ${params.scopeTitle}`,
               body: `${params.projectName}`,
               url: bidLink,
               tag: `rfq-invite-${rfqId}`,

@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from "react";
 
-const DISMISS_KEY = "frameflow.ios-install-hint.dismissed";
+const DISMISS_KEY = "keystonepro.ios-install-hint.dismissed";
 
 export default function IosInstallHint() {
   const [show, setShow] = useState(false);
@@ -65,7 +65,7 @@ export default function IosInstallHint() {
   return (
     <div
       role="dialog"
-      aria-label="Install FrameFlow"
+      aria-label="Install KeystonePro"
       className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
     >
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
@@ -90,7 +90,7 @@ export default function IosInstallHint() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-900">
-              Install FrameFlow
+              Install KeystonePro
             </p>
             <p className="mt-0.5 text-xs text-slate-600">
               Tap{" "}

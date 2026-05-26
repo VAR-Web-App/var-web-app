@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title:
-    "FrameFlow — Project + estimate + draw management for custom home builders",
+    "KeystonePro — Project + estimate + draw management for custom home builders",
   description:
     "AI-assisted estimating, draw schedule + lender-ready requests, sub coordination, customer portal — the custom-home builder workflow in one app.",
   // PWA: tells iOS Safari this app is installable as a standalone
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   // for the home-screen icon.
   appleWebApp: {
     capable: true,
-    title: "FrameFlow",
+    title: "KeystonePro",
     statusBarStyle: "black-translucent",
   },
 };

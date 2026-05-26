@@ -178,7 +178,7 @@ export default function DistributorsPage() {
               />
               <span>
                 This sub agreed to receive schedule text notifications.
-                FrameFlow won&apos;t text a sub until this is checked.
+                KeystonePro won&apos;t text a sub until this is checked.
               </span>
             </label>
             <TextArea label="Address" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} />

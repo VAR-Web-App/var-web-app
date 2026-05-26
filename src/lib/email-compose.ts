@@ -24,7 +24,7 @@ function wrapHtml(p: {
     : "";
   return `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:#f8fafc;padding:24px;color:#0f172a">
 <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#0369a1;font-weight:600">FrameFlow</div>
+<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#0369a1;font-weight:600">KeystonePro</div>
 <div style="font-size:14px;color:#1e293b;margin-top:8px;line-height:1.5">${p.body}</div>
 ${cta}
 </div>
@@ -51,7 +51,7 @@ export interface AssignmentEmailParams {
 export function composeAssignmentEmail(
   p: AssignmentEmailParams,
 ): ComposedEmail {
-  const subject = `${p.builderName || "FrameFlow"}: scheduled for ${p.phaseName} on ${p.projectName}`;
+  const subject = `${p.builderName || "KeystonePro"}: scheduled for ${p.phaseName} on ${p.projectName}`;
   const where = p.address ? ` at ${p.address.split("\n")[0]}` : "";
   const window =
     p.startDate || p.endDate
@@ -81,7 +81,7 @@ export interface RescheduleEmailParams {
 export function composeRescheduleEmail(
   p: RescheduleEmailParams,
 ): ComposedEmail {
-  const subject = `${p.builderName || "FrameFlow"}: schedule change — ${p.phaseName}`;
+  const subject = `${p.builderName || "KeystonePro"}: schedule change — ${p.phaseName}`;
   const text =
     `Schedule change — ${p.phaseName} on ${p.projectName} is now ${fmtDate(p.startDate)} – ${fmtDate(p.endDate)}.` +
     (p.scheduleLink ? `\n\nYour schedule: ${p.scheduleLink}` : "");
@@ -104,7 +104,7 @@ export interface RfqInviteEmailParams {
 export function composeRfqInviteEmail(
   p: RfqInviteEmailParams,
 ): ComposedEmail {
-  const subject = `${p.builderName || "FrameFlow"}: bid request — ${p.scopeTitle}`;
+  const subject = `${p.builderName || "KeystonePro"}: bid request — ${p.scopeTitle}`;
   const text = `Bid request — ${p.scopeTitle} on ${p.projectName}.\n\nReview scope and submit your bid: ${p.bidLink}`;
   const html = wrapHtml({
     preheader: "Review scope and submit your bid online.",
@@ -151,7 +151,7 @@ export interface ReminderEmailParams {
 
 export function composeReminderEmail(p: ReminderEmailParams): ComposedEmail {
   const when = p.startDate ? ` (${fmtDate(p.startDate)})` : "";
-  const subject = `${p.builderName || "FrameFlow"}: ${p.phaseName} starts in ${p.lead}`;
+  const subject = `${p.builderName || "KeystonePro"}: ${p.phaseName} starts in ${p.lead}`;
   const text =
     `Reminder — ${p.phaseName} on ${p.projectName} starts in ${p.lead}${when}.` +
     (p.scheduleLink ? `\n\nYour schedule: ${p.scheduleLink}` : "");

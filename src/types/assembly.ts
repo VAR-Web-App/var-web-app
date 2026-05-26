@@ -1,5 +1,5 @@
 /**
- * Assembly-based estimating types for FrameFlow.
+ * Assembly-based estimating types for KeystonePro.
  *
  * An Assembly is a parametric construction component (e.g., a 2×6 exterior
  * wall) with named properties (Wall Length, Wall Height, Stud Spacing) and

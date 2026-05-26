@@ -9,6 +9,8 @@ import { getAuth, type Auth } from "firebase/auth";
 import {
   getFirestore,
   initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
@@ -39,9 +41,20 @@ if (!getApps().length) {
 // value: undefined'. We have several optional fields on Deal/Account that
 // are typed as `T | undefined`, and without this flag every create would
 // fail unless callers explicitly stripped undefined keys.
+//
+// localCache: persistentLocalCache enables IndexedDB-backed offline
+// persistence. Recent reads stay in cache; writes queue locally and
+// replay when network returns. persistentMultipleTabManager keeps
+// the cache coherent across multiple browser tabs of the same app.
+// Defaults to 100 MB cache — plenty for one builder's project history.
 export const db: Firestore = firestoreInitialized
   ? getFirestore(app)
-  : initializeFirestore(app, { ignoreUndefinedProperties: true });
+  : initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
 
 export const auth: Auth = getAuth(app);
 export const storage: FirebaseStorage = getStorage(app);

@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     .map((m) => `- ${m.name}: qty=${m.quantityFormula} ${m.uom}`)
     .join("\n");
 
-  const system = `You are an estimating assistant for FrameFlow, a custom-home builder app. The user wants to add a new material line to an existing assembly. You'll suggest values for the line's fields based on their plain-English description.
+  const system = `You are an estimating assistant for KeystonePro, a custom-home builder app. The user wants to add a new material line to an existing assembly. You'll suggest values for the line's fields based on their plain-English description.
 
 ASSEMBLY: ${assembly.name}
 DESCRIPTION: ${assembly.description ?? ""}

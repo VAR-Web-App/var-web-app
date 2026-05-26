@@ -193,7 +193,7 @@ export default function ClientPortalPage({
       <div className="border-b border-sky-200 bg-sky-100/70 px-6 py-2 text-center text-xs text-sky-900">
         <Link href={`/deals/${id}`} className="inline-flex items-center gap-1 font-medium hover:underline">
           <ArrowLeftIcon className="h-3 w-3" />
-          FrameFlow preview · back to project
+          KeystonePro preview · back to project
         </Link>
         <span className="mx-2 text-sky-300">·</span>
         Your client sees the page below.

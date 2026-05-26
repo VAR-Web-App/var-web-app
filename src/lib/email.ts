@@ -60,7 +60,7 @@ export async function sendEmail(args: {
     );
     return { ok: false, delivered: false, reason: "no_from_address" };
   }
-  const fromName = process.env.SENDGRID_FROM_NAME || "FrameFlow";
+  const fromName = process.env.SENDGRID_FROM_NAME || "KeystonePro";
 
   try {
     await sgMail.send({

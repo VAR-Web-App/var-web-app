@@ -21,7 +21,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let payload = { title: "FrameFlow", body: "" };
+  let payload = { title: "KeystonePro", body: "" };
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() };
@@ -36,7 +36,7 @@ self.addEventListener("push", (event) => {
     body: payload.body,
     icon: "/icon.svg",
     badge: "/icon.svg",
-    tag: payload.tag || "frameflow",
+    tag: payload.tag || "keystonepro",
     data: { url: payload.url || "/" },
     // Vibrate pattern doubles as iOS sound cue on installed PWAs.
     vibrate: [200, 100, 200],

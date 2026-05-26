@@ -89,7 +89,7 @@ export default function LoginPage() {
           <svg
             viewBox="0 0 64 64"
             className="mx-auto mb-3 h-10 w-10"
-            aria-label="FrameFlow logo"
+            aria-label="KeystonePro logo"
           >
             <circle cx="32" cy="32" r="32" fill="#0369a1" />
             <path
@@ -101,7 +101,7 @@ export default function LoginPage() {
               fill="none"
             />
           </svg>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">FrameFlow</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">KeystonePro</h1>
           <p className="mt-1 text-sm text-slate-500">
             Custom home builder — project + estimate + draw management
           </p>

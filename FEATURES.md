@@ -1,10 +1,10 @@
-# FrameFlow — Feature Inventory
+# KeystonePro — Feature Inventory
 
 Running list of every capability we've identified — shipped, in flight, scoped for v1, deferred, or sitting on the "What's possible" roadmap. The goal: pick what to build from one place, not from memory.
 
 When something gets implemented, move its check to **✅** and add the implementing commit/branch.
 
-> **Brand name pending.** "FrameFlow" was a rename from Buildline; FrameFlow turned out to also be taken (existing IT-monitoring company). Current finalists: **SiteJoint** and **Lapjoint** (both have clean .coms across all major TLDs and no construction-software conflicts). LLC formation + EIN sequence is gating Twilio brand registration.
+> **Brand name pending.** Working name as of 2026-05-25: **KeystonePro** (suggested by Brennan, the homeowner Barry's actively building for). Previous candidates: SiteJoint / Lapjoint / FrameFlow (FrameFlow was taken by an existing IT-monitoring company). **Verify .com availability + trademark before LLC formation** — the working name is in the codebase but not yet committed legally. LLC formation + EIN sequence is gating Twilio brand registration.
 
 ## Status legend
 
@@ -120,7 +120,7 @@ The realistic alternatives don't match SMS on both axes:
 
 Planned sequencing:
 - **📅 Email-channel fallback** — same compose helpers, swap carrier. Sends when SMS isn't available (no consent, no valid phone, no A2P brand yet). Universal long-tail.
-- **📅 Web push on PWA install** — once a sub installs the FrameFlow portal to home screen, prompt for push permission and use it for future assignment / conflict / reminder notifications. Replaces SMS for the engaged tier; free + reliable for installed users.
+- **📅 Web push on PWA install** — once a sub installs the KeystonePro portal to home screen, prompt for push permission and use it for future assignment / conflict / reminder notifications. Replaces SMS for the engaged tier; free + reliable for installed users.
 - **🎯 SMS as primary once A2P clears** — after LLC + EIN + Twilio Brand approval (the gating sequence already on the pre-launch list), flip SMS to primary. Email + web push become the backup channels.
 
 Net: ship email + PWA push as the pre-A2P notification stack; SMS becomes the upgrade. Multi-channel is permanent — different channels are better for different message types (push for instant alerts, email for digestible summaries, SMS for "must reach this person now").
@@ -189,7 +189,7 @@ Banks process construction draws differently — some want email + invoice PDF, 
 
 ## H. Branding / product positioning
 
-- **✅ Renamed Buildline → FrameFlow** (name was taken; FrameFlow ALSO turned out taken — see top of this doc).
+- **✅ Renamed Buildline → FrameFlow → KeystonePro** (Buildline + FrameFlow both turned out taken; KeystonePro is the current working name pending availability check — see top of this doc).
 - **🚧 Decide on final product name** — finalists: SiteJoint, Lapjoint. Decision gates LLC formation, EIN, Twilio brand registration, domain purchase, email forwarder setup. See conversation transcripts for full availability checks.
 - **🚧 LLC formation + EIN** — pending name decision. Wyoming or New Mexico LLC at ~$150 + free EIN online at IRS.gov.
 - **📋 Long-term product positioning** — live-edit estimates with the client + sub-aware schedule + bank-aware draws are the wedge against JobTread / Buildxact / BuilderTrend.

@@ -20,7 +20,7 @@ import {
   type PushSupportState,
 } from "@/lib/push-client";
 
-const DISMISS_KEY = "frameflow.push-opt-in.dismissed";
+const DISMISS_KEY = "keystonepro.push-opt-in.dismissed";
 
 export default function PushOptIn({ token }: { token: string }) {
   const [state, setState] = useState<PushSupportState | null>(null);
@@ -75,7 +75,7 @@ export default function PushOptIn({ token }: { token: string }) {
   if (state === "ios-needs-install") {
     return (
       <Banner tone="info" onDismiss={dismiss}>
-        <strong>Get instant alerts</strong> — install FrameFlow to your home
+        <strong>Get instant alerts</strong> — install KeystonePro to your home
         screen first (Share → Add to Home Screen), then come back here to turn
         on push.
       </Banner>
@@ -86,7 +86,7 @@ export default function PushOptIn({ token }: { token: string }) {
     return (
       <Banner tone="warn" onDismiss={dismiss}>
         <strong>Notifications blocked.</strong> Enable in your phone&apos;s
-        Settings → Notifications → FrameFlow to get instant schedule alerts.
+        Settings → Notifications → KeystonePro to get instant schedule alerts.
       </Banner>
     );
   }

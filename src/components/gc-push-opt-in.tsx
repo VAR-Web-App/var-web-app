@@ -125,7 +125,7 @@ export default function GCPushOptIn({
 
       {state === "ios-needs-install" && (
         <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
-          On iPhone, install FrameFlow to your home screen first (Safari
+          On iPhone, install KeystonePro to your home screen first (Safari
           Share → Add to Home Screen), then come back here to enable push.
         </p>
       )}

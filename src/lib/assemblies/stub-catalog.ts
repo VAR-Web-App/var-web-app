@@ -1,5 +1,5 @@
 /**
- * Stub catalog of residential framing assemblies for FrameFlow development.
+ * Stub catalog of residential framing assemblies for KeystonePro development.
  *
  * These are placeholder Assembly definitions with rough 2026 ballpark
  * costs. They exist so the UI and engine can be built and demoed before
@@ -1002,9 +1002,9 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         defaultValue: 1.0,
         kind: "option",
         options: [
-          { label: "Chain drive (1/2 HP)", value: 1.0 },
-          { label: "Belt drive (3/4 HP, quiet)", value: 1.6 },
-          { label: "Direct/wall mount (smart)", value: 2.4 },
+          { label: "Chain (1/2 HP)", value: 1.0 },
+          { label: "Belt (3/4 HP, quiet)", value: 1.6 },
+          { label: "Wall mount (smart)", value: 2.4 },
         ],
       },
     ],

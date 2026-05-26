@@ -175,7 +175,7 @@ async function notifyGcOfConflict(
     if (!settingsSnap.exists) return;
     const settings = settingsSnap.data() as OrgSettings;
 
-    const builder = settings.company_name?.trim() || "FrameFlow";
+    const builder = settings.company_name?.trim() || "KeystonePro";
 
     // Email branch — fires whenever org has a valid company_email,
     // independent of SMS. Captures GC alerts even pre-A2P approval.
