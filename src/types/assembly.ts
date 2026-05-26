@@ -105,6 +105,7 @@ export interface Assembly {
   description?: string;
   /** Broad trade for filtering in the UI. */
   trade:
+    | "site"
     | "framing"
     | "foundation"
     | "roofing"

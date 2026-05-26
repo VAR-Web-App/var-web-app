@@ -54,6 +54,7 @@ function instanceTotal(
  *  experiences on the job, so the assemblies list reads top-to-bottom
  *  the way the build happens. */
 const TRADE_ORDER: Array<Assembly["trade"]> = [
+  "site",
   "foundation",
   "framing",
   "roofing",
@@ -69,6 +70,7 @@ const TRADE_ORDER: Array<Assembly["trade"]> = [
 ];
 
 const TRADE_LABELS: Record<Assembly["trade"], string> = {
+  site: "Site Work & Outdoor",
   foundation: "Foundation",
   framing: "Framing",
   roofing: "Roofing",

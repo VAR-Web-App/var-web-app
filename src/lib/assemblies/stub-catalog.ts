@@ -1189,6 +1189,231 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     ],
   },
   {
+    id: "stub-site-work",
+    name: "Site work — clearing, grading, excavation",
+    description:
+      "Pre-construction site prep: tree clearing, brush removal, rough " +
+      "grade, foundation excavation, and final grade after backfill. " +
+      "Priced per acre of lot disturbed; bumps up for difficult terrain.",
+    trade: "site",
+    properties: [
+      { name: "Lot Disturbance", uom: "AC", defaultValue: 0.5 },
+      {
+        name: "Terrain Difficulty",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Flat / cleared lot", value: 1.0 },
+          { label: "Moderate slope or tree cover", value: 1.6 },
+          { label: "Heavy clearing or steep grade", value: 2.4 },
+          { label: "Rock excavation", value: 3.5 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Clearing + rough grading",
+        uom: "AC",
+        quantityFormula: "{Lot Disturbance}",
+        unitCostUsd: 0,
+        unitCostFormula: "3200 * {Terrain Difficulty}",
+        laborCostUsd: 0,
+        laborCostFormula: "2800 * {Terrain Difficulty}",
+        csiDivision: "31",
+      },
+      {
+        name: "Foundation excavation + spoil haul-off",
+        uom: "EA",
+        quantityFormula: "1",
+        unitCostUsd: 0,
+        unitCostFormula: "1800 * {Terrain Difficulty}",
+        laborCostUsd: 0,
+        laborCostFormula: "1600 * {Terrain Difficulty}",
+        csiDivision: "31",
+      },
+      {
+        name: "Final grade + topsoil reset",
+        uom: "AC",
+        quantityFormula: "{Lot Disturbance}",
+        unitCostUsd: 850,
+        laborCostUsd: 1200,
+        csiDivision: "31",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Flat lot — standard prep",
+        propertyOverrides: { "Terrain Difficulty": 1.0 },
+      },
+      {
+        label: "Wooded / moderate slope",
+        propertyOverrides: { "Terrain Difficulty": 1.6 },
+      },
+      {
+        label: "Heavy clearing or steep grade",
+        description: "Hillside lots, dense tree cover",
+        propertyOverrides: { "Terrain Difficulty": 2.4 },
+      },
+      {
+        label: "Rock excavation",
+        description: "Blasting or hammer work required",
+        propertyOverrides: { "Terrain Difficulty": 3.5 },
+      },
+    ],
+  },
+  {
+    id: "stub-flatwork",
+    name: "Concrete flatwork (driveway / sidewalk / patio)",
+    description:
+      "Exterior concrete slabs — driveway, sidewalks, patio. Includes " +
+      "form, reinforcement, ready-mix, finish (broom or smooth), and " +
+      "control joints. Thickness defaults to 4\" residential; 6\" for " +
+      "heavy vehicle driveways. Add stamped pattern for premium finish.",
+    trade: "site",
+    properties: [
+      { name: "Flatwork Area", uom: "SF", defaultValue: 600 },
+      {
+        name: "Slab Thickness",
+        uom: "IN",
+        defaultValue: 4,
+        kind: "choice",
+        choices: [4, 5, 6],
+      },
+      {
+        name: "Finish",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Broom (standard)", value: 1.0 },
+          { label: "Smooth trowel", value: 1.15 },
+          { label: "Exposed aggregate", value: 1.5 },
+          { label: "Stamped pattern", value: 2.2 },
+          { label: "Stamped + integral color", value: 2.6 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Concrete + reinforcement (per SF)",
+        uom: "SF",
+        // SF × thickness in inches × 4 = thickness factor (4\" = 1×).
+        quantityFormula: "{Flatwork Area} * ({Slab Thickness} / 4)",
+        unitCostUsd: 4.2,
+        laborCostUsd: 0,
+        laborCostFormula: "3.6 * {Finish}",
+        csiDivision: "03",
+      },
+      {
+        name: "Form + control joint cutting",
+        uom: "SF",
+        quantityFormula: "{Flatwork Area}",
+        unitCostUsd: 0.45,
+        laborCostUsd: 0.7,
+        csiDivision: "03",
+      },
+    ],
+    variantPresets: [
+      {
+        label: 'Driveway 4" broom',
+        propertyOverrides: { "Slab Thickness": 4, Finish: 1.0 },
+      },
+      {
+        label: 'Heavy driveway 6"',
+        description: "Boats / RVs / heavy vehicles",
+        propertyOverrides: { "Slab Thickness": 6, Finish: 1.0 },
+      },
+      {
+        label: "Exposed aggregate patio",
+        propertyOverrides: { "Slab Thickness": 4, Finish: 1.5 },
+      },
+      {
+        label: "Stamped patio (premium)",
+        description: "Looks like flagstone or pavers",
+        propertyOverrides: { "Slab Thickness": 4, Finish: 2.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-deck",
+    name: "Wood deck (framed + decked + railing)",
+    description:
+      "Framed deck on PT joists with chosen surface material. Includes " +
+      "ledger, footings, joists, decking, fascia, railing, and stairs " +
+      "to grade. Composite vs PT vs hardwood drives material cost; " +
+      "labor scales modestly with material complexity.",
+    trade: "site",
+    properties: [
+      { name: "Deck Area", uom: "SF", defaultValue: 240 },
+      {
+        name: "Surface Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Pressure-treated pine", value: 1.0 },
+          { label: "Cedar", value: 1.5 },
+          { label: "Composite (Trex / TimberTech)", value: 2.4 },
+          { label: "Hardwood (ipe / cumaru)", value: 3.6 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Framing (footings + joists + ledger)",
+        uom: "SF",
+        quantityFormula: "{Deck Area}",
+        unitCostUsd: 7.5,
+        laborCostUsd: 9.0,
+        csiDivision: "06",
+      },
+      {
+        name: "Decking + fascia",
+        uom: "SF",
+        quantityFormula: "{Deck Area} * 1.08",
+        unitCostUsd: 0,
+        unitCostFormula: "6.5 * {Surface Material}",
+        laborCostUsd: 0,
+        laborCostFormula: "4.2 * {Surface Material}",
+        csiDivision: "06",
+      },
+      {
+        name: "Railing + stairs to grade",
+        uom: "LF",
+        // Approximate railing run as perimeter; sqrt(area) × 2 is
+        // a rough proxy for square-ish decks. Cap labor with the
+        // material multiplier so composite/hardwood railing scales.
+        quantityFormula: "{Deck Area} * 0.18",
+        unitCostUsd: 0,
+        unitCostFormula: "22 * {Surface Material}",
+        laborCostUsd: 18,
+        csiDivision: "06",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "PT pine (budget)",
+        propertyOverrides: { "Surface Material": 1.0 },
+      },
+      {
+        label: "Cedar",
+        description: "Better weather resistance, natural look",
+        propertyOverrides: { "Surface Material": 1.5 },
+      },
+      {
+        label: "Composite (low maintenance)",
+        description: "Trex / TimberTech — no sealing required",
+        propertyOverrides: { "Surface Material": 2.4 },
+      },
+      {
+        label: "Ipe hardwood (luxury)",
+        description: "Brazilian hardwood, premium look + price",
+        propertyOverrides: { "Surface Material": 3.6 },
+      },
+    ],
+  },
+  {
     id: "stub-plumbing-rough",
     name: "Plumbing — rough-in (per fixture)",
     description:
@@ -1241,6 +1466,140 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         label: "Copper premium (12 fixtures)",
         description: "Higher material cost, longer service life",
         propertyOverrides: { "Fixture Count": 12, "Supply Line": 1.8 },
+      },
+    ],
+  },
+  {
+    id: "stub-water-heater",
+    name: "Water heater",
+    description:
+      "Domestic hot water — tank or tankless, gas or electric. Tank " +
+      "units sized by capacity (40 / 50 / 80 gal); tankless sized by " +
+      "GPM flow rate. Includes connections, pan, and basic venting.",
+    trade: "plumbing",
+    properties: [
+      { name: "Unit Count", uom: "EA", defaultValue: 1 },
+      {
+        name: "Heater Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "40 gal gas tank", value: 1.0 },
+          { label: "50 gal electric tank", value: 1.1 },
+          { label: "80 gal heat-pump tank (efficient)", value: 2.4 },
+          { label: "Tankless gas (high-flow)", value: 2.0 },
+          { label: "Tankless electric", value: 1.8 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Unit + connections + venting",
+        uom: "EA",
+        quantityFormula: "{Unit Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "950 * {Heater Type}",
+        laborCostUsd: 480,
+        csiDivision: "22",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "40 gal gas (standard)",
+        propertyOverrides: { "Heater Type": 1.0 },
+      },
+      {
+        label: "50 gal electric",
+        propertyOverrides: { "Heater Type": 1.1 },
+      },
+      {
+        label: "Tankless gas (high-flow)",
+        description: "Endless hot water, smaller footprint",
+        propertyOverrides: { "Heater Type": 2.0 },
+      },
+      {
+        label: "Heat-pump tank (efficient)",
+        description: "Highest upfront, lowest operating cost",
+        propertyOverrides: { "Heater Type": 2.4 },
+      },
+    ],
+  },
+  {
+    id: "stub-septic-system",
+    name: "Septic system (rural / off-sewer)",
+    description:
+      "Tank + drain field for homes without municipal sewer. Sized to " +
+      "bedroom count per most state codes (3-bedroom = 1000 gal tank " +
+      "standard). Drain field type varies with soil percolation — " +
+      "conventional gravel beds are cheapest; mound + advanced treatment " +
+      "systems are required where soils don't percolate.",
+    trade: "plumbing",
+    properties: [
+      { name: "Bedroom Count", uom: "EA", defaultValue: 4 },
+      {
+        name: "System Type",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Conventional gravity (good soils)", value: 1.0 },
+          { label: "Pumped (poor soils, distance)", value: 1.4 },
+          { label: "Mound system (high water table)", value: 2.2 },
+          { label: "Advanced treatment (ATU)", value: 3.0 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Tank + risers (sized to bedrooms)",
+        uom: "EA",
+        // Pricing scales modestly with bedroom count via tank size.
+        quantityFormula: "1",
+        unitCostUsd: 0,
+        unitCostFormula:
+          "1800 + ({Bedroom Count} * 250) * {System Type}",
+        laborCostUsd: 0,
+        laborCostFormula: "950 * {System Type}",
+        csiDivision: "33",
+      },
+      {
+        name: "Drain field — excavation + media + distribution",
+        uom: "EA",
+        quantityFormula: "1",
+        unitCostUsd: 0,
+        unitCostFormula:
+          "2400 + ({Bedroom Count} * 400) * {System Type}",
+        laborCostUsd: 0,
+        laborCostFormula: "1800 * {System Type}",
+        csiDivision: "33",
+      },
+      {
+        name: "Sewer line + cleanouts (tank to house)",
+        uom: "LF",
+        quantityFormula: "50",
+        unitCostUsd: 6,
+        laborCostUsd: 9,
+        csiDivision: "33",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Conventional 3-BR",
+        propertyOverrides: { "Bedroom Count": 3, "System Type": 1.0 },
+      },
+      {
+        label: "Conventional 4-BR",
+        propertyOverrides: { "Bedroom Count": 4, "System Type": 1.0 },
+      },
+      {
+        label: "Pumped (uphill drain field)",
+        propertyOverrides: { "Bedroom Count": 4, "System Type": 1.4 },
+      },
+      {
+        label: "Advanced treatment (premium / regulatory)",
+        description: "Required near sensitive watersheds",
+        propertyOverrides: { "Bedroom Count": 4, "System Type": 3.0 },
       },
     ],
   },
@@ -1372,6 +1731,119 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         label: "Geothermal (luxury)",
         description: "Highest upfront, lowest operating cost",
         propertyOverrides: { "System Size": 4, "System Type": 3.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-lighting-allowance",
+    name: "Lighting fixture allowance",
+    description:
+      "Bucket for decorative fixtures the client picks at the design " +
+      "center — chandeliers, pendants, sconces, ceiling fans. NOT the " +
+      "rough wiring or recessed cans (those live in Electrical). " +
+      "Includes install labor + bulbs.",
+    trade: "electrical",
+    properties: [
+      { name: "Allowance Tier", uom: "EA", defaultValue: 1 },
+      {
+        name: "Allowance Level",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder spec ($2,500 / home)", value: 1.0 },
+          { label: "Standard ($5,000 / home)", value: 2.0 },
+          { label: "Designer ($10,000 / home)", value: 4.0 },
+          { label: "High-end ($20,000 / home)", value: 8.0 },
+          { label: "Luxury ($40,000+ / home)", value: 16.0 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Decorative fixtures (allowance)",
+        uom: "EA",
+        quantityFormula: "{Allowance Tier}",
+        unitCostUsd: 0,
+        unitCostFormula: "2000 * {Allowance Level}",
+        laborCostUsd: 500,
+        csiDivision: "26",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder spec ($2,500)",
+        propertyOverrides: { "Allowance Level": 1.0 },
+      },
+      {
+        label: "Standard ($5,000)",
+        propertyOverrides: { "Allowance Level": 2.0 },
+      },
+      {
+        label: "Designer ($10,000)",
+        description: "Custom chandeliers, designer pendants",
+        propertyOverrides: { "Allowance Level": 4.0 },
+      },
+      {
+        label: "Luxury ($40,000+)",
+        propertyOverrides: { "Allowance Level": 16.0 },
+      },
+    ],
+  },
+  {
+    id: "stub-appliance-allowance",
+    name: "Kitchen appliance allowance",
+    description:
+      "Range / cooktop + wall oven, refrigerator, dishwasher, microwave, " +
+      "vent hood, and disposal — bundled by tier. Skipped if the client " +
+      "is supplying their own. Includes basic install labor (plug-in " +
+      "only; rough plumbing + gas lives in Plumbing).",
+    trade: "finishes",
+    properties: [
+      { name: "Kitchen Count", uom: "EA", defaultValue: 1 },
+      {
+        name: "Appliance Tier",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Builder spec ($4,500 / kitchen)", value: 1.0 },
+          { label: "Standard ($8,000 / kitchen)", value: 1.8 },
+          { label: "Premium ($15,000 / kitchen)", value: 3.3 },
+          { label: "Pro grade ($30,000 — Wolf / Sub-Zero)", value: 6.7 },
+          { label: "Ultra luxury ($60,000+)", value: 13.3 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "Appliance package (allowance)",
+        uom: "EA",
+        quantityFormula: "{Kitchen Count}",
+        unitCostUsd: 0,
+        unitCostFormula: "4500 * {Appliance Tier}",
+        laborCostUsd: 400,
+        csiDivision: "11",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Builder spec ($4,500)",
+        propertyOverrides: { "Appliance Tier": 1.0 },
+      },
+      {
+        label: "Standard ($8,000)",
+        propertyOverrides: { "Appliance Tier": 1.8 },
+      },
+      {
+        label: "Premium ($15,000)",
+        description: "KitchenAid / GE Profile range",
+        propertyOverrides: { "Appliance Tier": 3.3 },
+      },
+      {
+        label: "Pro grade ($30,000)",
+        description: "Wolf range / Sub-Zero fridge",
+        propertyOverrides: { "Appliance Tier": 6.7 },
       },
     ],
   },
