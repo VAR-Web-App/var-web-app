@@ -266,6 +266,21 @@ export async function listMilestones(dealRef: string): Promise<ProjectMilestone[
   return items.sort((a, b) => a.order - b.order);
 }
 
+/** Every milestone across every deal in the org. Used by the conflict
+ *  detector to spot subs double-booked across multiple projects. */
+export async function listAllMilestonesForOrg(
+  orgRef: string,
+): Promise<ProjectMilestone[]> {
+  const q = query(
+    collection(db, "project_milestones"),
+    where("org_ref", "==", orgRef),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(
+    (d) => ({ id: d.id, ...(d.data() as Omit<ProjectMilestone, "id">) }),
+  );
+}
+
 export async function saveMilestone(m: ProjectMilestone): Promise<void> {
   await setDoc(doc(db, "project_milestones", m.id), m, { merge: false });
 }

@@ -34,13 +34,22 @@ import {
   deleteMilestone,
   listQuoteLines,
   saveDeal,
+  listDeals,
   listDistributors,
   listChangeOrders,
   getSettings,
   refreshSubScheduleLink,
   listSubAcknowledgmentsByDeal,
+  listAllMilestonesForOrg,
   effectiveContractValue,
 } from "@/lib/store";
+import {
+  buildConflictLookup,
+  findSubConflicts,
+  fmtRange,
+  type ConflictLookup,
+  type SubConflict,
+} from "@/lib/conflicts";
 import { toE164, sendSms, composeAssignmentSms, composeRescheduleSms } from "@/lib/sms";
 import {
   sendEmail,
@@ -62,6 +71,8 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [liveEstimateTotal, setLiveEstimateTotal] = useState(0);
   const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [acks, setAcks] = useState<SubAcknowledgment[]>([]);
+  const [orgMilestones, setOrgMilestones] = useState<ProjectMilestone[]>([]);
+  const [orgDeals, setOrgDeals] = useState<Deal[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -75,14 +86,18 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       listChangeOrders(deal.id),
       getSettings(deal.org_ref),
       listSubAcknowledgmentsByDeal(deal.id),
+      listAllMilestonesForOrg(deal.org_ref),
+      listDeals(deal.org_ref),
     ]).then(
-      ([m, lines, subList, cos, settings, ackList]) => {
+      ([m, lines, subList, cos, settings, ackList, orgMs, orgDls]) => {
         if (!active) return;
         setMilestones(m);
         setSubs(subList);
         setChangeOrders(cos);
         setQuoteLines(lines);
         setAcks(ackList);
+        setOrgMilestones(orgMs);
+        setOrgDeals(orgDls);
         setCompanyName(settings?.company_name || "");
         // Compute estimate total live from saved lines so we don't depend
         // on deal.total_quote_value being kept in sync (some flows like
@@ -128,6 +143,21 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     }
     return out;
   }, [acks]);
+
+  // Cross-project conflict lookup. Merges the org-wide milestones
+  // snapshot with the current deal's live state so edits made in this
+  // panel show in conflict warnings immediately (no reload required).
+  const conflictLookup: ConflictLookup = useMemo(() => {
+    const localIds = new Set(milestones.map((m) => m.id));
+    const merged = [
+      ...orgMilestones.filter((m) => !localIds.has(m.id)),
+      ...milestones,
+    ];
+    const dealNames = new Map<string, string>();
+    for (const d of orgDeals) dealNames.set(d.id, d.name);
+    dealNames.set(deal.id, deal.name); // safety in case orgDeals load lagged
+    return buildConflictLookup(merged, dealNames);
+  }, [orgMilestones, milestones, orgDeals, deal.id, deal.name]);
 
   const totals = useMemo(() => {
     const totalAmount = milestones.reduce((s, m) => s + (m.amount || 0), 0);
@@ -527,6 +557,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
             dealId={deal.id}
             subs={subs}
             subAcks={ackIndex.get(m.id)}
+            conflictLookup={conflictLookup}
             onTransition={(next) => transition(m, next)}
             onAssignSubs={(refs) => updateAssignedSubs(m, refs)}
             onRemove={() => removeMilestone(m)}
@@ -613,6 +644,7 @@ function MilestoneRow({
   dealId,
   subs,
   subAcks,
+  conflictLookup,
   onTransition,
   onAssignSubs,
   onRemove,
@@ -621,6 +653,7 @@ function MilestoneRow({
   dealId: string;
   subs: Distributor[];
   subAcks?: Map<string, SubAcknowledgment>;
+  conflictLookup: ConflictLookup;
   onTransition: (next: MilestoneStatus) => void;
   onAssignSubs: (refs: string[]) => void;
   onRemove: () => void;
@@ -660,28 +693,57 @@ function MilestoneRow({
           {assignedSubs.length > 0 ? (
             assignedSubs.map((s) => {
               const ack = subAcks?.get(s.id);
-              const isConflict = ack?.status === "conflict";
+              const isAckConflict = ack?.status === "conflict";
               const isConfirmed = ack?.status === "confirmed";
-              const chipClass = isConflict
-                ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
-                : isConfirmed
-                  ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
-                  : "bg-sky-100 text-sky-800";
-              const tooltip = ack
+              // Cross-project schedule conflict — sub is already booked
+              // on overlapping dates on another deal in this org.
+              const scheduleConflicts = findSubConflicts(
+                conflictLookup,
+                m,
+                s.id,
+              );
+              const hasScheduleConflict = scheduleConflicts.length > 0;
+              // Visual precedence: schedule-conflict overrides ack
+              // states because it's the more actionable signal (the GC
+              // can't fix it from the portal; they have to reschedule).
+              const chipClass = hasScheduleConflict
+                ? "bg-rose-100 text-rose-800 ring-1 ring-rose-300"
+                : isAckConflict
+                  ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+                  : isConfirmed
+                    ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+                    : "bg-sky-100 text-sky-800";
+              const ackTooltip = ack
                 ? `${ack.status === "confirmed" ? "Confirmed" : "Conflict flagged"} ${new Date(ack.created_at).toLocaleString()}${ack.reason ? ` — "${ack.reason}"` : ""}${
                     ack.for_start_date && ack.for_start_date !== m.planned_start_date
                       ? ` (for original ${ack.for_start_date}; date has since changed)`
                       : ""
                   }`
                 : s.account_number;
+              const scheduleTooltip = hasScheduleConflict
+                ? `⛔ Double-booked: ${scheduleConflicts
+                    .map(
+                      (c) =>
+                        `${c.deal_name} / ${c.milestone.name} (${fmtRange(c.milestone.planned_start_date, c.milestone.planned_end_date)})`,
+                    )
+                    .join("; ")}`
+                : "";
+              const tooltip = [scheduleTooltip, ackTooltip]
+                .filter(Boolean)
+                .join(" · ");
               return (
                 <span
                   key={s.id}
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipClass}`}
                   title={tooltip}
                 >
-                  {isConfirmed && <span aria-hidden>✓</span>}
-                  {isConflict && <span aria-hidden>⚠</span>}
+                  {hasScheduleConflict && <span aria-hidden>⛔</span>}
+                  {isConfirmed && !hasScheduleConflict && (
+                    <span aria-hidden>✓</span>
+                  )}
+                  {isAckConflict && !hasScheduleConflict && (
+                    <span aria-hidden>⚠</span>
+                  )}
                   {s.name}
                 </span>
               );
@@ -701,15 +763,50 @@ function MilestoneRow({
             <SubPicker
               subs={subs}
               selected={assignedRefs}
+              milestone={m}
+              conflictLookup={conflictLookup}
               onChange={onAssignSubs}
               onClose={() => setPickerOpen(false)}
             />
           )}
         </div>
 
-        {/* Conflict callouts — surface the reason text the sub typed,
-         *  for each conflict flag on this milestone. Quiet for confirmed
-         *  (the green chip is enough). */}
+        {/* Cross-project schedule conflicts — sub is already booked on
+         *  overlapping dates somewhere else in the org. Different color
+         *  + actionable copy from the ack-conflict callout below. */}
+        {assignedSubs
+          .map((s) => ({
+            sub: s,
+            conflicts: findSubConflicts(conflictLookup, m, s.id),
+          }))
+          .filter((x) => x.conflicts.length > 0)
+          .map(({ sub, conflicts }) => (
+            <div
+              key={`schedule-conflict-${sub.id}`}
+              className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200"
+            >
+              <div className="font-semibold">
+                ⛔ {sub.name} is double-booked
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {conflicts.map((c) => (
+                  <li key={c.milestone.id} className="text-slate-800">
+                    {c.deal_name} — {c.milestone.name}{" "}
+                    <span className="text-rose-700">
+                      ({fmtRange(c.milestone.planned_start_date, c.milestone.planned_end_date)})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-1 text-[11px] italic text-rose-700">
+                Reschedule this phase, or unassign{" "}
+                {sub.name} from one of the overlapping phases.
+              </div>
+            </div>
+          ))}
+
+        {/* Sub-reported conflicts (from the portal "Flag conflict"
+         *  button). Quiet for confirmed (the green chip is enough). */}
         {assignedSubs
           .map((s) => ({ sub: s, ack: subAcks?.get(s.id) }))
           .filter((x) => x.ack?.status === "conflict")
@@ -790,11 +887,17 @@ function MilestoneRow({
 function SubPicker({
   subs,
   selected,
+  milestone,
+  conflictLookup,
   onChange,
   onClose,
 }: {
   subs: Distributor[];
   selected: string[];
+  /** Milestone the picker is assigning to — used to detect conflicts
+   *  per candidate sub when the picker opens. */
+  milestone: ProjectMilestone;
+  conflictLookup: ConflictLookup;
   onChange: (refs: string[]) => void;
   onClose: () => void;
 }) {
@@ -823,7 +926,7 @@ function SubPicker({
   }
 
   return (
-    <div className="absolute z-30 mt-7 max-h-60 w-64 overflow-y-auto rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+    <div className="absolute z-30 mt-7 max-h-60 w-72 overflow-y-auto rounded-md border border-slate-200 bg-white p-2 shadow-lg">
       <div className="mb-1 flex items-center justify-between border-b border-slate-100 pb-1">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           Assign subs
@@ -837,12 +940,19 @@ function SubPicker({
       </div>
       {subs.map((s) => {
         const checked = selected.includes(s.id);
+        const conflicts = findSubConflicts(conflictLookup, milestone, s.id);
+        const hasConflict = conflicts.length > 0;
         return (
           <label
             key={s.id}
             className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-slate-50 ${
               checked ? "bg-sky-50" : ""
-            }`}
+            } ${hasConflict ? "ring-1 ring-rose-200" : ""}`}
+            title={
+              hasConflict
+                ? `Double-booked: ${conflicts.map((c) => `${c.deal_name} / ${c.milestone.name} (${fmtRange(c.milestone.planned_start_date, c.milestone.planned_end_date)})`).join("; ")}`
+                : ""
+            }
           >
             <input
               type="checkbox"
@@ -851,9 +961,23 @@ function SubPicker({
               className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-slate-900">{s.name}</p>
+              <p className="truncate text-xs font-medium text-slate-900">
+                {s.name}
+                {hasConflict && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider text-rose-700">
+                    ⛔ booked
+                  </span>
+                )}
+              </p>
               {s.account_number && (
                 <p className="truncate text-[10px] text-slate-500">{s.account_number}</p>
+              )}
+              {hasConflict && (
+                <p className="mt-0.5 truncate text-[10px] text-rose-700">
+                  {conflicts[0].deal_name} —{" "}
+                  {fmtRange(conflicts[0].milestone.planned_start_date, conflicts[0].milestone.planned_end_date)}
+                  {conflicts.length > 1 && ` (+${conflicts.length - 1} more)`}
+                </p>
               )}
             </div>
           </label>

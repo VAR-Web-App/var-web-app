@@ -1516,21 +1516,70 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
               <strong>Add assembly</strong> — pick a pre-built component
-              (Exterior Wall, Roof, Slab, Window, etc.), set its properties
-              (length, height, material, style) and it generates a block of
-              material lines automatically. Edit any property later and the
-              lines regenerate live.
+              (Exterior Wall, Roof, Slab, Window, Kitchen Cabinetry, etc.).
+              Set its properties (length, height, material, style) and it
+              generates a block of material lines automatically. Edit any
+              property and the lines regenerate live.
             </li>
             <li>
-              <strong>Add blank line</strong> — for anything that isn&apos;t
-              covered by an assembly. Type the description, qty, unit cost,
-              and markup directly.
+              <strong>Add blank line</strong> — for anything not covered by
+              an assembly. Type the description, qty, unit cost, and markup
+              directly.
             </li>
           </ul>
         </section>
+
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
-            Column meanings
+            Scenarios (kitchen-table feature)
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              Above the totals bar, click{" "}
+              <strong>+ Save current as…</strong> to freeze the estimate as
+              a named scenario (Standard / Premium / Budget / whatever).
+            </li>
+            <li>
+              Tweak the assemblies + variants for that scenario, then save
+              another. Click any chip to instantly load that scenario&apos;s
+              full state and show the client side-by-side variations.
+            </li>
+            <li>
+              Editing while a scenario is active shows an amber dot + an{" "}
+              <strong>Update {"{name}"}</strong> button — click it to sync
+              your edits back into that scenario&apos;s snapshot.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Inside an assembly card
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              <strong>+ Add variant</strong> — compare options (vinyl vs
+              wood windows, builder vs premium carpet) side-by-side. Pick a
+              curated preset; the active variant&apos;s chip is filled,
+              inactive chips show their price + delta. Click a chip to
+              switch the active variant.
+            </li>
+            <li>
+              <strong>Split 1 →</strong> — on assemblies with a Quantity
+              field (doors, windows, garage doors), peel one unit off into
+              a sibling card you can customize independently. Use case: 5
+              standard doors, but the client wants 1 in mahogany.
+            </li>
+            <li>
+              <strong>Collapse</strong> — chevron in the card header
+              shrinks the card to a one-line summary.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Column meanings (line items)
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
@@ -1542,12 +1591,12 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
               invoice, labor cost). Client never sees this column.
             </li>
             <li>
-              <strong>Markup %</strong> — your margin on top of cost. Default
-              comes from settings; editable per line.
+              <strong>Markup %</strong> — your margin on top of cost.
+              Default from Settings; editable per line.
             </li>
             <li>
-              <strong>Unit Price</strong> = Unit Cost × (1 + Markup %). What
-              the client pays per unit.
+              <strong>Unit Price</strong> = Unit Cost × (1 + Markup %).
+              What the client pays per unit.
             </li>
             <li>
               <strong>Line Total</strong> = Qty × Unit Price. Margin column
@@ -1555,50 +1604,80 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
             </li>
           </ul>
         </section>
+
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
-            Live decisions
+            Soft costs (below the line subtotal)
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
-              <strong>+ Add variant</strong> — inside an assembly card,
-              compare options (vinyl vs wood windows, 16&quot; vs 24&quot;
-              stud spacing). Pick a curated preset from the menu or
-              clone the current setup. The active variant&apos;s chip is
-              filled; inactive chips show their price + delta vs active.
-              Click a chip to switch the active variant.
+              <strong>Tax</strong> — percentage on the materials subtotal
+              (default) or full customer subtotal.
             </li>
             <li>
-              <strong>Swap</strong> — change an assembly&apos;s type from
-              the dropdown in its header; matching property names carry
-              over to the new assembly. Swap operates on the active
-              variant only.
+              <strong>Contingency</strong> — percentage reserve on cost
+              subtotal; your buffer for change orders + price swings.
             </li>
             <li>
-              <strong>Collapse</strong> — shrink an assembly card with the
-              chevron in its header; the one-line property summary
-              (including the active variant&apos;s label) stays visible.
+              <strong>General Conditions</strong> — supervision, dumpsters,
+              port-a-john, etc. Either a percent on cost or a flat dollar
+              amount.
+            </li>
+            <li>
+              These stack on top to produce the <strong>Grand Total</strong>{" "}
+              — what the client owes and what feeds the proposal + draw
+              schedule.
             </li>
           </ul>
         </section>
+
         <section>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
             Saving + sending
           </h4>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
             <li>
-              <strong>Save</strong> — commits the current state. The
-              deal&apos;s roll-up totals and margin update at the same
-              time.
+              <strong>Save</strong> — commits the current state, including
+              scenarios. The deal&apos;s roll-up totals + margin update at
+              the same time.
             </li>
             <li>
               <strong>Export CSV</strong> — downloads a spreadsheet of the
               line items.
             </li>
             <li>
+              <strong>Takeoff PDF</strong> — internal/lumber-yard-facing
+              printable estimate with full cost + markup detail. Print to
+              PDF from your browser.
+            </li>
+            <li>
               <strong>Generate proposal</strong> — builds the client-facing
-              document. The client never sees cost or margin, just the
+              document. The client never sees cost or markup, just the
               scope and total.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+            Customizing the catalog
+          </h4>
+          <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-slate-700">
+            <li>
+              In <strong>Settings → Assembly cost overrides</strong>: tune
+              every assembly to your local market with global ×
+              multipliers + per-assembly fine-tuning.
+            </li>
+            <li>
+              Click <strong>Materials</strong> next to any assembly to
+              uncheck stock lines you don&apos;t use, or add custom lines
+              that scale off the assembly&apos;s properties.
+            </li>
+            <li>
+              The <strong>✨ AI assist</strong> panel inside that editor:
+              describe a custom line in plain English (e.g. <em>&ldquo;vapor
+              barrier under slab, $0.45/SF, 10% waste&rdquo;</em>) and
+              Claude fills the form fields for you. Review + save.
             </li>
           </ul>
         </section>
