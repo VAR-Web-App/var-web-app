@@ -1311,6 +1311,33 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     },
     {
       id: newId("deal"),
+      name: "Webb — Hill Country Cabin",
+      stage: "awarded", // = Contract Signed
+      deal_type: "quotation",
+      manufacturer: "Custom Home",
+      account_ref: clients[1].id, // re-using Hunter family slot for simplicity in seed
+      account_name: "Webb Family",
+      poc_name: "Drew Webb",
+      solicitation_number: "WEB-2026-005",
+      customer_po: "Hill Country National Bank construction loan #CL-30041",
+      ship_to_address: "1980 Ranch Road 12\nWimberley, TX 78676",
+      ship_to_poc_name: "Drew Webb",
+      ship_to_poc_email: "drew@webbfamily.com",
+      lead_time: "24 weeks",
+      due_date: isoDaysAgo(-180).slice(0, 10),
+      award_date: isoDaysAgo(8),
+      award_total: 685000,
+      total_quote_value: 685000,
+      total_cost: 578000,
+      margin_percent: 15.6,
+      notes:
+        "Signed last week. Permits pending — break ground ~3 weeks out.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(35),
+      updated_at: isoDaysAgo(2),
+    },
+    {
+      id: newId("deal"),
       name: "Patel — Kitchen Remodel",
       stage: "closed_won", // = Complete
       deal_type: "quotation",
@@ -1430,6 +1457,191 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     };
     await saveMilestone(m);
   }
+
+  // ── Maddox quote lines ───────────────────────────────────────
+  // Seed a realistic estimate so the Quote editor and Finances tabs
+  // aren't empty on the demo's anchor project. Lines are grouped by
+  // phase (product_code carries the phase name — matches the schema's
+  // repurposed field). Numbers add up close to the $1,450,000 award
+  // total above; small drift is fine, the Finances tab shows totals
+  // recomputed live.
+  type SeedLine = {
+    phase: string;
+    description: string;
+    qty: number;
+    cost: number;
+    markup: number;
+  };
+  const maddoxLines: SeedLine[] = [
+    { phase: "Foundation", description: "Site work + excavation",                 qty: 1, cost: 18500,  markup: 15 },
+    { phase: "Foundation", description: "Footings + slab pour",                   qty: 1, cost: 64200,  markup: 15 },
+    { phase: "Foundation", description: "Foundation drainage + waterproofing",    qty: 1, cost: 12400,  markup: 15 },
+    { phase: "Framing",    description: "Framing labor + materials",              qty: 1, cost: 215000, markup: 14 },
+    { phase: "Framing",    description: "Sheathing + roof structure",             qty: 1, cost: 48000,  markup: 14 },
+    { phase: "Framing",    description: "Engineered I-joists + LVL beams",        qty: 1, cost: 32400,  markup: 14 },
+    { phase: "Dried-In",   description: "Roofing (architectural shingles, 32 sq)", qty: 1, cost: 28600, markup: 16 },
+    { phase: "Dried-In",   description: "Windows + exterior doors",               qty: 1, cost: 68500,  markup: 14 },
+    { phase: "MEP",        description: "Plumbing rough-in (sub: Texas Plumb Pros)", qty: 1, cost: 42800, markup: 15 },
+    { phase: "MEP",        description: "Electrical rough-in (sub: Quick-Sparks)",   qty: 1, cost: 38900, markup: 15 },
+    { phase: "MEP",        description: "HVAC system (sub: Comfort HVAC)",        qty: 1, cost: 51200,  markup: 15 },
+    { phase: "Drywall",    description: "Insulation + drywall",                   qty: 1, cost: 47500,  markup: 14 },
+    { phase: "Finishes",   description: "Trim + millwork package",                qty: 1, cost: 86300,  markup: 16 },
+    { phase: "Finishes",   description: "Paint (interior + exterior)",            qty: 1, cost: 28400,  markup: 16 },
+    { phase: "Finishes",   description: "Flooring (engineered hardwood + tile)",  qty: 1, cost: 71200,  markup: 17 },
+    { phase: "Finishes",   description: "Cabinetry + countertops",                qty: 1, cost: 124000, markup: 18 },
+    { phase: "Finishes",   description: "Plumbing fixtures + appliances",         qty: 1, cost: 58400,  markup: 15 },
+    { phase: "Finishes",   description: "Lighting + electrical trim-out",         qty: 1, cost: 24800,  markup: 15 },
+    { phase: "Finishes",   description: "Exterior: siding, soffit, gutters",      qty: 1, cost: 52600,  markup: 14 },
+    { phase: "Punch List", description: "Final inspections + CO + punch labor",   qty: 1, cost: 18900,  markup: 12 },
+  ];
+  const round = (n: number, dp: number) =>
+    Math.round(n * 10 ** dp) / 10 ** dp;
+  const maddoxQuoteLines: QuoteLine[] = maddoxLines.map((l, i) => {
+    const cost_unit_price = l.cost;
+    const cost_extended = cost_unit_price * l.qty;
+    const customer_unit_price = round(cost_unit_price * (1 + l.markup / 100), 2);
+    const customer_extended = round(customer_unit_price * l.qty, 2);
+    const margin = customer_extended > 0
+      ? round(((customer_extended - cost_extended) / customer_extended) * 100, 2)
+      : 0;
+    return {
+      id: newId("line"),
+      line_number: i + 1,
+      product_code: l.phase,
+      description: l.description,
+      manufacturer: "",
+      is_service: false,
+      qty: l.qty,
+      list_price: cost_unit_price,
+      discount_percent: 0,
+      customer_unit_price,
+      customer_extended,
+      markup_percent: l.markup,
+      cost_unit_price,
+      cost_extended,
+      margin_percent: margin,
+      subscription_term_months: 0,
+      notes: "",
+    };
+  });
+  await saveQuoteLines(maddoxId, orgRef, maddoxQuoteLines);
+
+  // ── Maddox payments ──────────────────────────────────────────
+  // A handful of money-in (client draws) and money-out (sub payments)
+  // entries so the Finances tab has real numbers in its roll-up tiles.
+  const maddoxPayments: Payment[] = [
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "in",
+      party_name: "Maddox Family",
+      amount: 72500,
+      method: "ach",
+      date: isoDaysAgo(118).slice(0, 10),
+      notes: "Deposit / mobilization draw (5% of contract)",
+      created_at: isoDaysAgo(118),
+    },
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "in",
+      party_name: "Maddox Family",
+      amount: 145000,
+      method: "ach",
+      date: isoDaysAgo(72).slice(0, 10),
+      notes: "Foundation draw (10%)",
+      created_at: isoDaysAgo(72),
+    },
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "in",
+      party_name: "Maddox Family",
+      amount: 290000,
+      method: "ach",
+      date: isoDaysAgo(28).slice(0, 10),
+      notes: "Framing draw (20%)",
+      created_at: isoDaysAgo(28),
+    },
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "out",
+      party_ref: subs[0].id, // Cano Concrete
+      party_name: subs[0].name,
+      amount: 95100,
+      method: "check",
+      check_number: "1247",
+      date: isoDaysAgo(70).slice(0, 10),
+      notes: "Foundation work — paid in full",
+      created_at: isoDaysAgo(70),
+    },
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "out",
+      party_ref: subs[1].id, // Hill Country Framing
+      party_name: subs[1].name,
+      amount: 175000,
+      method: "check",
+      check_number: "1253",
+      date: isoDaysAgo(24).slice(0, 10),
+      notes: "Framing — progress payment (70%)",
+      created_at: isoDaysAgo(24),
+    },
+    {
+      id: newId("pay"),
+      deal_ref: maddoxId,
+      direction: "out",
+      party_ref: subs[5].id, // Boerne Lumber Co.
+      party_name: subs[5].name,
+      amount: 48200,
+      method: "ach",
+      date: isoDaysAgo(20).slice(0, 10),
+      notes: "Framing material package",
+      created_at: isoDaysAgo(20),
+    },
+  ];
+  for (const p of maddoxPayments) await savePayment(p);
+
+  // ── Maddox RFQ (one open for flooring) ──────────────────────
+  // Two bids in, one outstanding — gives the demo a live RFQ table
+  // with the "comparing" state so Barry sees the sub-bid workflow.
+  const flooringRfq: ProjectRFQ = {
+    id: newId("rfq"),
+    deal_ref: maddoxId,
+    org_ref: orgRef,
+    scope_title: "Flooring — engineered hardwood + tile",
+    scope_description:
+      "Whole-house engineered hardwood (3,200 sf) plus tile in bathrooms (480 sf). Material spec attached. Schedule: install starts ~6 weeks out.",
+    phase: "Finishes",
+    status: "comparing",
+    invitees: [
+      {
+        sub_ref: subs[5].id,
+        sub_name: subs[5].name,
+        status: "responded",
+        bid_amount: 68400,
+        bid_notes: "Includes underlayment + trim transitions.",
+        responded_at: isoDaysAgo(4),
+        notified_at: isoDaysAgo(11),
+      },
+      {
+        sub_ref: subs[1].id,
+        sub_name: subs[1].name,
+        status: "responded",
+        bid_amount: 72100,
+        bid_notes: "Tile included; can start in 4 weeks.",
+        responded_at: isoDaysAgo(2),
+        notified_at: isoDaysAgo(11),
+      },
+    ],
+    notes: "Hard deadline: pick winner by next Friday to keep schedule.",
+    sent_at: isoDaysAgo(11),
+    created_at: isoDaysAgo(11),
+    updated_at: isoDaysAgo(2),
+  };
+  await saveRFQ(flooringRfq);
 
   return { parsedCacheByDeal: {} };
 }
