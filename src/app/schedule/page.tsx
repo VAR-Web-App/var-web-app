@@ -27,6 +27,12 @@ import {
   refreshSubScheduleLink,
 } from "@/lib/store";
 import { toE164, sendSms, composeAssignmentSms } from "@/lib/sms";
+import {
+  sendEmail,
+  composeAssignmentEmail,
+  isLikelyEmail,
+} from "@/lib/email-compose";
+import { pushNotifySub } from "@/lib/push-client";
 import { useAuth } from "@/lib/auth-context";
 
 interface SubAssignment {
@@ -72,11 +78,14 @@ export default function SchedulePage() {
     };
     setMilestones((prev) => prev.map((x) => (x.id === milestoneId ? updated : x)));
     await saveMilestone(updated);
-    // Text the sub that they've been scheduled on this phase.
+    // Notify the sub on every channel they're configured for: SMS
+     //  (consent + phone), email (any email), and web push (any
+    // device the sub has registered via the portal opt-in). Mirrors
+    // the per-project flow in project-execution-panel so cross-project
+    // schedule assigns get the same coverage.
     const sub = subs.find((s) => s.id === subId);
     const deal = deals.find((d) => d.id === m.deal_ref);
-    const to = sub?.phone && sub.sms_consent ? toE164(sub.phone) : null;
-    if (to && sub && deal) {
+    if (sub && deal) {
       let scheduleLink: string | undefined;
       try {
         const linkToken = await refreshSubScheduleLink(sub.id, companyName);
@@ -84,18 +93,25 @@ export default function SchedulePage() {
       } catch {
         scheduleLink = undefined;
       }
-      void sendSms(
-        to,
-        composeAssignmentSms({
-          builderName: companyName,
-          projectName: deal.name,
-          phaseName: m.name,
-          address: deal.ship_to_address,
-          startDate: m.planned_start_date,
-          endDate: m.planned_end_date,
-          scheduleLink,
-        })
-      );
+      const params = {
+        builderName: companyName,
+        projectName: deal.name,
+        phaseName: m.name,
+        address: deal.ship_to_address,
+        startDate: m.planned_start_date,
+        endDate: m.planned_end_date,
+        scheduleLink,
+      };
+      const to = sub.phone && sub.sms_consent ? toE164(sub.phone) : null;
+      if (to) void sendSms(to, composeAssignmentSms(params));
+      if (isLikelyEmail(sub.email))
+        void sendEmail(sub.email!, composeAssignmentEmail(params));
+      void pushNotifySub(sub.id, {
+        title: `${companyName || "KeystonePro"}: scheduled for ${m.name}`,
+        body: `${deal.name}${m.planned_start_date ? ` (${m.planned_start_date})` : ""}`,
+        ...(scheduleLink ? { url: scheduleLink } : {}),
+        tag: `assignment-${m.id}`,
+      });
     }
   }
 
