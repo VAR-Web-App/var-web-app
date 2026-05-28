@@ -186,11 +186,13 @@ function makeInstance(
   // Plan-extraction-generated instances start with a single variant — the
   // builder can add alternatives from the card UI later. The variant's
   // label defaults to the assembly's name so the chip looks meaningful
-  // out of the gate.
+  // out of the gate. source: "plan" tags this instance so a future
+  // smart-replace knows to wipe it (vs. preserving manual additions).
   const variantId = newId();
   return {
     id: newId(),
     instanceLabel,
+    source: "plan",
     variants: [
       {
         id: variantId,

@@ -417,11 +417,19 @@ export default function PlanExtractor({
       const settings = await getSettings(orgRef);
       const markup = settings?.default_markup_percent ?? 20;
 
-      // Replace mode: pretend there are no existing lines/instances, so
-      // the new plan output overwrites instead of stacking. Add mode:
-      // fetch existing and append (original behavior).
-      const existingLines = replace ? [] : await listQuoteLines(dealId);
-      const existingInstances = replace ? [] : (deal.assembly_instances ?? []);
+      // Smart Replace: keep anything the builder hand-touched —
+      // manual lines, RFQ-won bids, and 1build market-priced lines all
+      // survive. Only the previous extractor's catalog-generated lines
+      // and "plan"-tagged assemblies get wiped before the new plan
+      // output stacks on. Add mode: append everything (original).
+      const allLines = await listQuoteLines(dealId);
+      const allInstances = deal.assembly_instances ?? [];
+      const existingLines = replace
+        ? allLines.filter((l) => l.price_source && l.price_source !== "catalog")
+        : allLines;
+      const existingInstances = replace
+        ? allInstances.filter((i) => i.source !== "plan")
+        : allInstances;
 
       const { instances, lines } = instancesAndLinesFromPlan(
         extraction as unknown as Parameters<typeof instancesAndLinesFromPlan>[0],
@@ -490,9 +498,13 @@ export default function PlanExtractor({
     }, 80);
     try {
       const newLines = generateEstimateLines(extraction);
-      // Replace mode wipes existing lines first; Add mode appends so
-      // prior manual entries survive.
-      const existing = replace ? [] : await listQuoteLines(dealId);
+      // Smart Replace: keep manual / RFQ-bid / market-priced lines;
+      // only wipe the previous catalog-generated set. Add mode keeps
+      // everything.
+      const allLines = await listQuoteLines(dealId);
+      const existing = replace
+        ? allLines.filter((l) => l.price_source && l.price_source !== "catalog")
+        : allLines;
       const renumbered: QuoteLine[] = [
         ...existing,
         ...newLines.map((l, i) => ({ ...l, line_number: existing.length + i + 1 })),
@@ -772,9 +784,9 @@ function ApplyChoiceModal({
             onClick={onReplace}
             className="w-full rounded-md bg-sky-700 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
           >
-            Replace
+            Replace plan output
             <span className="block text-xs font-normal text-sky-100">
-              Delete all {existingCount} existing {noun} and start fresh with the plan&apos;s output.
+              Swap out the previous extraction&apos;s {noun} and assemblies for the new ones. Your manual edits, RFQ-won bids, and 1build-priced lines are kept.
             </span>
           </button>
           <button
@@ -784,7 +796,7 @@ function ApplyChoiceModal({
           >
             Add to existing
             <span className="block text-xs font-normal text-slate-500">
-              Append the plan&apos;s {kind === "assemblies" ? "assemblies" : "lines"} on top of the current estimate.
+              Append the plan&apos;s {kind === "assemblies" ? "assemblies" : "lines"} on top of everything currently on the estimate.
             </span>
           </button>
           <button
