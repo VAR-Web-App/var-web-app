@@ -107,6 +107,7 @@ export function computeMaterials(
         unitCostUsd: unitCost,
         laborCostUsd: labor,
         lineTotalUsd: lineTotal,
+        catId: m.catId ?? assembly.catId,
       });
       total += lineTotal;
     } catch (e) {
@@ -136,6 +137,10 @@ export function computeMaterials(
       unitCostUsd: unitCost,
       laborCostUsd: labor,
       lineTotalUsd: lineTotal,
+      // Builder-extras inherit the parent assembly's catId; they don't
+      // get individual overrides because the cost-overrides UI doesn't
+      // surface a catId picker (yet).
+      catId: assembly.catId,
     });
     total += lineTotal;
   }

@@ -739,6 +739,7 @@ export function linesFromInstance(
       margin_percent: round(margin, 2),
       subscription_term_months: 0,
       notes: "",
+      cat_id: m.catId,
     };
   });
 }

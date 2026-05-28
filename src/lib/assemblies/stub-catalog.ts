@@ -15,6 +15,7 @@ const SPACING_CHOICES = [12, 16, 24];
 export const STUB_ASSEMBLIES: Assembly[] = [
   {
     id: "stub-ext-wall-2x6-16oc",
+    catId: "40", // FRAMING — wall studs, plates, sheathing
     name: 'Exterior Wall — 2×6 @ 16" OC',
     description:
       "Stick-framed exterior wall with sheathing, housewrap, R-21 batt " +
@@ -87,6 +88,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 1.05,
         laborCostUsd: 0.55,
         csiDivision: "07",
+        catId: "50", // Insulation
       },
       {
         name: '1/2" drywall, 4×8 sheet (interior side)',
@@ -95,6 +97,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 14.5,
         laborCostUsd: 9.5,
         csiDivision: "09",
+        catId: "51", // DRYWALL
       },
     ],
     variantPresets: [
@@ -116,6 +119,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-int-wall-2x4-16oc",
+    catId: "40", // FRAMING — interior partition walls
     name: 'Interior Wall — 2×4 @ 16" OC',
     description:
       'Stick-framed interior partition with 1/2" drywall both sides.',
@@ -166,6 +170,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 14.5,
         laborCostUsd: 9.5,
         csiDivision: "09",
+        catId: "51", // DRYWALL
       },
     ],
     variantPresets: [
@@ -181,6 +186,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-floor-2x10-16oc",
+    catId: "40", // FRAMING — floor joist system
     name: 'Floor System — joists @ 16" OC',
     description:
       "Wood-framed floor system with joists, rim joist, and 3/4\" T&G " +
@@ -267,6 +273,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-footing-strip",
+    catId: "21", // FOOTINGS
     name: "Strip Footing — concrete + rebar",
     description:
       "Continuous concrete strip footing with two #5 rebar runs and form lumber. " +
@@ -323,6 +330,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-slab-on-grade",
+    catId: "26", // SLAB
     name: "Slab on Grade — concrete + rebar grid",
     description:
       "Concrete slab on grade with 6-mil vapor barrier and #4 rebar on " +
@@ -385,6 +393,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-cmu-foundation-wall",
+    catId: "24", // FOUNDATION WALLS
     name: "CMU Foundation Wall — 8×8×16 block",
     description:
       "Concrete masonry unit (8×8×16 block) foundation wall with mortar, " +
@@ -482,6 +491,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-lvl-beam-package",
+    catId: "40", // FRAMING — LVL girders + floor beams
     name: "LVL Beam Package — engineered girders + floor beams",
     description:
       "Engineered LVL beams for floor girders, ceiling beams, and " +
@@ -556,6 +566,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-porch-system",
+    catId: "43", // HARDIE, VINYL, & PORCHES
     name: "Porch & Deck System — framing + decking + columns",
     description:
       "Covered porch / open deck structural and finish package: PT " +
@@ -659,6 +670,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-headers",
+    catId: "40", // FRAMING — structural headers
     name: "Structural Headers — door + window openings",
     description:
       "Bundled header package for every door/window opening in the " +
@@ -719,6 +731,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-roof-2x8-16oc",
+    catId: "48", // ROOFING
     name: 'Roof — 2×8 rafters @ 16" OC',
     description:
       "Conventional 2×8 rafter roof with ridge board, OSB sheathing, " +
@@ -834,6 +847,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-window-unit",
+    catId: "40.5", // FRAMING / Windows (line item under FRAMING)
     name: "Window — single unit (installed)",
     description:
       "Standard residential window. Cost scales with size, frame material, " +
@@ -908,6 +922,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-door-interior",
+    catId: "53", // INTERIOR TRIM AND DOORS
     name: "Door — interior, single unit (installed)",
     description: "Pre-hung interior door with casing and hardware.",
     trade: "millwork",
@@ -957,6 +972,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-door-exterior",
+    catId: "40.6", // FRAMING / Exterior Doors (line item under FRAMING)
     name: "Door — exterior, single unit (installed)",
     description: "Pre-hung exterior door with threshold, weather-strip, and lockset.",
     trade: "exterior",
@@ -1007,6 +1023,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-interior-paint",
+    catId: "52", // Painting
     name: "Interior paint — walls (primer + 2 coats)",
     description:
       "Interior wall paint, primer plus two finish coats. Use total wall area " +
@@ -1056,6 +1073,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-siding",
+    catId: "43", // HARDIE, VINYL, & PORCHES
     name: "Siding — exterior cladding (installed)",
     description:
       "Exterior wall cladding with house wrap and fasteners. Material " +
@@ -1141,6 +1159,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-stair-package",
+    catId: "54", // STAIRWAY
     name: "Stairs — straight run (installed)",
     description:
       "Wood-framed straight-run staircase with stringers, treads, risers, " +
@@ -1224,6 +1243,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-drainage",
+    catId: "44", // EXTERIOR DETAILS — gutters + downspouts
     name: "Gutters & Downspouts",
     description:
       "Aluminum K-style gutter with downspouts at corners. Use perimeter " +
@@ -1297,6 +1317,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-garage-door",
+    catId: "40.6a", // FRAMING / Garage Doors (line item under FRAMING)
     name: "Garage Door (installed)",
     description:
       "Sectional overhead garage door with opener, tracks, and weather " +
@@ -1379,6 +1400,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-hardwood-floor",
+    catId: "56.9", // FLOORING MATERIALS COMBINED and TILE
     name: 'Hardwood flooring — 3/4" solid (installed)',
     description:
       "Solid 3/4-inch tongue-and-groove hardwood with sanding and finish. " +
@@ -1436,6 +1458,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-insulation",
+    catId: "50", // Insulation
     name: "Insulation — cavity / batt / spray",
     description:
       "Standalone insulation assembly for remodels or as a phase-by-phase " +
@@ -1514,6 +1537,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-site-work",
+    catId: "20", // SITE WORK
     name: "Site work — clearing, grading, excavation",
     description:
       "Pre-construction site prep: tree clearing, brush removal, rough " +
@@ -1588,6 +1612,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-flatwork",
+    catId: "46", // DRIVEWAY & WALKS — concrete flatwork
     name: "Concrete flatwork (driveway / sidewalk / patio)",
     description:
       "Exterior concrete slabs — driveway, sidewalks, patio. Includes " +
@@ -1661,6 +1686,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-deck",
+    catId: "47", // DECK / TERRACE
     name: "Wood deck (framed + decked + railing)",
     description:
       "Framed deck on PT joists with chosen surface material. Includes " +
@@ -1739,6 +1765,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-plumbing-rough",
+    catId: "30", // PLUMBING
     name: "Plumbing — rough-in (per fixture)",
     description:
       "Whole-house plumbing rough-in: supply lines (PEX or copper), " +
@@ -1795,6 +1822,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-water-heater",
+    catId: "30", // PLUMBING — water heater
     name: "Water heater",
     description:
       "Domestic hot water — tank or tankless, gas or electric. Tank " +
@@ -1851,6 +1879,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-septic-system",
+    catId: "10", // Septic Tank Allowance (PRE-CONSTRUCTION)
     name: "Septic system (rural / off-sewer)",
     description:
       "Tank + drain field for homes without municipal sewer. Sized to " +
@@ -1929,6 +1958,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-electrical-whole-home",
+    catId: "31", // ELECTRICAL
     name: "Electrical — whole-home rough + finish",
     description:
       "Service entrance, panel, branch circuits, outlets, switches, " +
@@ -1996,6 +2026,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-hvac-ducted",
+    catId: "33", // HVAC
     name: "HVAC — ducted central system",
     description:
       "Forced-air ducted system: condenser, air handler, ductwork, " +
@@ -2060,6 +2091,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-lighting-allowance",
+    catId: "65", // Lighting Fixtures
     name: "Lighting fixture allowance",
     description:
       "Bucket for decorative fixtures the client picks at the design " +
@@ -2116,6 +2148,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-appliance-allowance",
+    catId: "58", // Bob Wallace Appliance
     name: "Kitchen appliance allowance",
     description:
       "Range / cooktop + wall oven, refrigerator, dishwasher, microwave, " +
@@ -2173,6 +2206,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-kitchen-cabinetry",
+    catId: "59", // Cabinets
     name: "Kitchen Cabinetry (installed)",
     description:
       "Cabinet runs sold per linear foot — counts both base + upper. " +
@@ -2229,6 +2263,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-countertops",
+    catId: "60", // COUNTERTOPS
     name: "Countertops (fabricated + installed)",
     description:
       "Countertop slab material + fabrication + installation. Priced " +
@@ -2291,6 +2326,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-bath-suite",
+    catId: "66", // Plumbing Fixtures and Bath Accessories
     name: "Bathroom suite (vanity + toilet + tub/shower)",
     description:
       "Per-bathroom bundle: vanity + faucet + toilet + tub or shower. " +
@@ -2365,6 +2401,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-interior-trim",
+    catId: "53", // INTERIOR TRIM AND DOORS
     name: "Interior trim — baseboard + casing",
     description:
       "Baseboard run around every room's perimeter + door and window " +
@@ -2429,6 +2466,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-drywall",
+    catId: "51", // DRYWALL
     name: "Drywall — hung, taped, finished",
     description:
       "Standalone drywall assembly for remodels where the wall framing " +
@@ -2504,6 +2542,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-lvp",
+    catId: "56.9", // FLOORING MATERIALS COMBINED and TILE
     name: "LVP flooring — luxury vinyl plank (installed)",
     description:
       "Click-lock luxury vinyl plank over foam underlayment, including " +
@@ -2560,6 +2599,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-laminate",
+    catId: "56.9", // FLOORING MATERIALS COMBINED and TILE
     name: "Laminate flooring (installed)",
     description:
       "Click-lock laminate plank over foam underlayment. Lower price " +
@@ -2609,6 +2649,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-tile-floor",
+    catId: "56.9", // FLOORING MATERIALS COMBINED and TILE
     name: "Tile flooring (installed)",
     description:
       "Ceramic / porcelain / natural-stone tile over mortar bed with " +
@@ -2682,6 +2723,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-carpet",
+    catId: "56.9", // FLOORING MATERIALS COMBINED and TILE
     name: "Carpet flooring (installed)",
     description:
       "Tufted carpet over foam pad, including tack strips, transitions, " +

@@ -196,6 +196,12 @@ export interface QuoteLine {
    *  the line items table. Optional for back-compat with pre-tagged
    *  records — UI treats absence as "catalog". */
   price_source?: PriceSource;
+  /** Barry-template section ID this line rolls up to (e.g. "21" for
+   *  FOOTINGS, "40.6" for Exterior Doors). Set when the line came from
+   *  the AI plan converter so the estimate respects the builder's
+   *  Good Faith Estimate taxonomy. Optional — manual lines and
+   *  pre-Barry-taxonomy records leave it undefined. */
+  cat_id?: string;
 }
 
 export interface AwardBomLine {
