@@ -61,6 +61,19 @@ export function computeMaterials(
   const removed = new Set(overrides?.removed_materials ?? []);
   const lineOverrides = overrides?.line_overrides ?? {};
 
+  // Round computed quantities to the precision a builder actually orders
+  // in. Formula output is full float (e.g. 92.58333… LF) which is noise
+  // — no one orders 92.58 LF of lumber. CY/GAL/TON/HR keep 1 decimal
+  // because fractional units are meaningful for liquids and time;
+  // everything else rounds to the nearest whole unit.
+  const roundQty = (qty: number, uom: string): number => {
+    const upper = uom.toUpperCase();
+    if (upper === "CY" || upper === "GAL" || upper === "TON" || upper === "HR") {
+      return Math.round(qty * 10) / 10;
+    }
+    return Math.round(qty);
+  };
+
   const lines: AssemblyMaterialLine[] = [];
   let total = 0;
   let error: string | null = null;
@@ -72,8 +85,9 @@ export function computeMaterials(
       // Default 1 = no change. Builder sets 1.05 to add 5% extra
       // material on top of the stock waste already in the formula.
       const lineQtyFactor = lineOverrides[m.name]?.quantity_factor ?? 1;
-      const quantity =
+      const rawQuantity =
         evaluateFormula(m.quantityFormula, propertyValues) * lineQtyFactor;
+      const quantity = roundQty(rawQuantity, m.uom);
       // Cost formulas override the fixed unit costs when present. This lets
       // an assembly express e.g. "vinyl vs wood frame" as a multiplier in
       // the formula instead of forcing one assembly per material grade.
@@ -109,8 +123,9 @@ export function computeMaterials(
     const scale = x.scale_property
       ? (propertyValues[x.scale_property] ?? 0) * (x.scale_multiplier ?? 1)
       : 0;
-    const quantity = base + scale;
-    if (quantity <= 0) continue;
+    const rawQty = base + scale;
+    if (rawQty <= 0) continue;
+    const quantity = roundQty(rawQty, x.uom);
     const unitCost = x.unit_cost_usd * matMult;
     const labor = (x.labor_cost_usd ?? 0) * laborMult;
     const lineTotal = (unitCost + labor) * quantity;

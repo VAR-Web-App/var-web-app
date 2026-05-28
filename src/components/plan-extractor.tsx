@@ -121,6 +121,8 @@ export default function PlanExtractor({
   const progressTimer = useRef<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
+  const [slowExtractionHint, setSlowExtractionHint] = useState(false);
+  const slowHintTimer = useRef<number | null>(null);
   const [progress, setProgress] = useState(0);
   /** Which Apply action is currently running, so each button shows its
    *  own spinner instead of both buttons reading the same `applying` flag. */
@@ -227,13 +229,25 @@ export default function PlanExtractor({
     setExtracting(true);
     setProgress(0);
     setError(null);
+    setSlowExtractionHint(false);
 
     // Time-based progress simulation across two phases:
     //   0–20%   blob upload (variable, depends on file size + connection)
-    //   20–95%  Claude vision (one-shot, ~12s for residential plans)
-    // We snap to 20% when upload completes, then ease 20→95 over ~12s
-    // holding at 95 until the API returns. Snap to 100% on success.
-    const targetMs = 12000;
+    //   20–95%  Claude vision (one-shot, scales with PDF page count)
+    // Target duration for phase 2 scales by file size — a 1-page floor
+    // plan completes in ~8s; a 16-page build set takes 25-30s. Without
+    // scaling, big files saw the bar lock at 95% for ~20s of silent
+    // wait, which read as "stuck." Now the bar tracks the real wait
+    // and we surface a "still analyzing" hint if the API outruns the
+    // estimate.
+    const targetMs =
+      file.size < 1 * 1024 * 1024
+        ? 10_000
+        : file.size < 3 * 1024 * 1024
+          ? 15_000
+          : file.size < 10 * 1024 * 1024
+            ? 25_000
+            : 35_000;
     let phaseStart = performance.now();
     let phaseStartProgress = 0;
     let phaseEndProgress = 20;
@@ -277,6 +291,14 @@ export default function PlanExtractor({
       phaseEndProgress = 95;
       phaseDuration = targetMs;
 
+      // If the bar hits 95% before the API returns, surface a
+      // "still analyzing" hint so the wait reads as honest progress
+      // rather than a stuck UI. Fires at phaseDuration (the same
+      // moment the bar caps at 95).
+      slowHintTimer.current = window.setTimeout(() => {
+        setSlowExtractionHint(true);
+      }, targetMs);
+
       const res = await fetch("/api/plan-extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -312,6 +334,11 @@ export default function PlanExtractor({
         clearInterval(progressTimer.current);
         progressTimer.current = null;
       }
+      if (slowHintTimer.current !== null) {
+        clearTimeout(slowHintTimer.current);
+        slowHintTimer.current = null;
+      }
+      setSlowExtractionHint(false);
       setExtracting(false);
     }
   }
@@ -550,23 +577,32 @@ export default function PlanExtractor({
                 </button>
                 {extracting ? (
                   // Determinate progress bar: time-based fill from 0 to 95%
-                  // over ~12s, then jumps to 100% when the API returns.
-                  <div
-                    role="progressbar"
-                    aria-live="polite"
-                    aria-valuenow={Math.round(progress)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    className="relative w-44 overflow-hidden rounded-md bg-sky-100 px-5 py-2 text-sm font-semibold text-sky-900 ring-1 ring-sky-300"
-                  >
+                  // scaled by file size, then jumps to 100% when the API
+                  // returns. A "still analyzing" hint appears under the
+                  // bar if Claude takes longer than the estimate.
+                  <div className="flex flex-col items-end gap-1.5">
                     <div
-                      className="absolute inset-y-0 left-0 bg-sky-500 transition-all duration-200 ease-out"
-                      style={{ width: `${progress}%` }}
-                    />
-                    <div className="relative flex items-center justify-center gap-1.5">
-                      <SparklesIcon className="h-4 w-4" />
-                      <span className="tabular-nums">{Math.round(progress)}%</span>
+                      role="progressbar"
+                      aria-live="polite"
+                      aria-valuenow={Math.round(progress)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      className="relative w-44 overflow-hidden rounded-md bg-sky-100 px-5 py-2 text-sm font-semibold text-sky-900 ring-1 ring-sky-300"
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 bg-sky-500 transition-all duration-200 ease-out"
+                        style={{ width: `${progress}%` }}
+                      />
+                      <div className="relative flex items-center justify-center gap-1.5">
+                        <SparklesIcon className="h-4 w-4" />
+                        <span className="tabular-nums">{Math.round(progress)}%</span>
+                      </div>
                     </div>
+                    {slowExtractionHint && (
+                      <span className="text-[11px] italic text-slate-500">
+                        Claude is still analyzing the plan — large plan sets can run 30-45s.
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <button
