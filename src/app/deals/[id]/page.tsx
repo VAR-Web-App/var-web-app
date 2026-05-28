@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import NextActionCard from "@/components/next-action-card";
 import ProjectAIChat from "@/components/project-ai-chat";
+import PlanExtractor, { type PlanExtraction } from "@/components/plan-extractor";
 import DealPageShell, {
   DealLoadingShell,
   DealNotFoundShell,
@@ -65,6 +66,20 @@ export default function DealOverviewPage({
 
   return (
     <DealPageShell deal={deal} active="overview">
+      {/* Step 0 of the flow: upload the architectural plan and let AI
+       *  extract the project basics. Shows the upload dropzone on a
+       *  fresh project, or a compact summary card once a plan has been
+       *  extracted (the extractor's internal collapsed state). */}
+      <div className="mb-4">
+        <PlanExtractor
+          dealId={deal.id}
+          orgRef={deal.org_ref}
+          initialExtraction={
+            deal.floor_plan_extraction as unknown as PlanExtraction | undefined
+          }
+          initialResolvedFlags={deal.resolved_ambiguity_indices}
+        />
+      </div>
       <Link
         href={`/deals/${deal.id}/quote`}
         className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white px-4 py-3 shadow-sm transition hover:border-sky-300 hover:from-sky-100 sm:px-5 sm:py-4"
