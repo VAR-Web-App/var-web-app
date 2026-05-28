@@ -28,6 +28,7 @@ interface PlanInput {
   total_sqft: number | null;
   first_floor_sqft: number | null;
   second_floor_sqft: number | null;
+  bonus_sqft: number | null;
   porch_sqft: number | null;
   garage_sqft: number | null;
   garage_cars: number | null;
@@ -528,16 +529,85 @@ export function instancesFromPlan(
     );
   }
 
-  // ── Stairs (one run per story transition) ────────────────────
-  if (stories > 1) {
+  // ── LVL beam package ─────────────────────────────────────────
+  // Engineered LVL for girders, floor beams, and ceiling beams.
+  // Conditioned area ÷ 12 = total LVL LF (rough rule that matched
+  // architect spec on Maddox-class plans). Skipped on single-story
+  // slab houses where the only beams are roof headers (already
+  // bundled in the Headers assembly below).
+  if (stories > 1 || fdnId !== "stub-slab-on-grade") {
+    const conditionedSqft = totalSqft;
+    const lvlLf = Math.round(conditionedSqft / 12);
+    if (lvlLf > 0) {
+      out.push(
+        makeInstance("stub-lvl-beam-package", "LVL beam package", {
+          "Total LVL LF": lvlLf,
+          "Beam Grade": 1.0,
+        })!,
+      );
+    }
+  }
+
+  // ── Structural headers ───────────────────────────────────────
+  // One doubled-dimensional header per door + window opening; LVL
+  // headers for garage doors + a baseline of 4 large interior openings
+  // (great-room cased openings, kitchen island, hallway pass-throughs).
+  const windowCountForHeaders =
+    extraction.doors_windows.windows_estimated ??
+    Math.round(totalSqft / 150);
+  const extDoorsForHeaders = extraction.doors_windows.exterior_doors_estimated ?? 3;
+  const intDoorsForHeaders = bedrooms * 2 + baths + 3;
+  const standardOpenings = windowCountForHeaders + extDoorsForHeaders + intDoorsForHeaders;
+  const lvlHeaderCount = Math.max(2, cars) + 4;
+  out.push(
+    makeInstance("stub-headers", "Structural headers (door + window openings)", {
+      "Standard Openings": standardOpenings,
+      "LVL Headers": lvlHeaderCount,
+    })!,
+  );
+
+  // ── Porch / deck system ──────────────────────────────────────
+  // Skipped when there's no porch in the extraction. Column count
+  // estimated from porch perimeter (~1 column per 8 LF).
+  const porchSqft = extraction.porch_sqft ?? 0;
+  if (porchSqft > 50) {
+    const porchPerim = 2 * (Math.sqrt(porchSqft * 1.4) + Math.sqrt(porchSqft / 1.4));
+    const columnCount = Math.max(4, Math.round(porchPerim / 8));
+    out.push(
+      makeInstance("stub-porch-system", "Porch & deck system", {
+        "Porch Area": Math.round(porchSqft),
+        "Column Count": columnCount,
+        "Decking Material": 1.0,
+      })!,
+    );
+  }
+
+  // ── Stairs (one run per story transition + bonus / basement runs) ─
+  // Most custom homes with a bonus room have a SECOND stair (mudroom
+  // → bonus or kitchen → bonus). Basement adds another run. The base
+  // count covers main-floor-to-second transitions; the heuristic adds
+  // ~1 extra run per bonus or basement scope.
+  const baseStairRuns = stories > 1 ? 1 : 0;
+  const bonusStairRuns = (extraction.bonus_sqft ?? 0) > 100 ? 1 : 0;
+  const basementStairRuns = (extraction.foundation_type ?? "")
+    .toLowerCase()
+    .includes("basement")
+    ? 1
+    : 0;
+  const totalStairRuns = baseStairRuns + bonusStairRuns + basementStairRuns;
+  if (totalStairRuns > 0) {
     // 17 risers between floors with 9-10' ceilings is typical.
     const risers = Math.round((ceilings.firstFloor + 1) * 1.7);
+    const label =
+      totalStairRuns === 1
+        ? "Stair package (interior)"
+        : `Stair package (${totalStairRuns} runs)`;
     out.push(
-      makeInstance("stub-stair-package", "Stair package (interior)", {
-        Risers: risers,
+      makeInstance("stub-stair-package", label, {
+        Risers: risers * totalStairRuns,
         "Stair Width": 40,
-        "Stringer Count": 3,
-        "Guardrail Length": 18,
+        "Stringer Count": 3 * totalStairRuns,
+        "Guardrail Length": 18 * totalStairRuns,
         "Tread Material": 1.0,
       })!,
     );

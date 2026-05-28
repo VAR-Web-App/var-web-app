@@ -181,9 +181,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
   },
   {
     id: "stub-floor-2x10-16oc",
-    name: 'Floor System — 2×10 joists @ 16" OC',
+    name: 'Floor System — joists @ 16" OC',
     description:
-      'Wood-framed floor system with 2×10 joists, rim joists, and 3/4" T&G subfloor.',
+      "Wood-framed floor system with joists, rim joist, and 3/4\" T&G " +
+      "subfloor. Joist type drives unit cost — engineered I-joists span " +
+      "farther and run more expensive than dimensional lumber but are " +
+      "the standard on most modern custom plans (architect-spec'd).",
     trade: "framing",
     properties: [
       { name: "Floor Length", uom: "LF", defaultValue: 30 },
@@ -195,21 +198,43 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         kind: "choice",
         choices: SPACING_CHOICES,
       },
+      {
+        name: "Joist Type",
+        uom: "",
+        // 1.0 baseline = 2×10 SPF dimensional ($24/EA cost basis).
+        // Multipliers scale the joist line. I-joists are sold by LF in
+        // real life but treated as per-piece here so the assembly stays
+        // uniform; the multiplier captures the cost delta.
+        defaultValue: 2.2,
+        kind: "option",
+        options: [
+          { label: "2×10 dimensional (SPF)", value: 1.0 },
+          { label: '11-7/8" I-joist (engineered)', value: 2.2 },
+          { label: '14" I-joist (longer spans)', value: 2.9 },
+          { label: '16" I-joist (premium / heavy load)', value: 3.6 },
+          { label: "Floor truss (open-web)", value: 3.4 },
+        ],
+      },
     ],
     materials: [
       {
-        name: "2×10 joist (SPF)",
+        name: "Floor joist (per joist type)",
         uom: "EA",
         quantityFormula: "{Floor Length} * (12 / {Joist Spacing}) + 1",
-        unitCostUsd: 24.0,
-        laborCostUsd: 6.5,
+        unitCostUsd: 0,
+        // 24 = dimensional 2×10 baseline; multiplier scales to I-joists.
+        unitCostFormula: "24 * {Joist Type}",
+        laborCostUsd: 0,
+        laborCostFormula: "6.5 * {Joist Type}",
         csiDivision: "06",
       },
       {
-        name: "2×10 rim joist",
+        name: "Rim board (LVL for I-joist systems, 2×10 for dimensional)",
         uom: "LF",
         quantityFormula: "{Floor Length} * 2",
-        unitCostUsd: 3.2,
+        unitCostUsd: 0,
+        // 3.2 = 2×10 rim board; I-joist systems use LVL rim @ ~$8.50/LF.
+        unitCostFormula: "3.2 * {Joist Type}",
         laborCostUsd: 0.8,
         csiDivision: "06",
       },
@@ -446,6 +471,243 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         label: "Crawl space (4 ft)",
         description: "Half-height stem wall for crawl-space foundations",
         propertyOverrides: { "Wall Height": 4 },
+      },
+    ],
+  },
+  {
+    id: "stub-lvl-beam-package",
+    name: "LVL Beam Package — engineered girders + floor beams",
+    description:
+      "Engineered LVL beams for floor girders, ceiling beams, and " +
+      "large openings. Architect-spec'd plans typically run 15-30 LVL " +
+      "assemblies on a 2-story custom home. Total LF defaults to " +
+      "conditioned area ÷ 12 (Maddox-class plans run ~1 LF of LVL per " +
+      "12 SF of conditioned area); builder adjusts per project.",
+    trade: "framing",
+    properties: [
+      {
+        name: "Total LVL LF",
+        uom: "LF",
+        defaultValue: 300,
+      },
+      {
+        name: "Beam Grade",
+        uom: "",
+        // 1.0 = 1-3/4" × 11-7/8" 2.0E LVL baseline.
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: '1-3/4" × 9-1/2" LVL (light)', value: 0.75 },
+          { label: '1-3/4" × 11-7/8" LVL (standard)', value: 1.0 },
+          { label: '1-3/4" × 14" LVL (heavy)', value: 1.4 },
+          { label: '1-3/4" × 16" LVL (long-span)', value: 1.7 },
+          { label: 'PSL 5-1/4" × 11-7/8" (porch / columns)', value: 1.9 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "LVL beam material",
+        uom: "LF",
+        quantityFormula: "{Total LVL LF}",
+        unitCostUsd: 0,
+        // 18 = $18/LF for standard 1-3/4"×11-7/8" LVL.
+        unitCostFormula: "18 * {Beam Grade}",
+        laborCostUsd: 0,
+        laborCostFormula: "5 * {Beam Grade}",
+        csiDivision: "06",
+      },
+      {
+        name: "Beam hangers (galvanized, per beam end)",
+        uom: "EA",
+        // Assume 1 hanger per 12 LF of beam (each beam has 2 ends; avg
+        // beam length ~12 LF → ~1 hanger per 6 LF). Round formula:
+        // 1 hanger per 6 LF gives a reasonable scaled count.
+        quantityFormula: "{Total LVL LF} / 6",
+        unitCostUsd: 12.0,
+        laborCostUsd: 4.0,
+        csiDivision: "05",
+      },
+      {
+        name: "Lag bolts + structural screws (per beam)",
+        uom: "EA",
+        quantityFormula: "{Total LVL LF} / 1.5",
+        unitCostUsd: 1.4,
+        laborCostUsd: 0,
+        csiDivision: "05",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Standard 11-7/8\" LVL (whole-house default)",
+        propertyOverrides: { "Beam Grade": 1.0 },
+      },
+      {
+        label: "Heavy 14\" LVL (longer spans + 2-story loads)",
+        propertyOverrides: { "Beam Grade": 1.4 },
+      },
+    ],
+  },
+  {
+    id: "stub-porch-system",
+    name: "Porch & Deck System — framing + decking + columns",
+    description:
+      "Covered porch / open deck structural and finish package: PT " +
+      "joists, PT/PSL beams, decking, columns, and porch ceiling " +
+      "finish. Sized by Porch Area; Column Count defaults to 1 per " +
+      "8 LF of porch perimeter (rough rule). Porch ROOF is counted " +
+      "separately in the main Roof System assembly — this is just the " +
+      "floor / structure / columns / ceiling.",
+    trade: "framing",
+    properties: [
+      { name: "Porch Area", uom: "SF", defaultValue: 320 },
+      { name: "Column Count", uom: "EA", defaultValue: 6 },
+      {
+        name: "Decking Material",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "5/4 PT pine decking (budget)", value: 1.0 },
+          { label: "Composite (Trex / similar)", value: 2.2 },
+          { label: "Ipe / tropical hardwood", value: 3.5 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "PT 2×8 deck joists @ 16\" OC",
+        uom: "EA",
+        // Assume 1.4:1 ratio rectangle, joists run the short way.
+        // Joist count ≈ Length × 0.75 where Length = sqrt(Area×1.4).
+        quantityFormula:
+          "(({Porch Area} * 1.4) ^ 0.5) * 0.75",
+        unitCostUsd: 18.0,
+        laborCostUsd: 6.0,
+        csiDivision: "06",
+      },
+      {
+        name: "PT 2×10 deck beams + rim",
+        uom: "LF",
+        // Perimeter approximation + interior beam line.
+        quantityFormula: "(({Porch Area} / 1.4) ^ 0.5) * 5",
+        unitCostUsd: 4.5,
+        laborCostUsd: 1.4,
+        csiDivision: "06",
+      },
+      {
+        name: "Porch decking boards (incl. 8% waste)",
+        uom: "SF",
+        quantityFormula: "{Porch Area} * 1.08",
+        unitCostUsd: 0,
+        unitCostFormula: "4.5 * {Decking Material}",
+        laborCostUsd: 0,
+        laborCostFormula: "2.5 * {Decking Material}",
+        csiDivision: "06",
+      },
+      {
+        name: "10×10 PT porch column",
+        uom: "EA",
+        quantityFormula: "{Column Count}",
+        unitCostUsd: 145.0,
+        laborCostUsd: 65.0,
+        csiDivision: "06",
+      },
+      {
+        name: "Column base + cap hardware (galvanized)",
+        uom: "EA",
+        quantityFormula: "{Column Count}",
+        unitCostUsd: 38.0,
+        laborCostUsd: 12.0,
+        csiDivision: "05",
+      },
+      {
+        name: "Porch ceiling finish (bead board / soffit panel)",
+        uom: "SF",
+        quantityFormula: "{Porch Area}",
+        unitCostUsd: 3.2,
+        laborCostUsd: 2.4,
+        csiDivision: "09",
+      },
+      {
+        name: "Vented soffit panel + fascia",
+        uom: "LF",
+        // Perimeter of porch roof = porch perimeter (no interior soffit).
+        quantityFormula: "(({Porch Area} * 1.4) ^ 0.5 + ({Porch Area} / 1.4) ^ 0.5) * 2",
+        unitCostUsd: 5.8,
+        laborCostUsd: 3.2,
+        csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Standard PT porch (covered)",
+        propertyOverrides: { "Decking Material": 1.0 },
+      },
+      {
+        label: "Composite porch / deck",
+        description: "Trex or similar; lower maintenance, higher cost",
+        propertyOverrides: { "Decking Material": 2.2 },
+      },
+    ],
+  },
+  {
+    id: "stub-headers",
+    name: "Structural Headers — door + window openings",
+    description:
+      "Bundled header package for every door/window opening in the " +
+      "framed envelope. Dimensional headers (doubled 2×10/2×12) cover " +
+      "standard openings up to ~6'; LVL headers cover larger spans " +
+      "(8-17') including garage doors and great-room openings. Counts " +
+      "default to one header per opening; builder can adjust for " +
+      "unusual layouts.",
+    trade: "framing",
+    properties: [
+      {
+        // Door + window openings combined. Defaults assume the converter
+        // populated this from extraction.doors_windows totals.
+        name: "Standard Openings",
+        uom: "EA",
+        defaultValue: 30,
+      },
+      {
+        // Large spans needing LVL (garage door, great-room, kitchen island).
+        name: "LVL Headers",
+        uom: "EA",
+        defaultValue: 5,
+      },
+    ],
+    materials: [
+      {
+        name: "Doubled 2×10 header (per opening, avg 4 LF)",
+        uom: "EA",
+        quantityFormula: "{Standard Openings}",
+        unitCostUsd: 26.0,
+        laborCostUsd: 11.0,
+        csiDivision: "06",
+      },
+      {
+        name: "Cripples + jack studs (per opening)",
+        uom: "EA",
+        // 4 extra stud-pieces per opening (king + jack on each side, plus cripples above).
+        quantityFormula: "{Standard Openings} * 4",
+        unitCostUsd: 6.5,
+        laborCostUsd: 2.0,
+        csiDivision: "06",
+      },
+      {
+        name: "LVL header (1-3/4\" × 11-7/8\", avg 10 LF span)",
+        uom: "EA",
+        quantityFormula: "{LVL Headers}",
+        unitCostUsd: 190.0,
+        laborCostUsd: 55.0,
+        csiDivision: "06",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Standard (1 LVL per garage door + 3 large openings)",
+        propertyOverrides: { "LVL Headers": 5 },
       },
     ],
   },
