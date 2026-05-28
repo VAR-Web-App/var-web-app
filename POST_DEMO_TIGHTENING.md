@@ -121,9 +121,11 @@ costs).
   total joint tape footage; our catalog bundles it into the
   drywall sheet line. Cosmetic, not a real cost gap.
 
-- [ ] **Floor insulation under first-floor I-joists** (R-19,
-  ~3,000 SF on a crawl-space plan). Currently missing entirely.
-  Could add as a property to stub-floor-2x10-16oc.
+- [x] **Floor insulation under first-floor I-joists.** ✅ 2026-05-28
+  — new "Floor Insulation Area" property on stub-floor-2x10-16oc
+  with an R-19 batt material line gated on it. Converter sets the
+  area to first-floor framing footprint when foundation is crawl;
+  basements and slabs produce no insulation line.
 
 - [ ] **Drywall sheet size: 4×8 vs 4×12.** Architects use 4×12
   for 9'+ ceilings. Sheet counts differ but cost per SF is the
@@ -140,20 +142,24 @@ costs).
   corbels. Lower-volume item; only on plans with substantial
   porches.
 
-- [ ] **Window count on grouped units.** Architect lists like
-  "(2) 2'-8"×5'-0"" mean 2 sashes; Claude sometimes counts as 1.
-  Adjust the extraction prompt with a "count grouped units"
-  reminder similar to door counting.
+- [x] **Window count on grouped units.** ✅ 2026-05-28 — extraction
+  prompt now spells out grouped-callout rules ("(2) 2'-8"×5'-0"" =
+  2 windows, count separate sashes in bay/bow units, don't count
+  panes within a mullioned sash), prefers the schedule total over
+  visual counting, and includes a "< 15 on a 3+ bedroom custom"
+  sanity check.
 
 ## Schema additions (would help all of the above)
 
-- [ ] `pocket_doors_estimated: number | null`
-- [ ] `garage_doors_estimated: number | null` (separate from cars)
-- [ ] `stone_veneer_sqft: number | null`
-- [ ] `roof_type: "gable" | "hip" | "gable+hip" | "complex" | null`
-  — for smarter gutter / eave LF calc
-- [ ] `roof_pitch_in_12: number | null` — for accurate slope factor
-  instead of generic 1.15-1.20 multiplier
+- [x] `pocket_doors_estimated: number | null` ✅ 2026-05-28
+- [ ] `garage_doors_estimated: number | null` (separate from cars) —
+      worked around via `garage_sqft + cars` heuristic in converter
+- [ ] `stone_veneer_sqft: number | null` — worked around via
+      notable_features keyword scan + 80 SF default
+- [x] `roof_type: "gable" | "hip" | "gable+hip" | "complex" | null`
+  ✅ 2026-05-28 — drives eave/ridge LF scaling for drainage + trim
+- [x] `roof_pitch_in_12: number | null` ✅ 2026-05-28 — drives
+  gable-wall height + (future) roof-area scaling
 
 ## Catalog / pricing tightening
 

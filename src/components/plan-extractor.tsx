@@ -35,6 +35,8 @@ const SAMPLE_EXTRACTION: PlanExtraction = {
   footprint_dimensions: "68' × 42'",
   conditioned_footprint_dimensions: "56' × 40'",
   roof_area_sqft: 3200,
+  roof_type: "gable+hip",
+  roof_pitch_in_12: 8,
   max_ridge_height: "29' 6\"",
   stories: 2,
   foundation_type: "Slab on grade with conditioned crawl in mech room",
@@ -92,6 +94,13 @@ export interface PlanExtraction {
    *  instead of footprint × pitch math; lets the converter respect a
    *  printed number on the roof plan. */
   roof_area_sqft?: number | null;
+  /** Primary roof shape — drives eave LF, ridge LF, and gutter run
+   *  scaling in the converter. */
+  roof_type?: "gable" | "hip" | "gable+hip" | "complex" | null;
+  /** Primary roof pitch in 12ths (e.g. 8 for "8/12"). When present,
+   *  the converter uses it to compute roof area and gable height
+   *  instead of assuming 6/12 across the board. */
+  roof_pitch_in_12?: number | null;
   max_ridge_height: string | null;
   stories: number | null;
   foundation_type: string | null;

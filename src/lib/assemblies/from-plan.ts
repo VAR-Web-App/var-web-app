@@ -43,6 +43,14 @@ interface PlanInput {
   /** Architect-labeled total roof finish area. Used directly when
    *  present; falls back to footprint × pitch math otherwise. */
   roof_area_sqft?: number | null;
+  /** Primary roof shape. Drives eave/ridge LF scaling for the trim
+   *  + drainage assemblies; null falls back to "complex" (safer
+   *  default for unknown custom plans). */
+  roof_type?: "gable" | "hip" | "gable+hip" | "complex" | null;
+  /** Primary pitch in 12ths (e.g. 8 for "8/12"). When present, the
+   *  converter uses it for gable-wall height + roof-area scaling
+   *  instead of the 6/12 fallback. */
+  roof_pitch_in_12?: number | null;
   stories: number | null;
   foundation_type: string | null;
   exterior_wall_type: string | null;
@@ -386,11 +394,20 @@ export function instancesFromPlan(
   // wall — this is a large I-joist / dimensional lumber line item the
   // converter used to silently skip on single-story crawl-space builds.
   if (fdnId !== "stub-slab-on-grade") {
+    // R-19 batt insulation between joists from below — only meaningful
+    // on crawl-space foundations (no conditioned basement underneath).
+    // Basements heat-bridge so the architect typically skips this line.
+    const isCrawlFloor =
+      (extraction.foundation_type ?? "").toLowerCase().includes("crawl");
+    const floorInsulationArea = isCrawlFloor
+      ? Math.round(framingLength * framingWidth)
+      : 0;
     out.push(
       makeInstance("stub-floor-2x10-16oc", "Floor system — first floor", {
         "Floor Length": framingLength,
         "Floor Width": framingWidth,
         "Joist Spacing": 16,
+        "Floor Insulation Area": floorInsulationArea,
       })!,
     );
   }
@@ -418,19 +435,22 @@ export function instancesFromPlan(
     stories,
   );
   // Gable wall framing lives only on the TOP story (the gable triangle
-  // sits above the eave plate at every gable end). Heuristic:
-  //   - 2 gable ends is typical for residential (one at each long side
-  //     of the main roof, plus dormers / wings that wash out in average)
-  //   - Per gable LF ≈ short-side width × average gable height
-  //   - Average gable height = (short_side / 2) × pitch_factor; assume
-  //     6/12 pitch (0.5 slope) → half_width × 0.5
-  // For a 30' short side: gable_height ≈ 7.5'; per-gable triangle ≈
-  // 30 × 7.5 / 2 = 112 SF. Total LF of studs at 16" spacing × 2 gables
-  // works out close to architect Maddox spec when the multiplier lands
-  // around 6. Builder edits per-project from the assembly card.
+  // sits above the eave plate at every gable end). Architect-counted
+  // pitch (when surfaced) drives gable height; falls back to 6/12.
+  // Roof type drives the number of gable ends:
+  //   - "gable" / "complex" → 2 (the two short-side ends)
+  //   - "gable+hip" → 1 (only the gable-end portion)
+  //   - "hip" → 0 (hip roofs have no gable ends)
   const shortSide = Math.min(footprint.length, footprint.width);
-  const gableHeightPerEnd = shortSide * 0.25; // half-width × 6/12 pitch
-  const gableLfTotal = Math.round(shortSide * gableHeightPerEnd * 2);
+  const pitchRise = extraction.roof_pitch_in_12 ?? 6;
+  const pitchFactor = pitchRise / 12; // 0.5 for 6/12, 0.67 for 8/12, 1.0 for 12/12
+  const gableHeightPerEnd = (shortSide / 2) * pitchFactor;
+  const roofType = extraction.roof_type ?? "complex";
+  const gableEndCount =
+    roofType === "hip" ? 0
+    : roofType === "gable+hip" ? 1
+    : 2; // "gable" or "complex" (safe default)
+  const gableLfTotal = Math.round(shortSide * gableHeightPerEnd * gableEndCount);
   wallHeights.forEach((h, idx) => {
     const isTopStory = idx === wallHeights.length - 1;
     out.push(
@@ -565,7 +585,38 @@ export function instancesFromPlan(
   // a covered porch (most custom homes), it ran ~50% short. Downspouts
   // every ~20 LF (one per 20 LF is closer to architect spec than the
   // older 25 LF heuristic, which was halving the count).
-  const eaveLf = Math.round(2 * (footprint.length + footprint.width) * 1.2);
+  // Eave/ridge LF scale with roof type. Pure gable has eaves only on
+  // the two long sides (2 × longSide). Hip wraps eaves around the
+  // whole building (= perimeter). Mixed and complex roofs interpolate.
+  // Ridge LF is the inverse — gable has one long primary ridge, hip
+  // has minimal ridge, complex has multiple shorter ridges.
+  const longSide = Math.max(footprint.length, footprint.width);
+  const buildingPerimeter = 2 * (footprint.length + footprint.width);
+  let eaveLfFactor: number;
+  let ridgeLfFactor: number;
+  switch (roofType) {
+    case "gable":
+      eaveLfFactor = (2 * longSide) / buildingPerimeter; // ~0.6 for 1.4:1
+      ridgeLfFactor = longSide / buildingPerimeter;       // single primary ridge
+      break;
+    case "hip":
+      eaveLfFactor = 1.0; // full perimeter
+      ridgeLfFactor = (longSide - shortSide) / buildingPerimeter; // shorter
+      break;
+    case "gable+hip":
+      eaveLfFactor = 0.85; // ~3 sides
+      ridgeLfFactor = longSide / buildingPerimeter;
+      break;
+    case "complex":
+    default:
+      // Custom plans with dormers/wings — both runs exceed perimeter
+      // because every secondary mass adds its own eaves and ridges.
+      eaveLfFactor = 1.6;
+      ridgeLfFactor = 0.6;
+      break;
+  }
+
+  const eaveLf = Math.round(buildingPerimeter * eaveLfFactor);
   out.push(
     makeInstance("stub-drainage", "Gutters & downspouts", {
       "Eave Length": eaveLf,
@@ -575,15 +626,11 @@ export function instancesFromPlan(
   );
 
   // ── Exterior trim (fascia + soffit + drip edge + ridge vent) ──
-  // Trim runs longer than gutters because fascia/drip edge land at
-  // every eave AND every rake, while gutters only follow eaves.
-  // 1.5× perimeter is the median custom-home factor — Maddox-class
-  // hip-and-dormer roofs run 2.5×+; simple gable boxes run 1.0×.
-  // Builder edits the chip per project. Ridge LF defaults to ~0.5×
-  // perimeter — a single primary ridge plus a couple short auxiliary
-  // ridges from dormers / hip changes.
-  const trimEaveLf = Math.round(2 * (footprint.length + footprint.width) * 1.5);
-  const ridgeLf = Math.round(2 * (footprint.length + footprint.width) * 0.5);
+  // Fascia/drip edge land at every eave AND every rake — bump the
+  // gutter eave factor by ~25% to capture rakes. Ridge vent uses the
+  // dedicated ridge LF factor.
+  const trimEaveLf = Math.round(eaveLf * 1.25);
+  const ridgeLf = Math.round(buildingPerimeter * ridgeLfFactor);
   out.push(
     makeInstance("stub-exterior-trim", "Exterior trim (fascia + soffit + drip + ridge)", {
       "Eave Length": trimEaveLf,

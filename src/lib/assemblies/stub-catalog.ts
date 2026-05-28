@@ -244,6 +244,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
           { label: "Floor truss (open-web)", value: 3.4 },
         ],
       },
+      // R-19 batt insulation between joists from below, common on
+      // crawl-space foundations where there's no conditioned
+      // basement under the first floor. Default 0 (no insulation
+      // line) — slab plans and basements don't need it. Converter
+      // sets to floor area when foundation is crawl.
+      { name: "Floor Insulation Area", uom: "SF", defaultValue: 0 },
     ],
     materials: [
       {
@@ -272,6 +278,16 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostFormula: "3.2 * {Joist Type}",
         laborCostUsd: 0.8,
         csiDivision: "06",
+      },
+      {
+        name: "R-19 floor batt insulation (under crawl-space joists)",
+        uom: "SF",
+        // Gated on Floor Insulation Area. Zero produces no line.
+        quantityFormula: "{Floor Insulation Area}",
+        unitCostUsd: 0.95,
+        laborCostUsd: 0.65,
+        csiDivision: "07",
+        catId: "50", // Insulation (Barry's section)
       },
       {
         name: '3/4" T&G subfloor, 4×8 sheet',
