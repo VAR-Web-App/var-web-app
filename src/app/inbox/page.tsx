@@ -55,20 +55,47 @@ export default function InboxPage() {
   const { profile } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.org_ref) return;
     let active = true;
     async function load() {
-      const deals = await listDeals(profile!.org_ref);
-      const dealById = new Map<string, Deal>(deals.map((d) => [d.id, d]));
-      const dealIds = deals.map((d) => d.id);
+      // Defensive everywhere — one bad deal's RFQ/CO query shouldn't
+      // strand the whole inbox at "Loading…". Each per-deal fetch is
+      // wrapped so its failure becomes an empty array, and the outer
+      // try/catch keeps loaded=true firing regardless.
+      try {
+        const deals = await listDeals(profile!.org_ref);
+        const dealById = new Map<string, Deal>(deals.map((d) => [d.id, d]));
+        const dealIds = deals.map((d) => d.id);
 
-      const [milestones, rfqLists, coLists] = await Promise.all([
-        listAllMilestonesForOrg(profile!.org_ref),
-        Promise.all(dealIds.map((id) => listRFQs(id))),
-        Promise.all(dealIds.map((id) => listChangeOrders(id))),
-      ]);
+        const safeList = async <T,>(
+          fetcher: () => Promise<T[]>,
+          label: string,
+        ): Promise<T[]> => {
+          try {
+            return await fetcher();
+          } catch (e) {
+            console.warn(`[inbox] ${label} failed`, e);
+            return [];
+          }
+        };
+
+        const [milestones, rfqLists, coLists] = await Promise.all([
+          safeList(
+            () => listAllMilestonesForOrg(profile!.org_ref),
+            "listAllMilestonesForOrg",
+          ),
+          Promise.all(
+            dealIds.map((id) => safeList(() => listRFQs(id), `listRFQs(${id})`)),
+          ),
+          Promise.all(
+            dealIds.map((id) =>
+              safeList(() => listChangeOrders(id), `listChangeOrders(${id})`),
+            ),
+          ),
+        ]);
 
       const all: InboxItem[] = [];
 
@@ -144,9 +171,16 @@ export default function InboxPage() {
         return a.dealName.localeCompare(b.dealName);
       });
 
-      if (active) {
-        setItems(all);
-        setLoaded(true);
+        if (active) {
+          setItems(all);
+          setLoaded(true);
+        }
+      } catch (e) {
+        console.error("[inbox] load failed", e);
+        if (active) {
+          setLoadError(e instanceof Error ? e.message : String(e));
+          setLoaded(true);
+        }
       }
     }
     void load();
@@ -181,7 +215,18 @@ export default function InboxPage() {
           </div>
         )}
 
-        {loaded && items.length === 0 && (
+        {loaded && loadError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <p className="font-semibold">Couldn&apos;t load the inbox.</p>
+            <p className="mt-1 text-xs text-red-700">{loadError}</p>
+            <p className="mt-1 text-xs text-red-600">
+              Check the browser console for details. Items with read errors
+              were skipped — what you see below is the partial set.
+            </p>
+          </div>
+        )}
+
+        {loaded && !loadError && items.length === 0 && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
             <CheckCircleIcon className="mx-auto h-10 w-10 text-emerald-600" />
             <h2 className="mt-3 text-base font-semibold text-emerald-900">
