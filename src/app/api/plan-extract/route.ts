@@ -37,6 +37,9 @@ Output JSON ONLY (no prose, no markdown fences). Schema:
   "porch_sqft": number | null,                   // Total covered porch / patio area
   "garage_sqft": number | null,
   "garage_cars": number | null,
+  "garage_doors_estimated": number | null,         // count of OVERHEAD garage doors — see GARAGE RULES below
+  "stone_veneer_sqft": number | null,              // architect-labeled stone veneer accent area; null if unlabeled
+  "floor_joist_count_estimated": number | null,    // architect-listed floor joist count if a schedule exists; null otherwise
   "bedrooms": number | null,
   "full_baths": number | null,
   "half_baths": number | null,
@@ -74,6 +77,22 @@ Rules:
 - Do not estimate dimensions beyond what's printed/labeled. Custom architect drawings often have only a few labeled dimensions; surface that limitation in ambiguity_notes.
 - If multiple floors exist, list rooms across all floors with the appropriate "level" field.
 - Confidence: "high" only if all major values came directly from printed labels. "low" if you had to estimate most values from drawing geometry.
+
+WRITING ambiguity_notes — these strings render to a custom home builder in a verification checklist, NOT to a developer. Write them in plain English a builder would say out loud on a job site.
+
+DO:
+- Speak in normal builder language: "Couldn't tell the porch dimensions" / "Confirm the master bath layout — the wall callout was hard to read"
+- Reference real-world things by name: rooms, dimensions, schedules, materials
+- Tell the builder what to look at on the plan to verify
+
+DON'T include any of the following in ambiguity_notes (or in any other string field):
+- JSON field names like garage_cars, first_floor_sqft, roof_pitch_in_12, conditioned_footprint_dimensions, etc. Refer to those concepts in builder English ("the first floor area", "the roof pitch", "the conditioned-area dimensions").
+- Code or schema references (camelCase, snake_case, type names, brackets, backticks).
+- Programmer phrasing like "field is null", "estimated from geometry", "returned null". Builders don't think this way.
+- File paths, URLs, or any debugging context.
+
+Bad: "garage_cars set to 2, but garage_sqft was null in the extraction"
+Good: "Garage shown as 2-car but the square footage isn't labeled on the plan — confirm it's at least 400 SF"
 
 COUNTING RULES — doors_windows (this is where extractors most often go wrong, please be careful):
 
@@ -125,6 +144,29 @@ windows_estimated counts individual window units. Typical residential homes have
 - DO read the window schedule (every plan set has one) — the total at the bottom or right side of the schedule is your most reliable number. If totals are printed there, prefer them over your own count.
 - If you find yourself returning fewer than 15 on a 3+ bedroom custom plan, double-check the schedule for grouped callouts you may have read as 1.
 
+GARAGE RULES — separate "how many cars fit" from "how many doors there are."
+
+garage_cars is a bay-capacity number (1, 2, 3, 4). Read it from the architect's label ("2-CAR GARAGE", "3-CAR GARAGE") on the floor plan or the elevation drawing.
+
+garage_doors_estimated is the count of OVERHEAD garage doors (not service doors — those are exterior doors). Read each door opening on the front (and any side) elevation:
+- A typical 2-car garage with one wide opening = 1 overhead door (a 16' double)
+- A typical 2-car garage with two narrow openings = 2 overhead doors (two 8' singles)
+- A 3-car garage is most commonly "1 wide + 1 narrow" = 2 doors, but sometimes "3 narrow" = 3 doors
+- Count exactly what you see on the elevation; do not infer from the car count
+
+If you cannot read the front elevation clearly, return null and note in ambiguity_notes which detail you couldn't make out.
+
+STONE VENEER RULES — stone_veneer_sqft reflects only the labeled accent area for cultured / natural stone applied as an accent (porch column wraps, chimney chase, foundation reveal, wainscot). Sources to read:
+- Material schedule or finish schedule listing stone veneer with a labeled area
+- Elevation callouts (cross-hatch pattern with a "STONE" or "CULTURED STONE" tag and a dimension)
+- Any plan note giving a square footage for stone
+
+Do NOT estimate from drawing geometry — if no number is labeled, return null and add to ambiguity_notes ("Stone accent shown on porch columns but the square footage isn't called out — confirm with the supplier"). Typical labeled values run 50–300 SF on a custom plan.
+
+FLOOR JOIST RULES — floor_joist_count_estimated reflects the architect-listed total joist count when a floor framing schedule or joist schedule is printed. These look like a small table on the framing plan listing joist sizes and quantities (e.g. "6 ea 16'", "14 ea 14'", "20 ea 12'" — you'd return 6 + 14 + 20 = 40). When there's a clear schedule, summing it is the most reliable count we can get.
+
+Do NOT estimate from floor area or joist spacing — return null when no schedule exists; downstream will fall back to a length-and-spacing formula. Custom plans typically show 80–200 first-floor joists; a small ranch might show 30–50. If the schedule covers only one floor of a multi-floor plan, return that floor's count and note which floor in ambiguity_notes.
+
 FOOTPRINT RULES — getting these two fields right matters a lot, because downstream math splits framing scope (which uses conditioned area) from roof/siding scope (which uses overall envelope).
 
 footprint_dimensions = the OVERALL building envelope. Length × Width measured to the outermost edges of the structure as it sits on the lot. INCLUDES attached porches, attached garage, and any covered outdoor area under the main roof. This is the dimension a surveyor would write on a site plan; it's typically larger than the conditioned area. Read from the OVERALL BUILDING DIMENSIONS callout on the foundation plan or first-floor plan, NOT from the conditioned-space label.
@@ -158,6 +200,9 @@ interface ExtractionResult {
   porch_sqft: number | null;
   garage_sqft: number | null;
   garage_cars: number | null;
+  garage_doors_estimated: number | null;
+  stone_veneer_sqft: number | null;
+  floor_joist_count_estimated: number | null;
   bedrooms: number | null;
   full_baths: number | null;
   half_baths: number | null;
