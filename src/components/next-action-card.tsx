@@ -56,9 +56,9 @@ function pickAction(deal: Deal): NextAction {
       return {
         banner: "New lead",
         headline: `Start the estimate for ${deal.account_name || "this lead"}.`,
-        body: "Drop the floor plan PDF and the AI pulls square footage, room counts, and pre-fills the estimate.",
+        body: "Drop the plan PDF (floor plan, full build set, or design plan) and the AI pulls square footage, room counts, and pre-fills the estimate.",
         primary: {
-          label: "Upload floor plan",
+          label: "Upload plan",
           href: `/deals/${id}/files`,
           icon: ArrowUpTrayIcon,
         },
@@ -177,7 +177,7 @@ function daysSince(iso: string | undefined): number {
 }
 
 export default function NextActionCard({ deal }: { deal: Deal }) {
-  // On the Lead stage, the AI Floor Plan Extractor below is already the
+  // On the Lead stage, the AI Plan Extractor below is already the
   // page's primary surface — adding a second 'upload your plan' prompt
   // here just creates two CTAs for one action. Skip the hero entirely.
   // The extractor's empty state carries the next-action signal on its own.

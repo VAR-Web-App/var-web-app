@@ -1,5 +1,5 @@
 /**
- * Convert a FloorPlanExtraction into a starter set of AssemblyInstance
+ * Convert a PlanExtraction into a starter set of AssemblyInstance
  * records. Each instance ships with property values filled from the
  * extraction so the builder lands on a working estimate in one click —
  * then live-edits properties at the kitchen table as decisions firm up.
@@ -24,7 +24,7 @@ import type { QuoteLine } from "@/types";
 import { findStubAssembly } from "./stub-catalog";
 import { computeMaterials } from "./compute";
 
-interface FloorPlanInput {
+interface PlanInput {
   total_sqft: number | null;
   first_floor_sqft: number | null;
   second_floor_sqft: number | null;
@@ -130,7 +130,7 @@ function makeInstance(
 ): AssemblyInstance | null {
   const a = findStubAssembly(assemblyId);
   if (!a) return null;
-  // Floor-plan-generated instances start with a single variant — the
+  // Plan-extraction-generated instances start with a single variant — the
   // builder can add alternatives from the card UI later. The variant's
   // label defaults to the assembly's name so the chip looks meaningful
   // out of the gate.
@@ -150,8 +150,8 @@ function makeInstance(
   };
 }
 
-export function instancesFromFloorPlan(
-  extraction: FloorPlanInput,
+export function instancesFromPlan(
+  extraction: PlanInput,
 ): AssemblyInstance[] {
   const out: AssemblyInstance[] = [];
 
@@ -396,7 +396,7 @@ function round(n: number, d: number): number {
 /**
  * Build the QuoteLine block derived from one AssemblyInstance. Mirrors
  * the quote page's makeInstanceLine + recomputeLine — duplicated here so
- * the floor-plan integration can produce a ready-to-save lines array
+ * the plan-extraction integration can produce a ready-to-save lines array
  * without importing from a page file.
  *
  * Each material on the assembly turns into one line, with markup applied
@@ -450,17 +450,17 @@ export function linesFromInstance(
 }
 
 /**
- * Convenience: roll a FloorPlanExtraction directly into both the
+ * Convenience: roll a PlanExtraction directly into both the
  * AssemblyInstance set and the derived QuoteLine block. Useful for the
  * one-click "Create assemblies from plan" action on the extractor.
  */
-export function instancesAndLinesFromFloorPlan(
-  extraction: FloorPlanInput,
+export function instancesAndLinesFromPlan(
+  extraction: PlanInput,
   markupPercent: number,
   startingLineNumber: number,
   newId: () => string,
 ): { instances: AssemblyInstance[]; lines: QuoteLine[] } {
-  const instances = instancesFromFloorPlan(extraction);
+  const instances = instancesFromPlan(extraction);
   const allLines: QuoteLine[] = [];
   let lineNum = startingLineNumber;
   for (const inst of instances) {

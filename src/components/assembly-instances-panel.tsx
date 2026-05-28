@@ -177,7 +177,7 @@ export default function AssemblyInstancesPanel({
       </header>
       {/* Group cards by trade so the GC can find a specific phase
        *  quickly. Each group is independently collapsible — useful when
-       *  a floor-plan import generates 13 assemblies across 6 trades. */}
+       *  a plan import generates 13 assemblies across 6 trades. */}
       {groupByTrade(instances).map((group, idx) => (
         <TradeGroup
           key={group.trade}
@@ -264,7 +264,7 @@ function TradeGroup({
               // Smart default: keep cards open when the project has 3
               // or fewer assemblies total; otherwise start collapsed
               // (except the first of the first group) so a 13-assembly
-              // floor-plan import isn't a wall of text.
+              // plan import isn't a wall of text.
               // Default collapsed everywhere — the property strip
               // inside is dense enough that having 6+ cards open at
               // once is overwhelming. Builder expands the one they're

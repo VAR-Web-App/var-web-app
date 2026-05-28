@@ -6,7 +6,7 @@
 //
 // The fix is to hand the browser a short-lived signed token so it can
 // upload the file directly to Vercel Blob (which has a 4.5GB ceiling),
-// then call /api/floorplan-extract with just the resulting blob URL —
+// then call /api/plan-extract with just the resulting blob URL —
 // keeping our function bodies tiny.
 //
 // This file is the token broker. The browser POSTs here to ask for an
@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       onUploadCompleted: async ({ blob }) => {
         // Hook fires when the browser finishes uploading. We don't need
         // server-side work here — the client immediately calls
-        // /api/floorplan-extract with the URL — but keeping the hook so
+        // /api/plan-extract with the URL — but keeping the hook so
         // future log/cleanup logic has a place to live.
         console.log("[blob] upload complete", blob.pathname, blob.url);
       },

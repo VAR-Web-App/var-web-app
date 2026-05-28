@@ -62,12 +62,16 @@ export interface Deal {
   // doc ID in client_sign_links collection so the client can open the
   // proposal at /sign/{token} without logging in.
   client_sign_token?: string;
-  // ── Floor plan extraction ───────────────────────────────────────
+  // ── Plan extraction ─────────────────────────────────────────────
   // Persists the latest AI extraction so navigating away from the
   // project page and back surfaces the extracted plan (instead of
   // showing an empty upload dropzone). Saved as a JSON blob on the
   // deal doc — typed loosely to avoid circular imports with the
-  // FloorPlanExtraction interface in the extractor component.
+  // PlanExtraction interface in the extractor component. Field names
+  // stay floor_plan_* for backward-compat with existing Firestore
+  // docs; the user-facing surface (component, route, labels) is now
+  // "plan" since the extractor accepts floor plans, full build sets,
+  // and marketed design plans.
   floor_plan_extraction?: Record<string, unknown>;
   floor_plan_extracted_at?: string;
   /** Indices into floor_plan_extraction.ambiguity_notes that the GC

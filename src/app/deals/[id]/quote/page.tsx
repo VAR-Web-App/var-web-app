@@ -1381,7 +1381,7 @@ function EmptyState({
       <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
         {hasParsedBoms
           ? "Import lines from a parsed sub bid or material list (banner above), or add a line manually."
-          : "Add line items here — materials, labor, and sub trades. Or upload a floor plan on the project page and AI will pre-fill the structure (coming soon)."}
+          : "Add line items here — materials, labor, and sub trades. Or upload a plan PDF on the project page and AI will pre-fill the structure (coming soon)."}
       </p>
       <button
         onClick={onAddBlank}

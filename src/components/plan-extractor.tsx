@@ -12,15 +12,15 @@ import {
 import { upload } from "@vercel/blob/client";
 import { QuoteLine } from "@/types";
 import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, getSettings, newId } from "@/lib/store";
-import { instancesAndLinesFromFloorPlan } from "@/lib/assemblies/from-floorplan";
+import { instancesAndLinesFromPlan } from "@/lib/assemblies/from-plan";
 
-// Shape returned by /api/floorplan-extract. Mirrors the schema in the
+// Shape returned by /api/plan-extract. Mirrors the schema in the
 // route's system prompt; null-allowed for fields Claude couldn't read.
 // Synthetic extraction used by the "Try with sample plan" button. Lets a
 // builder evaluating the platform see the full post-extract UI without
 // having to upload a real PDF. Numbers are realistic for a 4-bed, 3.5-bath
 // custom home — roughly the Maddox House profile in the seed data.
-const SAMPLE_EXTRACTION: FloorPlanExtraction = {
+const SAMPLE_EXTRACTION: PlanExtraction = {
   plan_name: "Sample Plan — Country Dream House",
   total_sqft: 3850,
   first_floor_sqft: 2400,
@@ -68,7 +68,7 @@ const SAMPLE_EXTRACTION: FloorPlanExtraction = {
   confidence: "high",
 };
 
-export interface FloorPlanExtraction {
+export interface PlanExtraction {
   plan_name: string | null;
   total_sqft: number | null;
   first_floor_sqft: number | null;
@@ -101,7 +101,7 @@ export interface FloorPlanExtraction {
   confidence: "high" | "medium" | "low";
 }
 
-export default function FloorPlanExtractor({
+export default function PlanExtractor({
   dealId,
   orgRef,
   initialExtraction,
@@ -112,9 +112,9 @@ export default function FloorPlanExtractor({
   orgRef: string;
   /** If the deal already has a saved extraction, render straight into
    *  the post-extract UI instead of the upload dropzone. */
-  initialExtraction?: FloorPlanExtraction;
+  initialExtraction?: PlanExtraction;
   initialResolvedFlags?: number[];
-  onExtracted?: (extraction: FloorPlanExtraction) => void;
+  onExtracted?: (extraction: PlanExtraction) => void;
 }) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -128,7 +128,7 @@ export default function FloorPlanExtractor({
     "flat" | "assemblies" | null
   >(null);
   const [applyProgress, setApplyProgress] = useState(0);
-  const [extraction, setExtraction] = useState<FloorPlanExtraction | null>(
+  const [extraction, setExtraction] = useState<PlanExtraction | null>(
     initialExtraction ?? null,
   );
   const [resolvedFlags, setResolvedFlags] = useState<Set<number>>(
@@ -166,7 +166,7 @@ export default function FloorPlanExtractor({
           updated_at: new Date().toISOString(),
         });
       } catch (e) {
-        console.warn("[floor-plan-extractor] persist failed", e);
+        console.warn("[plan-extractor] persist failed", e);
       }
     }, 400);
     return () => clearTimeout(t);
@@ -277,7 +277,7 @@ export default function FloorPlanExtractor({
       phaseEndProgress = 95;
       phaseDuration = targetMs;
 
-      const res = await fetch("/api/floorplan-extract", {
+      const res = await fetch("/api/plan-extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
@@ -285,7 +285,7 @@ export default function FloorPlanExtractor({
       // Parse defensively: even with the blob hop, the function can
       // still 504 (extraction timeout) or return a non-JSON edge error.
       const bodyText = await res.text();
-      let json: { ok?: boolean; error?: string; extraction?: FloorPlanExtraction } | null = null;
+      let json: { ok?: boolean; error?: string; extraction?: PlanExtraction } | null = null;
       try {
         json = bodyText ? JSON.parse(bodyText) : null;
       } catch {
@@ -348,8 +348,8 @@ export default function FloorPlanExtractor({
       const existingLines = await listQuoteLines(dealId);
       const existingInstances = deal.assembly_instances ?? [];
 
-      const { instances, lines } = instancesAndLinesFromFloorPlan(
-        extraction as unknown as Parameters<typeof instancesAndLinesFromFloorPlan>[0],
+      const { instances, lines } = instancesAndLinesFromPlan(
+        extraction as unknown as Parameters<typeof instancesAndLinesFromPlan>[0],
         markup,
         existingLines.length + 1,
         () => newId("ql"),
@@ -457,7 +457,7 @@ export default function FloorPlanExtractor({
     <section className="rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm">
       <div className="flex items-center gap-2 border-b border-sky-200 px-6 py-4">
         <SparklesIcon className="h-5 w-5 text-sky-700" />
-        <h2 className="text-sm font-semibold text-slate-900">AI Floor Plan Extraction</h2>
+        <h2 className="text-sm font-semibold text-slate-900">AI Plan Extraction</h2>
         <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
           Beta
         </span>
@@ -467,7 +467,7 @@ export default function FloorPlanExtractor({
         {!extraction && (
           <>
             <p className="text-sm text-slate-700">
-              Drop a floor plan PDF. Verify before quoting.
+              Drop a plan PDF — floor plan, full build plan, or plan set. Verify before quoting.
             </p>
 
             <div
@@ -483,7 +483,7 @@ export default function FloorPlanExtractor({
             >
               <ArrowUpTrayIcon className="h-8 w-8 text-sky-600" />
               <p className="mt-2 text-sm font-medium text-slate-900">
-                {file ? file.name : "Drop floor plan PDF here"}
+                {file ? file.name : "Drop plan PDF here"}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "or click to browse · max 32MB"}
@@ -604,10 +604,10 @@ function ExtractionResults({
   applyingMode,
   applyProgress,
 }: {
-  extraction: FloorPlanExtraction;
+  extraction: PlanExtraction;
   resolvedFlags: Set<number>;
   onToggleFlag: (idx: number) => void;
-  onUpdate: (e: FloorPlanExtraction) => void;
+  onUpdate: (e: PlanExtraction) => void;
   onApply: () => void;
   onApplyAssemblies: () => void;
   onReset: () => void;
@@ -839,7 +839,7 @@ interface DraftLine {
   markup_percent: number;
 }
 
-function generateEstimateLines(extraction: FloorPlanExtraction): QuoteLine[] {
+function generateEstimateLines(extraction: PlanExtraction): QuoteLine[] {
   const totalSqft = extraction.total_sqft || 0;
   const firstFloor = extraction.first_floor_sqft || totalSqft;
   const garageSqft = extraction.garage_sqft || 0;
@@ -1098,7 +1098,7 @@ function ExtractionSummary({
   onExpand,
   onReupload,
 }: {
-  extraction: FloorPlanExtraction;
+  extraction: PlanExtraction;
   unresolvedFlagCount: number;
   onExpand: () => void;
   onReupload: () => void;
@@ -1120,7 +1120,7 @@ function ExtractionSummary({
           <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-900">
-              {extraction.plan_name || "Floor plan extracted"}
+              {extraction.plan_name || "Plan extracted"}
             </p>
             <p className="mt-0.5 text-xs text-slate-600">
               {stats.join(" · ") || "Extraction saved"}

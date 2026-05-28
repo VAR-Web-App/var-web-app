@@ -1,4 +1,5 @@
-// POST /api/floorplan-extract — accepts a PDF floorplan, runs it through
+// POST /api/plan-extract — accepts a residential plan PDF (floor plan,
+// full build-plan set, or marketed design plan), runs it through
 // Claude's document-vision API, and returns a structured JSON extraction
 // the UI can present for verification before applying to an estimate.
 //
@@ -22,7 +23,7 @@ const MODEL = "claude-sonnet-4-6";
 
 const SYSTEM_PROMPT = `You are an architectural plan analyzer helping a custom home builder produce a schematic estimate.
 
-You will receive a floor plan PDF. Extract the following as structured JSON. Be honest about confidence — the builder verifies your output before quoting, so erring toward "ask for confirmation" is fine. NEVER fabricate numbers.
+You will receive a residential plan PDF — could be a floor plan, a full build-plan set (cover + floor plans + elevations + sections + framing + electrical), or a marketed design plan. Extract the following as structured JSON. Be honest about confidence — the builder verifies your output before quoting, so erring toward "ask for confirmation" is fine. NEVER fabricate numbers.
 
 Output JSON ONLY (no prose, no markdown fences). Schema:
 
@@ -181,7 +182,7 @@ export async function POST(req: NextRequest) {
             },
             {
               type: "text",
-              text: "Extract the structured JSON for this floor plan. JSON only, no markdown.",
+              text: "Extract the structured JSON for this plan. JSON only, no markdown.",
             },
           ],
         },

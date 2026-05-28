@@ -155,7 +155,7 @@ export default function DealsPage() {
           )}
           <Tooltip
             variant="directive"
-            label="Start a new project. Capture the client + scope basics — you can add the floor plan and estimate from inside the project."
+            label="Start a new project. Capture the client + scope basics — you can add the plan and estimate from inside the project."
             placement="left"
           >
             <button
@@ -345,7 +345,7 @@ function ResetConfirmModal({
               draws, change orders, photos, RFQs
             </li>
             <li>• All clients, contacts, subs &amp; suppliers</li>
-            <li>• All attachments and parsed floor-plan data</li>
+            <li>• All attachments and parsed plan data</li>
           </ul>
           <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
             <strong>Only use this on a demo account.</strong> If you have real client work in here,

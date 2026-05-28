@@ -1,7 +1,7 @@
 "use client";
 
 import { use } from "react";
-import FloorPlanExtractor from "@/components/floor-plan-extractor";
+import PlanExtractor from "@/components/plan-extractor";
 import FilesPanel from "@/components/files-panel";
 import DealPageShell, {
   DealLoadingShell,
@@ -21,12 +21,12 @@ export default function DealFilesPage({
   return (
     <DealPageShell deal={deal} active="files">
       <div className="space-y-6">
-        <FloorPlanExtractor
+        <PlanExtractor
           dealId={deal.id}
           orgRef={deal.org_ref}
           initialExtraction={
             deal.floor_plan_extraction as unknown as
-              | import("@/components/floor-plan-extractor").FloorPlanExtraction
+              | import("@/components/plan-extractor").PlanExtraction
               | undefined
           }
           initialResolvedFlags={deal.resolved_ambiguity_indices}
