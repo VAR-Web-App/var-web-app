@@ -119,6 +119,20 @@ export function composeRfqInviteSms(p: {
   return `${prefix}Bid request — ${p.scopeTitle} on ${p.projectName}. Submit your bid: ${p.bidLink}`;
 }
 
+/** Text the winning sub gets when the GC awards their bid. */
+export function composeRfqAwardSms(p: {
+  builderName: string;
+  scopeTitle: string;
+  projectName: string;
+  bidAmount: number;
+  portalLink?: string;
+}): string {
+  const prefix = p.builderName ? `${p.builderName}: ` : "";
+  const fmt = `$${Math.round(p.bidAmount).toLocaleString("en-US")}`;
+  const tail = p.portalLink ? ` Schedule: ${p.portalLink}` : "";
+  return `${prefix}🎉 You've been awarded ${p.scopeTitle} on ${p.projectName} for ${fmt}.${tail}`;
+}
+
 /** Text the GC gets when a sub submits a bid. */
 export function composeBidArrivedSms(p: {
   builderName: string;

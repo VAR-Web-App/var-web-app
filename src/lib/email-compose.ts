@@ -140,6 +140,41 @@ export function composeBidArrivedEmail(
   return { subject, text, html };
 }
 
+export interface RfqAwardEmailParams {
+  builderName: string;
+  scopeTitle: string;
+  projectName: string;
+  bidAmount: number;
+  /** Sub-portal link they'll use to see project schedule / next steps. */
+  portalLink?: string;
+}
+
+/** Email the winning sub gets after the GC awards their bid. Tone:
+ *  celebratory but professional — they've earned the work, here's
+ *  what comes next. */
+export function composeRfqAwardEmail(
+  p: RfqAwardEmailParams,
+): ComposedEmail {
+  const fmt = `$${Math.round(p.bidAmount).toLocaleString("en-US")}`;
+  const subject = `🎉 You've been awarded: ${p.scopeTitle} (${fmt})`;
+  const text =
+    `Good news — ${p.builderName || "the builder"} awarded your bid of ${fmt} ` +
+    `for "${p.scopeTitle}" on ${p.projectName}.` +
+    (p.portalLink ? `\n\nProject schedule + next steps: ${p.portalLink}` : "") +
+    `\n\nLook out for an assignment confirmation once the phase is scheduled.`;
+  const html = wrapHtml({
+    preheader: `${fmt} awarded — congrats.`,
+    body:
+      `Good news — <strong>${p.builderName || "the builder"}</strong> awarded ` +
+      `your bid of <strong>${fmt}</strong> for "${p.scopeTitle}" on ` +
+      `<strong>${p.projectName}</strong>. ` +
+      `Look out for an assignment confirmation once the phase is scheduled.`,
+    ctaUrl: p.portalLink,
+    ctaLabel: "Open your portal",
+  });
+  return { subject, text, html };
+}
+
 export interface ReminderEmailParams {
   builderName: string;
   projectName: string;

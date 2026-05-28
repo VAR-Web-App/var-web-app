@@ -33,11 +33,13 @@ import {
 } from "@/lib/store";
 import {
   composeRfqInviteSms,
+  composeRfqAwardSms,
   sendSms,
   toE164,
 } from "@/lib/sms";
 import {
   composeRfqInviteEmail,
+  composeRfqAwardEmail,
   isLikelyEmail,
   sendEmail,
 } from "@/lib/email-compose";
@@ -494,7 +496,7 @@ function RFQModal({
     onSave(rfq);
   }
 
-  function awardTo(subRef: string) {
+  async function awardTo(subRef: string) {
     setInvitees(
       invitees.map((i) => ({
         ...i,
@@ -502,6 +504,56 @@ function RFQModal({
       }))
     );
     setStatus("awarded");
+
+    // Fire-and-forget congrats notification to the winning sub.
+    // Mirrors the multi-channel invite send at line ~395: SMS (when
+    // we have a consented phone), email, and web push. Failures are
+    // logged but never break the award flow — the GC's action stands
+    // even if the notification can't reach the sub.
+    const sub = subs.find((s) => s.id === subRef);
+    const winningBid = invitees.find((i) => i.sub_ref === subRef);
+    if (!sub || !winningBid?.bid_amount) return;
+
+    const host = typeof window !== "undefined" ? window.location.host : "";
+    const phoneOk = sub.sms_consent === true && !!toE164(sub.phone ?? "");
+    const emailOk = isLikelyEmail(sub.email);
+
+    try {
+      // Need a schedule token so the portalLink lands them on their
+      // sub portal — same approach the invite flow uses.
+      const token = await refreshSubScheduleLink(
+        sub.id,
+        builderName || "your builder",
+      );
+      const portalLink = host ? `https://${host}/s/${token}` : undefined;
+      const params = {
+        builderName,
+        projectName: deal.name,
+        scopeTitle: title.trim() || "your bid",
+        bidAmount: winningBid.bid_amount,
+        portalLink,
+      };
+
+      if (phoneOk) {
+        void sendSms(
+          toE164(sub.phone ?? "")!,
+          composeRfqAwardSms(params),
+          { fromNumberHint },
+        );
+      }
+      if (emailOk) {
+        void sendEmail(sub.email!, composeRfqAwardEmail(params));
+      }
+      void pushNotifySub(sub.id, {
+        title: `${builderName || "KeystonePro"}: 🎉 You won — ${params.scopeTitle}`,
+        body: `${params.projectName} · $${Math.round(params.bidAmount).toLocaleString("en-US")}`,
+        url: portalLink || "/",
+        tag: `rfq-award-${subRef}`,
+      });
+    } catch (e) {
+      // Award still goes through — notification is best-effort.
+      console.warn("[rfq-award] notify failed", e);
+    }
   }
 
   const respondedCount = invitees.filter((i) => i.status !== "sent").length;
