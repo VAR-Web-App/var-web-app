@@ -457,6 +457,14 @@ export interface OrgSettings {
      */
     show_notary_block?: boolean;
   };
+  /**
+   * Per-org Good-Faith-Estimate template. Defaults to Barry's
+   * 70-section / ~210-item taxonomy (DEFAULT_ESTIMATE_TEMPLATE).
+   * Builders edit pricing + add/remove items via the Settings →
+   * Estimate Template page. The whole object replaces the default
+   * when present; missing fields fall back to the seed.
+   */
+  estimate_template?: import("@/lib/estimate-template-default").EstimateTemplate;
 }
 
 /** Builder-authored material line appended to a stock assembly via
