@@ -297,6 +297,26 @@ export function instancesFromPlan(
     );
   }
 
+  // Separate garage slab pour. On crawl-space / basement plans, the
+  // main house sits on a foundation wall but the attached garage still
+  // has a concrete slab floor — a distinct concrete pour that's almost
+  // always missing from auto-generated estimates. Skip when the main
+  // foundation IS slab-on-grade (the garage area is already in the
+  // main slab) or when the garage is too small to matter.
+  const garageSqftForSlab = extraction.garage_sqft ?? 0;
+  if (fdnId !== "stub-slab-on-grade" && garageSqftForSlab > 100) {
+    // Default garage proportions ~ 1.2:1 (wider than deep for a 2-car).
+    const gWidth = Math.sqrt(garageSqftForSlab / 1.2);
+    const gLength = gWidth * 1.2;
+    out.push(
+      makeInstance("stub-slab-on-grade", "Garage slab on grade", {
+        "Slab Length": gLength,
+        "Slab Width": gWidth,
+        "Slab Thickness": catalogDefault("stub-slab-on-grade", "Slab Thickness"),
+      })!,
+    );
+  }
+
   // CMU foundation wall on top of the strip footing — crawl spaces and
   // basements both have this and it's a large material line (1,000+
   // blocks on a typical 2,500 SF house). Slab-on-grade doesn't.
@@ -310,11 +330,19 @@ export function instancesFromPlan(
       4,
       Math.round((firstFloorSqft / 250) * (stories > 1 ? 1.3 : 1)),
     );
+    // Sand fill applies only to crawl-space foundations — basements have
+    // a slab floor instead. The assembly's sand fill line is gated on
+    // this property being > 0, so basements naturally produce no sand
+    // line. Approximate floor area = first-floor footprint.
+    const isCrawl =
+      (extraction.foundation_type ?? "").toLowerCase().includes("crawl");
+    const crawlFloorArea = isCrawl ? Math.round(firstFloorSqft) : 0;
     out.push(
       makeInstance("stub-cmu-foundation-wall", "Foundation wall — CMU block", {
         "Wall Length": perimeter,
         "Wall Height": inferFoundationWallHeight(extraction.foundation_type),
         "Pier Count": piers,
+        "Crawl Floor Area": crawlFloorArea,
       })!,
     );
   }
@@ -431,6 +459,15 @@ export function instancesFromPlan(
   } else {
     roofRun = Math.max(footprint.length, footprint.width);
     roofWidth = Math.min(footprint.length, footprint.width);
+    // When Claude returns footprint as the OVERALL building envelope
+    // (porch slab included), the assembly's 1.20 multiplier double-
+    // counts: 1.15 for pitch + 5% for eaves that the porch already
+    // occupies. Trim 4.2% on the run dimension so the product lands
+    // back at the pure-pitch ratio. No-op on slab plans without a
+    // porch where the eave overhang is real.
+    if ((extraction.porch_sqft ?? 0) > 0) {
+      roofRun = roofRun * (1.15 / 1.20);
+    }
   }
   // Detect metal-roof or tile spec from notable_features so the
   // unit cost matches the architect-spec'd finish rather than the
@@ -553,22 +590,44 @@ export function instancesFromPlan(
   }
 
   // ── Garage door ──────────────────────────────────────────────
+  // garage_cars is a *bay capacity* hint from Claude — not a door
+  // count. For 2-car plans the choice between "one 16' double" and
+  // "two separate 8-9' singles" hinges on garage footprint: a roomy
+  // ≥600 SF garage almost always has two discrete openings (side-
+  // entry + main entry, or two bays), while a tight 400-500 SF
+  // garage is a single 16' double over both bays. 3-car plans land
+  // on 16' + 8' as the typical split.
   const cars = extraction.garage_cars ?? 0;
+  const garageSqft = extraction.garage_sqft ?? 0;
   if (cars > 0) {
+    let doorCount = 1;
+    let doorWidth = 9;
+    let label = "Garage door";
+    if (cars === 1) {
+      doorCount = 1;
+      doorWidth = 9;
+    } else if (cars === 2 && garageSqft >= 600) {
+      doorCount = 2;
+      doorWidth = 9;
+      label = "Garage doors (two single)";
+    } else if (cars === 2) {
+      doorCount = 1;
+      doorWidth = 16;
+      label = "Garage door (double)";
+    } else {
+      // 3+ cars — assume 16' double + 8-9' single
+      doorCount = 2;
+      doorWidth = 12; // weighted average of 16' + 9'
+      label = "Garage doors (double + single)";
+    }
     out.push(
-      makeInstance(
-        "stub-garage-door",
-        cars >= 3 ? "Garage doors (double + single)" : "Garage door",
-        {
-          // 1-car ≈ 9' wide single. 2+car ≈ 16' double. 3-car = 16' + 9'
-          // approximated as one 16' door for simplicity (user can duplicate).
-          Width: cars === 1 ? 9 : 16,
-          Height: 7,
-          Quantity: cars >= 3 ? 2 : 1,
-          "Door Style": 1.4, // insulated steel default
-          Opener: 1.6, // belt drive default
-        },
-      )!,
+      makeInstance("stub-garage-door", label, {
+        Width: doorWidth,
+        Height: 7,
+        Quantity: doorCount,
+        "Door Style": 1.4, // insulated steel default
+        Opener: 1.6, // belt drive default
+      })!,
     );
   }
 
