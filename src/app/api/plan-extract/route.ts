@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { get as getBlob, del as deleteBlob } from "@vercel/blob";
+import { del as deleteBlob } from "@vercel/blob";
 
 // Vision calls on multi-page PDFs can take 15–30s. Vercel's default 10s
 // timeout would kill this. 60s ceiling is plenty for residential plans.
@@ -125,19 +125,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Fetch the file from private Blob storage. Uses the SDK's get()
-  // which authenticates with BLOB_READ_WRITE_TOKEN; a plain fetch()
-  // against a private blob URL would 401.
+  // Fetch the file from Blob storage. We use public blobs because
+  // Vercel's client-side private-upload flow has token quirks we'd
+  // need to chase further (the PUT to vercel.com/api/blob 400s when
+  // the token doesn't carry an access field). Public is acceptable
+  // here because the store-id'd URL is unguessable and we del() the
+  // blob immediately after extraction completes.
   let buffer: Buffer;
   try {
-    const result = await getBlob(body.blob_url, { access: "private" });
-    if (!result) {
+    const blobRes = await fetch(body.blob_url);
+    if (!blobRes.ok) {
       return NextResponse.json(
-        { error: "Uploaded PDF not found in blob storage" },
-        { status: 404 }
+        { error: `Could not fetch uploaded PDF (${blobRes.status})` },
+        { status: 502 }
       );
     }
-    buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
+    buffer = Buffer.from(await blobRes.arrayBuffer());
   } catch (e) {
     return NextResponse.json(
       {
