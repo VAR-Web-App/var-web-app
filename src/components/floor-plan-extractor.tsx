@@ -208,6 +208,27 @@ export default function FloorPlanExtractor({
 
   async function runExtraction() {
     if (!file) return;
+
+    // Vercel App Router serverless functions cap request bodies at
+    // ~4.5MB. The Anthropic SDK accepts PDFs up to 32MB, but if we
+    // try to upload a bigger file via FormData the request never
+    // reaches our route — Vercel's edge returns a plain-text 413
+    // ("Request Entity Too Large"), which used to blow up the client
+    // when we tried to parse it as JSON. Bail early with a clean
+    // message instead.
+    const MAX_BYTES = 4 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setError(
+        `This PDF is ${mb} MB. The uploader caps at 4 MB right now ` +
+          `(serverless body-size limit). Try compressing the PDF — ` +
+          `most plan sets shrink a lot if you re-export at a lower ` +
+          `DPI or strip embedded images. Direct large-file upload is ` +
+          `on the roadmap.`,
+      );
+      return;
+    }
+
     setExtracting(true);
     setProgress(0);
     setError(null);
@@ -234,9 +255,24 @@ export default function FloorPlanExtractor({
         method: "POST",
         body: formData,
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || `Request failed (${res.status})`);
+      // Parse defensively: when Vercel/edge bounces the request before
+      // it hits our route (size limits, gateway timeouts, etc.) the
+      // body is plain text, not JSON. Read once as text and decide.
+      const bodyText = await res.text();
+      let json: { ok?: boolean; error?: string; extraction?: FloorPlanExtraction } | null = null;
+      try {
+        json = bodyText ? JSON.parse(bodyText) : null;
+      } catch {
+        // Non-JSON body — usually a 413/504 from Vercel's edge.
+        const snippet = bodyText.slice(0, 80).replace(/\s+/g, " ").trim();
+        throw new Error(
+          res.status === 413
+            ? "PDF too large for upload (server rejected it). Compress the PDF and try again."
+            : `Server returned ${res.status}: ${snippet || "no response body"}`,
+        );
+      }
+      if (!res.ok || !json?.ok || !json.extraction) {
+        throw new Error(json?.error || `Request failed (${res.status})`);
       }
       setProgress(100);
       // Brief pause at 100% so the user sees the bar finish before the
