@@ -48,7 +48,7 @@ import {
   saveQuoteLines,
   newId,
 } from "@/lib/store";
-import { Deal, QuoteLine, OrgSettings, QuoteScenario, SoftCosts } from "@/types";
+import { Deal, QuoteLine, OrgSettings, QuoteScenario, SoftCosts, PriceSource } from "@/types";
 import ScenariosBar from "@/components/scenarios-bar";
 
 const fmtMoney = (n: number) =>
@@ -230,6 +230,20 @@ export default function DealQuotePage({
     setLines((prev) => {
       const next = [...prev];
       const merged = { ...next[idx], ...patch };
+      // If the builder typed over a price field (cost or markup), the
+      // line is no longer a passive catalog/market/bid value — they've
+      // taken intentional ownership. Flip the provenance tag to
+      // "manual" so the pill reflects that. Catalog-regenerated lines
+      // get their tag re-set when the assembly is edited (see
+      // updateInstance flow), so this only sticks for manual hand-tweaks.
+      const touchedPrice =
+        patch.list_price !== undefined ||
+        patch.markup_percent !== undefined ||
+        patch.cost_unit_price !== undefined ||
+        patch.customer_unit_price !== undefined;
+      if (touchedPrice && patch.price_source === undefined) {
+        merged.price_source = "manual";
+      }
       next[idx] = recomputeLine(merged);
       return next;
     });
@@ -259,6 +273,9 @@ export default function DealQuotePage({
       margin_percent: 0,
       subscription_term_months: 0,
       notes: "",
+      // Builder typed this line in directly — flag as "manual" so the
+      // provenance pill in the table reads correctly.
+      price_source: "manual",
     });
     setLines((prev) => [...prev, next]);
   }
@@ -348,6 +365,11 @@ export default function DealQuotePage({
       margin_percent: 0,
       subscription_term_months: 0,
       notes: "",
+      // Cost came from the stock assembly catalog (stub prices today;
+      // becomes "market" once 1build is wired). Builder can still
+      // override per-line — that flip is handled by the table edit
+      // handler downstream.
+      price_source: "catalog",
     });
   }
 
@@ -1291,6 +1313,61 @@ function Stat({
   );
 }
 
+/** Best-guess source of a line's pricing, given that older records may
+ *  lack the price_source field. Order of inference:
+ *   1. Explicit price_source — trust what the line says.
+ *   2. instance_id present + no source — came from an assembly →
+ *      "catalog".
+ *   3. Description matches the RFQ-push pattern "<scope> — <sub>" →
+ *      "bid".
+ *   4. Fall back to "manual" — best we can guess for ad-hoc lines.
+ *  Used only for the provenance pill; never re-saved to the line. */
+function resolvePriceSource(line: QuoteLine): PriceSource {
+  if (line.price_source) return line.price_source;
+  if (line.instance_id) return "catalog";
+  if (/\s—\s.+/.test(line.description)) return "bid";
+  return "manual";
+}
+
+/** Tiny colored pill that shows where a line item's cost came from.
+ *  Hover for the full label. */
+function PriceSourcePill({ source }: { source: PriceSource }) {
+  const cfg: Record<
+    PriceSource,
+    { label: string; full: string; cls: string }
+  > = {
+    bid: {
+      label: "bid",
+      full: "Awarded sub bid — real local pricing",
+      cls: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+    },
+    market: {
+      label: "mkt",
+      full: "Market data (regional)",
+      cls: "bg-amber-100 text-amber-800 ring-amber-200",
+    },
+    catalog: {
+      label: "cat",
+      full: "Catalog stub — placeholder until bid or market data fills in",
+      cls: "bg-slate-100 text-slate-600 ring-slate-200",
+    },
+    manual: {
+      label: "man",
+      full: "Manually entered by builder",
+      cls: "bg-sky-100 text-sky-800 ring-sky-200",
+    },
+  };
+  const c = cfg[source];
+  return (
+    <span
+      title={c.full}
+      className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${c.cls}`}
+    >
+      {c.label}
+    </span>
+  );
+}
+
 function EmptyState({
   onAddBlank,
   hasParsedBoms,
@@ -1469,11 +1546,14 @@ function LineEditor({
                   />
                 </td>
                 <td className="px-2 py-1.5">
-                  <CellInput
-                    value={line.description}
-                    onChange={(v) => onUpdate(origIdx, { description: v })}
-                    className="w-full min-w-[320px]"
-                  />
+                  <div className="flex items-center gap-2">
+                    <PriceSourcePill source={resolvePriceSource(line)} />
+                    <CellInput
+                      value={line.description}
+                      onChange={(v) => onUpdate(origIdx, { description: v })}
+                      className="w-full min-w-[280px]"
+                    />
+                  </div>
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <NumInput

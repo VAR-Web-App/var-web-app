@@ -125,6 +125,10 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
       margin_percent: markup / (1 + markup / 100),
       subscription_term_months: 0,
       notes: "",
+      // Provenance: this line's cost IS the winning sub's awarded bid.
+      // Most trustworthy pricing tier — picked up by the green "bid"
+      // pill in the line items table.
+      price_source: "bid",
     };
     const updated = [...existing, newLine];
     await saveQuoteLines(deal.id, deal.org_ref, updated);

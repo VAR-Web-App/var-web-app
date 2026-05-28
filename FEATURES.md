@@ -79,7 +79,7 @@ The curated catalog (today) is the scaffold every builder builds on top of, not 
 ### Deferred / future
 - **📅 Named whole-quote scenarios** — save the configuration as "Standard Spec" / "Premium Spec" / "Budget Spec"; toggle between them.
 - **📅 More catalog variety** — skylights, plumbing fixtures, cabinetry, electrical packages. Flooring coverage (hardwood / carpet / LVP / laminate / tile) shipped 2026-05-25. Cheap to author in stubs; eventually 1build supersedes the price layer (not the formula layer — see below).
-- **📅 CMU foundation wall assembly** — Maddox list shows 1191 8×8×16 blocks; current catalog maps basement to strip footing without the wall.
+- **✅ CMU foundation wall assembly** — `stub-cmu-foundation-wall` covers 8×8×16 block walls with mortar, vertical rebar @ 32" OC, and a grout-filled bond beam at the top course. Three variant presets (8 ft basement, 9 ft tall, 4 ft crawl space). Tested against Brennan's plan: 264 LF × 4 FT crawl = 1188 blocks vs the engineer's 1191 takeoff (0.3% delta).
 - **📅 Drywall + insulation as standalone assemblies** — currently bundled in wall assemblies. Maddox lists them separately; useful for remodels where walls already exist.
 - **📅 Manual takeoff overlay** — upload floor-plan PDF, trace walls/areas to feed assembly properties. Tier 2 (not the Tier 3 AI-takeoff moonshot we skipped).
 

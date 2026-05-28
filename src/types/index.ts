@@ -131,6 +131,23 @@ export interface QuoteScenario {
   updated_at: string;
 }
 
+/** Where a line item's pricing came from. Drives the colored provenance
+ *  pill rendered in the line items table so the builder can see at a
+ *  glance which numbers are real-bid vs. catalog estimates vs. their
+ *  own typed-in overrides.
+ *
+ *  - "bid":     Awarded RFQ — winning sub's bid amount pushed into the
+ *               estimate. Most trustworthy: real, local, current.
+ *  - "market":  Pulled from a market-data API (currently 1build when
+ *               wired). Regional + recent but still an average.
+ *  - "catalog": Default stub pricing from our assembly catalog. Useful
+ *               for early ballparks; placeholder until "bid" or
+ *               "market" fills in.
+ *  - "manual":  Builder typed the number directly. Treat as
+ *               intentional; never auto-overwrite.
+ */
+export type PriceSource = "bid" | "market" | "catalog" | "manual";
+
 export interface QuoteLine {
   id: string;
   line_number: number;
@@ -156,6 +173,10 @@ export interface QuoteLine {
    *  Edits to the instance's properties regenerate every line sharing
    *  this id. Plain ad-hoc lines leave this undefined. */
   instance_id?: string;
+  /** Where this line's cost came from. Drives the provenance pill in
+   *  the line items table. Optional for back-compat with pre-tagged
+   *  records — UI treats absence as "catalog". */
+  price_source?: PriceSource;
 }
 
 export interface AwardBomLine {
