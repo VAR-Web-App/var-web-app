@@ -55,10 +55,39 @@ function newId(): string {
 /** Parse "68' × 42'" or "68 x 42" → { length: 68, width: 42 }. */
 function parseFootprint(s: string | null): { length: number; width: number } | null {
   if (!s) return null;
-  const m = s.match(/(\d+(?:\.\d+)?)\s*['′]?\s*[x×]\s*(\d+(?:\.\d+)?)/i);
-  if (!m) return null;
-  const length = parseFloat(m[1]);
-  const width = parseFloat(m[2]);
+
+  // Two forms come up in extractions:
+  //   1. Plain decimal:  "72 x 82"  /  "72.5 × 82.5"  /  "72' × 82'"
+  //   2. Architect feet-and-inches: "72'-9\" × 82'-7\""  (or curly quotes,
+  //      em-dash variants, etc.)
+  //
+  // The old regex stopped at the first foot mark and couldn't reach the
+  // × separator when inches were present, so it returned null on the
+  // architect form. That silently killed roof/gutters/floor-framing
+  // generation downstream (all gated on a non-null footprint).
+
+  // Try the rich form first: capture feet AND optional inches on both sides.
+  const richMatch = s.match(
+    /(\d+(?:\.\d+)?)\s*['′]?\s*(?:[-–]?\s*(\d+(?:\.\d+)?)\s*["″])?\s*[x×]\s*(\d+(?:\.\d+)?)\s*['′]?\s*(?:[-–]?\s*(\d+(?:\.\d+)?)\s*["″])?/i,
+  );
+  if (richMatch) {
+    const lFeet = parseFloat(richMatch[1]);
+    const lInches = richMatch[2] ? parseFloat(richMatch[2]) : 0;
+    const wFeet = parseFloat(richMatch[3]);
+    const wInches = richMatch[4] ? parseFloat(richMatch[4]) : 0;
+    const length = lFeet + lInches / 12;
+    const width = wFeet + wInches / 12;
+    if (Number.isFinite(length) && Number.isFinite(width) && length > 0 && width > 0) {
+      return { length, width };
+    }
+  }
+
+  // Fall back to the simple form (also catches edge cases the rich regex
+  // might miss if Claude returns something unusual).
+  const simple = s.match(/(\d+(?:\.\d+)?)\s*['′]?\s*[x×]\s*(\d+(?:\.\d+)?)/i);
+  if (!simple) return null;
+  const length = parseFloat(simple[1]);
+  const width = parseFloat(simple[2]);
   if (!Number.isFinite(length) || !Number.isFinite(width)) return null;
   return { length, width };
 }
@@ -86,9 +115,33 @@ function parseCeilingHeights(s: string | null): {
 function detectFoundationAssemblyId(s: string | null): string {
   const lower = (s ?? "").toLowerCase();
   if (lower.includes("slab")) return "stub-slab-on-grade";
-  // Basement and crawl both use strip footings; basement adds CMU walls
-  // (not yet in the catalog — TODO when CMU assembly lands).
+  // Basement and crawl both use strip footings (CMU foundation wall sits
+  // on top — generated as a separate assembly below).
   return "stub-footing-strip";
+}
+
+/** True when the foundation has a CMU stem wall / basement wall sitting
+ *  on the strip footing. Crawl spaces and full basements both use CMU
+ *  in this region; slab-on-grade doesn't. */
+function hasCmuFoundationWall(s: string | null): boolean {
+  const lower = (s ?? "").toLowerCase();
+  return (
+    !lower.includes("slab") &&
+    (lower.includes("crawl") ||
+      lower.includes("basement") ||
+      lower.includes("cmu") ||
+      lower.includes("block"))
+  );
+}
+
+/** Approximate CMU foundation wall height by foundation type. Crawls are
+ *  typically 4'; basements run 8' standard. We accept the architect's
+ *  printed value when Claude surfaces it via foundation_type. */
+function inferFoundationWallHeight(s: string | null): number {
+  const lower = (s ?? "").toLowerCase();
+  if (lower.includes("basement")) return 8;
+  if (lower.includes("crawl")) return 4;
+  return 4; // safest default for residential
 }
 
 /** Detect 2×6 vs 2×4 from the free-text exterior wall description. */
@@ -155,24 +208,34 @@ export function instancesFromPlan(
 ): AssemblyInstance[] {
   const out: AssemblyInstance[] = [];
 
-  const footprint = parseFootprint(extraction.footprint_dimensions);
+  const parsedFootprint = parseFootprint(extraction.footprint_dimensions);
   const stories = Math.max(1, extraction.stories ?? 1);
   const ceilings = parseCeilingHeights(extraction.ceiling_heights);
 
   // First-floor footprint area — fall back to total/stories if unparseable.
   const firstFloorSqft =
     extraction.first_floor_sqft ??
-    (footprint ? footprint.length * footprint.width : null) ??
+    (parsedFootprint ? parsedFootprint.length * parsedFootprint.width : null) ??
     (extraction.total_sqft ? extraction.total_sqft / stories : 1500);
 
-  const perimeter = footprint
-    ? 2 * (footprint.length + footprint.width)
-    : // No footprint string — approximate from area as a square footprint.
-      4 * Math.sqrt(firstFloorSqft);
+  // Always have a footprint — fall back to a 1.4:1 rectangle around
+  // first-floor sqft. Most residential plans land between 1.2:1 and 1.6:1
+  // (length:width) so this is a reasonable default. Without this fallback,
+  // roof/gutters/floor framing silently drop when extraction can't read
+  // the printed footprint string.
+  const footprint =
+    parsedFootprint ??
+    (() => {
+      const ratio = 1.4;
+      const width = Math.sqrt(firstFloorSqft / ratio);
+      return { length: width * ratio, width };
+    })();
+
+  const perimeter = 2 * (footprint.length + footprint.width);
 
   // ── Foundation ────────────────────────────────────────────────
   const fdnId = detectFoundationAssemblyId(extraction.foundation_type);
-  if (fdnId === "stub-slab-on-grade" && footprint) {
+  if (fdnId === "stub-slab-on-grade") {
     out.push(
       makeInstance(fdnId, "Foundation — slab on grade", {
         "Slab Length": footprint.length,
@@ -190,10 +253,37 @@ export function instancesFromPlan(
     );
   }
 
-  // ── First-floor system (only if there's a second floor sitting on it) ─
-  if (stories > 1 && footprint) {
+  // CMU foundation wall on top of the strip footing — crawl spaces and
+  // basements both have this and it's a large material line (1,000+
+  // blocks on a typical 2,500 SF house). Slab-on-grade doesn't.
+  if (hasCmuFoundationWall(extraction.foundation_type)) {
+    out.push(
+      makeInstance("stub-cmu-foundation-wall", "Foundation wall — CMU block", {
+        "Wall Length": perimeter,
+        "Wall Height": inferFoundationWallHeight(extraction.foundation_type),
+      })!,
+    );
+  }
+
+  // ── First-floor framing (over any non-slab foundation) ──────────
+  // Slab-on-grade IS the first floor, so no joists needed. Crawl spaces
+  // and basements need full floor framing sitting on the foundation
+  // wall — this is a large I-joist / dimensional lumber line item the
+  // converter used to silently skip on single-story crawl-space builds.
+  if (fdnId !== "stub-slab-on-grade") {
     out.push(
       makeInstance("stub-floor-2x10-16oc", "Floor system — first floor", {
+        "Floor Length": footprint.length,
+        "Floor Width": footprint.width,
+        "Joist Spacing": 16,
+      })!,
+    );
+  }
+
+  // ── Second-floor framing (still gated on stories > 1) ─────────
+  if (stories > 1) {
+    out.push(
+      makeInstance("stub-floor-2x10-16oc", "Floor system — second floor", {
         "Floor Length": footprint.length,
         "Floor Width": footprint.width,
         "Joist Spacing": 16,
@@ -239,19 +329,43 @@ export function instancesFromPlan(
   );
 
   // ── Roof (single instance covering the whole footprint) ──────
-  if (footprint) {
-    // Roof Run is the longer dimension (eave-to-eave); Roof Width is the
-    // gable-to-gable depth.
-    const run = Math.max(footprint.length, footprint.width);
-    const width = Math.min(footprint.length, footprint.width);
-    out.push(
-      makeInstance("stub-roof-2x8-16oc", "Roof system", {
-        "Roof Run": run,
-        "Roof Width": width,
-        "Rafter Spacing": 16,
-      })!,
-    );
-  }
+  // Roof Run is the longer dimension (eave-to-eave); Roof Width is the
+  // gable-to-gable depth. The 1.15 pitch overage inside the roof
+  // assembly's quantity formulas handles slope-to-plane conversion.
+  const roofRun = Math.max(footprint.length, footprint.width);
+  const roofWidth = Math.min(footprint.length, footprint.width);
+  out.push(
+    makeInstance("stub-roof-2x8-16oc", "Roof system", {
+      "Roof Run": roofRun,
+      "Roof Width": roofWidth,
+      "Rafter Spacing": 16,
+    })!,
+  );
+
+  // ── Ceiling drywall (top floor only — between floors is handled by
+  // the floor-framing assembly's subfloor and the floor-below's wall
+  // drywall). Single instance with Wall Area = 0 so only ceiling area
+  // gets billed.
+  const topCeilingSqft = stories > 1
+    ? (extraction.second_floor_sqft ?? firstFloorSqft)
+    : firstFloorSqft;
+  out.push(
+    makeInstance("stub-drywall", "Ceiling drywall (top floor)", {
+      "Wall Area": 0,
+      "Ceiling Area": Math.round(topCeilingSqft),
+      "Drywall Type": 1.0,
+    })!,
+  );
+
+  // ── Ceiling insulation (R-30 batt over the top ceiling). Separate
+  // from wall insulation, which the exterior-wall assembly already
+  // includes.
+  out.push(
+    makeInstance("stub-insulation", "Ceiling insulation (R-30)", {
+      "Insulated Area": Math.round(topCeilingSqft),
+      "Insulation Type": 1.7, // R-30 ceiling preset
+    })!,
+  );
 
   // ── Siding ────────────────────────────────────────────────────
   const totalWallArea = perimeter * avgWallHeight * stories;
@@ -266,16 +380,14 @@ export function instancesFromPlan(
   // ── Gutters & downspouts ─────────────────────────────────────
   // Eave LF ≈ 2× the longer footprint side (two long eaves on a typical
   // gable roof). Downspouts every ~25 LF.
-  if (footprint) {
-    const eaveLf = 2 * Math.max(footprint.length, footprint.width);
-    out.push(
-      makeInstance("stub-drainage", "Gutters & downspouts", {
-        "Eave Length": eaveLf,
-        Downspouts: Math.max(4, Math.round(eaveLf / 25)),
-        "Gutter Material": 1.0,
-      })!,
-    );
-  }
+  const eaveLf = 2 * Math.max(footprint.length, footprint.width);
+  out.push(
+    makeInstance("stub-drainage", "Gutters & downspouts", {
+      "Eave Length": eaveLf,
+      Downspouts: Math.max(4, Math.round(eaveLf / 25)),
+      "Gutter Material": 1.0,
+    })!,
+  );
 
   // ── Windows + exterior doors ─────────────────────────────────
   const windowCount =
