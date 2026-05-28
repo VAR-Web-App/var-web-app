@@ -33,6 +33,8 @@ const SAMPLE_EXTRACTION: PlanExtraction = {
   full_baths: 3,
   half_baths: 1,
   footprint_dimensions: "68' × 42'",
+  conditioned_footprint_dimensions: "56' × 40'",
+  roof_area_sqft: 3200,
   max_ridge_height: "29' 6\"",
   stories: 2,
   foundation_type: "Slab on grade with conditioned crawl in mech room",
@@ -81,6 +83,13 @@ export interface PlanExtraction {
   full_baths: number | null;
   half_baths: number | null;
   footprint_dimensions: string | null;
+  /** First-floor heated/cooled area dimensions, excludes porch + garage.
+   *  Used by the converter for floor framing + interior wall scope. */
+  conditioned_footprint_dimensions?: string | null;
+  /** Architect-labeled total roof finish area (SF). Used when present
+   *  instead of footprint × pitch math; lets the converter respect a
+   *  printed number on the roof plan. */
+  roof_area_sqft?: number | null;
   max_ridge_height: string | null;
   stories: number | null;
   foundation_type: string | null;

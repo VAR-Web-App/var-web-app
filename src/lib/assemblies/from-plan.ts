@@ -35,6 +35,13 @@ interface PlanInput {
   full_baths: number | null;
   half_baths: number | null;
   footprint_dimensions: string | null;
+  /** First-floor heated/cooled dimensions, no porch/garage. Used for
+   *  floor framing + interior partition LF instead of the overall
+   *  envelope. Optional — falls back to first_floor_sqft synthesis. */
+  conditioned_footprint_dimensions?: string | null;
+  /** Architect-labeled total roof finish area. Used directly when
+   *  present; falls back to footprint × pitch math otherwise. */
+  roof_area_sqft?: number | null;
   stories: number | null;
   foundation_type: string | null;
   exterior_wall_type: string | null;
@@ -283,16 +290,28 @@ export function instancesFromPlan(
     );
   }
 
-  // Floor framing dimensions need to track the framed-floor AREA, not
-  // the overall building envelope. Claude returns `footprint_dimensions`
-  // as the outermost building width/length (including porches, garage,
-  // and roof overhangs), which over-counts subfloor sheets by 30-80%
-  // on plans with substantial porches. Use first_floor_sqft + porch
-  // (covered porches typically have framed floors over crawl) and
-  // synthesize a 1.4:1 rectangle from that area instead.
-  const firstFloorFramedSqft = firstFloorSqft + (extraction.porch_sqft ?? 0);
-  const framingWidth = Math.sqrt(firstFloorFramedSqft / 1.4);
-  const framingLength = framingWidth * 1.4;
+  // Floor framing dimensions: prefer the conditioned-footprint string
+  // when Claude surfaced it, fall back to synthesizing a 1.4:1 rectangle
+  // from first_floor_sqft + porch. Why two paths:
+  //   - conditioned_footprint_dimensions is the architect-printed value
+  //     for just the heated/cooled area; using it directly is the most
+  //     accurate input we can have for floor scope.
+  //   - When Claude can't read that label, falling back to area-derived
+  //     dims still beats using the overall envelope (which causes
+  //     2-3× overcount on plans with substantial porches).
+  const conditionedFootprint = parseFootprint(
+    extraction.conditioned_footprint_dimensions ?? null,
+  );
+  let framingLength: number;
+  let framingWidth: number;
+  if (conditionedFootprint) {
+    framingLength = conditionedFootprint.length;
+    framingWidth = conditionedFootprint.width;
+  } else {
+    const firstFloorFramedSqft = firstFloorSqft + (extraction.porch_sqft ?? 0);
+    framingWidth = Math.sqrt(firstFloorFramedSqft / 1.4);
+    framingLength = framingWidth * 1.4;
+  }
 
   // ── First-floor framing (over any non-slab foundation) ──────────
   // Slab-on-grade IS the first floor, so no joists needed. Crawl spaces
@@ -366,11 +385,24 @@ export function instancesFromPlan(
   );
 
   // ── Roof (single instance covering the whole footprint) ──────
-  // Roof Run is the longer dimension (eave-to-eave); Roof Width is the
-  // gable-to-gable depth. The 1.15 pitch overage inside the roof
-  // assembly's quantity formulas handles slope-to-plane conversion.
-  const roofRun = Math.max(footprint.length, footprint.width);
-  const roofWidth = Math.min(footprint.length, footprint.width);
+  // If the architect labeled total roof finish area on the plan,
+  // honor it — back-derive Roof Run × Width that produce that area
+  // after the assembly's pitch multiplier. Otherwise fall back to
+  // footprint × built-in pitch math. The labeled-value path is the
+  // most accurate read we can get; the calc path is the working
+  // baseline when no label exists.
+  let roofRun: number;
+  let roofWidth: number;
+  if (extraction.roof_area_sqft && extraction.roof_area_sqft > 0) {
+    // Roof formula: Run × Width × 1.20 (pitch slope + eave buffer).
+    // Solve for L × W = roof_area / 1.20, then split 1.4:1.
+    const projectedRoofArea = extraction.roof_area_sqft / 1.20;
+    roofWidth = Math.sqrt(projectedRoofArea / 1.4);
+    roofRun = roofWidth * 1.4;
+  } else {
+    roofRun = Math.max(footprint.length, footprint.width);
+    roofWidth = Math.min(footprint.length, footprint.width);
+  }
   out.push(
     makeInstance("stub-roof-2x8-16oc", "Roof system", {
       "Roof Run": roofRun,

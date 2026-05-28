@@ -40,7 +40,9 @@ Output JSON ONLY (no prose, no markdown fences). Schema:
   "bedrooms": number | null,
   "full_baths": number | null,
   "half_baths": number | null,
-  "footprint_dimensions": string | null,         // e.g. "72'-9\" × 82'-7\""
+  "footprint_dimensions": string | null,         // overall building envelope L×W including porches/garage/overhangs (see FOOTPRINT RULES)
+  "conditioned_footprint_dimensions": string | null,  // heated/cooled first-floor footprint ONLY, excludes porch+garage (see FOOTPRINT RULES)
+  "roof_area_sqft": number | null,               // total roof finish area in SF if directly labeled; null if not printed
   "max_ridge_height": string | null,             // e.g. "34'-0\""
   "stories": number | null,
   "foundation_type": string | null,              // "crawl", "slab", "basement", etc.
@@ -88,7 +90,18 @@ DO NOT include in exterior_doors_estimated:
 
 If you find yourself returning a number larger than 10 for exterior_doors_estimated, you almost certainly miscounted — re-check by listing each exterior door's location before counting. A 5,000 SF custom home rarely has more than 6–8 exterior doors. If you can't tell from the plan, return null and note it in ambiguity_notes.
 
-windows_estimated counts individual window units (including each window in a "ganged" pair if they're separate sashes). Typical residential homes have 15–40 windows; if you see significantly more, double-check that you're counting units and not panes within mullioned windows.`;
+windows_estimated counts individual window units (including each window in a "ganged" pair if they're separate sashes). Typical residential homes have 15–40 windows; if you see significantly more, double-check that you're counting units and not panes within mullioned windows.
+
+FOOTPRINT RULES — getting these two fields right matters a lot, because downstream math splits framing scope (which uses conditioned area) from roof/siding scope (which uses overall envelope).
+
+footprint_dimensions = the OVERALL building envelope. Length × Width measured to the outermost edges of the structure as it sits on the lot. INCLUDES attached porches, attached garage, and any covered outdoor area under the main roof. This is the dimension a surveyor would write on a site plan; it's typically larger than the conditioned area. Read from the OVERALL BUILDING DIMENSIONS callout on the foundation plan or first-floor plan, NOT from the conditioned-space label.
+
+conditioned_footprint_dimensions = the FIRST-FLOOR HEATED/COOLED area only. Length × Width of just the main house envelope, EXCLUDING porches, decks, attached garage, and any unconditioned outdoor space. If the plan labels the conditioned area's dimensions separately, use those. If not, you can derive: take the first_floor_sqft value (assuming you read it) and present it as the largest rectangle that fits that area — but PREFER any printed dimensions from the plan over derivations.
+
+When both are equal: the building has no attached porch or garage; both fields can carry the same value.
+When you only have one: prefer to return BOTH (with the same value) rather than null, unless the difference is meaningful and you genuinely can't read the other.
+
+roof_area_sqft = total roof finish area (shingle/metal panel coverage area) ONLY when the plan explicitly labels it. Many plan sets print this on the roof plan or in a roof finish schedule (e.g. "TOTAL ROOF AREA: 4,250 SF"). Do NOT calculate or estimate this from footprint × pitch — return null and let downstream do that. The point of this field is to capture a labeled value if one exists, so we use the architect's number rather than our calculated estimate.`;
 
 interface ExtractionResult {
   plan_name: string | null;
@@ -103,6 +116,8 @@ interface ExtractionResult {
   full_baths: number | null;
   half_baths: number | null;
   footprint_dimensions: string | null;
+  conditioned_footprint_dimensions: string | null;
+  roof_area_sqft: number | null;
   max_ridge_height: string | null;
   stories: number | null;
   foundation_type: string | null;
