@@ -336,14 +336,21 @@ export function instancesFromPlan(
       })!,
     );
   } else {
-    // Heavier footing dims when a CMU wall (and pier loads) sit on top.
-    // Default 16×8 is sized for stick-frame on slab; CMU + 2-story stick
-    // framing needs 24×12 to hit typical residential bearing capacity.
+    // Strip footing runs under exterior CMU walls AND under interior
+    // bearing walls (center beam line, partition that picks up second-
+    // floor load). Bump conditioned perimeter by 25% to capture
+    // interior bearing footings — Cnadd cross-check showed pure
+    // perimeter shorted footing concrete by 35% (architect 26 CY vs
+    // our 17). Heavier footing dims when a CMU wall (and pier loads)
+    // sit on top: default 16×8 is sized for stick-frame on slab; CMU +
+    // 2-story stick framing needs 24×12 to hit typical residential
+    // bearing capacity.
+    const footingLength = Math.round(foundationPerimeter * 1.25);
     const footingWidth = cmuWall ? 24 : catalogDefault(fdnId, "Footing Width");
     const footingDepth = cmuWall ? 12 : catalogDefault(fdnId, "Footing Depth");
     out.push(
       makeInstance(fdnId, "Foundation — strip footing", {
-        "Footing Length": foundationPerimeter,
+        "Footing Length": footingLength,
         "Footing Width": footingWidth,
         "Footing Depth": footingDepth,
       })!,
@@ -667,10 +674,8 @@ export function instancesFromPlan(
   // every ~20 LF (one per 20 LF is closer to architect spec than the
   // older 25 LF heuristic, which was halving the count).
   // Eave/ridge LF scale with roof type. Pure gable has eaves only on
-  // the two long sides (2 × longSide). Hip wraps eaves around the
-  // whole building (= perimeter). Mixed and complex roofs interpolate.
-  // Ridge LF is the inverse — gable has one long primary ridge, hip
-  // has minimal ridge, complex has multiple shorter ridges.
+  // the two long sides. Hip wraps eaves around the whole building.
+  // Mixed and complex roofs interpolate.
   const longSide = Math.max(footprint.length, footprint.width);
   const buildingPerimeter = 2 * (footprint.length + footprint.width);
   let eaveLfFactor: number;
@@ -690,10 +695,13 @@ export function instancesFromPlan(
       break;
     case "complex":
     default:
-      // Custom plans with dormers/wings — both runs exceed perimeter
-      // because every secondary mass adds its own eaves and ridges.
-      eaveLfFactor = 1.6;
-      ridgeLfFactor = 0.6;
+      // Custom plans with dormers/wings — eaves exceed perimeter a
+      // bit. Cnadd cross-check on Maddox (architect classified as
+      // complex) had eave LF / building perimeter = 1.09, so 1.2 is
+      // the working ceiling. The previous 1.6 was overshooting by
+      // ~50% on gutters and downspouts.
+      eaveLfFactor = 1.2;
+      ridgeLfFactor = 0.5;
       break;
   }
 
@@ -708,9 +716,10 @@ export function instancesFromPlan(
 
   // ── Exterior trim (fascia + soffit + drip edge + ridge vent) ──
   // Fascia/drip edge land at every eave AND every rake — bump the
-  // gutter eave factor by ~25% to capture rakes. Ridge vent uses the
-  // dedicated ridge LF factor.
-  const trimEaveLf = Math.round(eaveLf * 1.25);
+  // gutter eave factor by ~50% to capture rakes. Architect Maddox
+  // ratio of fascia : gutters was 1.64; 1.5 is the working default.
+  // Ridge vent uses the dedicated ridge LF factor.
+  const trimEaveLf = Math.round(eaveLf * 1.5);
   const ridgeLf = Math.round(buildingPerimeter * ridgeLfFactor);
   out.push(
     makeInstance("stub-exterior-trim", "Exterior trim (fascia + soffit + drip + ridge)", {
