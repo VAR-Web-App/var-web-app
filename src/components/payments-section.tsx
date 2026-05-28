@@ -1,0 +1,766 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  CameraIcon,
+  PencilSquareIcon,
+  SparklesIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import {
+  listDistributors,
+  listMilestones,
+  listPayments,
+  newId,
+  savePayment,
+  deletePayment,
+} from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import type { Deal, Distributor, Payment } from "@/types";
+import type { ProjectMilestone } from "@/types/builder";
+
+const fmtMoney = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const METHODS: Array<{ key: Payment["method"]; label: string }> = [
+  { key: "check", label: "Check" },
+  { key: "cc", label: "Credit card" },
+  { key: "ach", label: "ACH / bank" },
+  { key: "cash", label: "Cash" },
+  { key: "other", label: "Other" },
+];
+
+function methodLabel(p: Payment): string {
+  if (p.method === "check") {
+    return p.check_number ? `Check #${p.check_number}` : "Check";
+  }
+  return METHODS.find((m) => m.key === p.method)?.label ?? p.method;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Money-in and money-out log for a deal. Quick-add via an inline form,
+ * roll-up tiles on top, sortable table below. Reads contract value off
+ * the deal so we can show "% collected".
+ */
+export default function PaymentsSection({ deal }: { deal: Deal }) {
+  const { profile } = useAuth();
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [subs, setSubs] = useState<Distributor[]>([]);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [editing, setEditing] = useState<Payment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    // allSettled, not all — a single failing read (eg. missing
+    // Firestore index, brand-new org with no payments collection)
+    // shouldn't strand the section on "Loading…" forever.
+    Promise.allSettled([
+      listPayments(deal.id),
+      listDistributors(profile.org_ref),
+      listMilestones(deal.id),
+    ]).then((results) => {
+      if (!active) return;
+      const pick = <T,>(r: PromiseSettledResult<T>, fallback: T): T => {
+        if (r.status === "fulfilled") return r.value;
+        console.warn("[payments] load rejected", r.reason);
+        return fallback;
+      };
+      setPayments(pick(results[0] as PromiseSettledResult<Payment[]>, []));
+      setSubs(pick(results[1] as PromiseSettledResult<Distributor[]>, []));
+      setMilestones(
+        pick(results[2] as PromiseSettledResult<ProjectMilestone[]>, []),
+      );
+      setLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [deal.id, profile]);
+
+  const totals = useMemo(() => {
+    const inAmt = payments
+      .filter((p) => p.direction === "in")
+      .reduce((s, p) => s + (p.amount || 0), 0);
+    const outAmt = payments
+      .filter((p) => p.direction === "out")
+      .reduce((s, p) => s + (p.amount || 0), 0);
+    const contract =
+      deal.award_total > 0 ? deal.award_total : deal.total_quote_value;
+    return {
+      inAmt,
+      outAmt,
+      net: inAmt - outAmt,
+      contract,
+      collectedPct: contract > 0 ? (inAmt / contract) * 100 : 0,
+    };
+  }, [payments, deal]);
+
+  function startAdd(direction: Payment["direction"]) {
+    setError(null);
+    setEditing({
+      id: newId("pay"),
+      deal_ref: deal.id,
+      direction,
+      party_name: direction === "in" ? deal.account_name || "Client" : "",
+      amount: 0,
+      method: direction === "in" ? "ach" : "check",
+      date: todayIso(),
+      notes: "",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  function startEdit(p: Payment) {
+    setError(null);
+    setEditing({ ...p });
+  }
+
+  async function save() {
+    if (!editing) return;
+    if (!editing.party_name.trim()) {
+      setError("Who's paying / being paid?");
+      return;
+    }
+    if (!editing.amount || editing.amount <= 0) {
+      setError("Amount must be greater than zero.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await savePayment(editing);
+      setPayments((prev) => {
+        const without = prev.filter((p) => p.id !== editing.id);
+        return [...without, editing].sort((a, b) =>
+          (b.date ?? "").localeCompare(a.date ?? ""),
+        );
+      });
+      setEditing(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Remove this payment record?")) return;
+    setError(null);
+    try {
+      await deletePayment(id);
+      setPayments((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Payments</h2>
+          <p className="mt-0.5 hidden text-xs text-slate-500 md:block">
+            Money in (client draws, deposits) and money out (subs, suppliers)
+            on this project.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => startAdd("in")}
+            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 sm:px-3"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Record money in</span>
+            <span className="sm:hidden">Money in</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => startAdd("out")}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100 sm:px-3"
+          >
+            <ArrowUpTrayIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Record money out</span>
+            <span className="sm:hidden">Money out</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Rollup tiles */}
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Tile label="Money in" value={fmtMoney(totals.inAmt)} tone="emerald" />
+        <Tile label="Money out" value={fmtMoney(totals.outAmt)} tone="sky" />
+        <Tile
+          label="Net cash on project"
+          value={fmtMoney(totals.net)}
+          tone={totals.net >= 0 ? "emerald" : "rose"}
+        />
+        <Tile
+          label={
+            totals.contract > 0
+              ? `Collected of ${fmtMoney(totals.contract)}`
+              : "Collected"
+          }
+          value={
+            totals.contract > 0
+              ? `${totals.collectedPct.toFixed(0)}%`
+              : "—"
+          }
+          tone="slate"
+        />
+      </div>
+
+      {/* Add/edit form */}
+      {editing ? (
+        <PaymentForm
+          value={editing}
+          subs={subs}
+          milestones={milestones}
+          saving={saving}
+          onChange={setEditing}
+          onCancel={() => setEditing(null)}
+          onSave={save}
+        />
+      ) : null}
+
+      {error ? (
+        <p className="mt-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </p>
+      ) : null}
+
+      {/* List — desktop table */}
+      <div className="mt-4 hidden overflow-x-auto md:block">
+        {!loaded ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : payments.length === 0 ? (
+          <p className="rounded border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            No payments logged yet. Use the buttons above to record a draw
+            release, deposit, or sub payment.
+          </p>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2 text-left">Date</th>
+                <th className="px-3 py-2 text-left">Direction</th>
+                <th className="px-3 py-2 text-left">Party</th>
+                <th className="px-3 py-2 text-left">Method</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                >
+                  <td className="px-3 py-2 text-slate-700">{p.date}</td>
+                  <td className="px-3 py-2">
+                    <DirectionPill direction={p.direction} />
+                  </td>
+                  <td className="px-3 py-2 text-slate-900">{p.party_name}</td>
+                  <td className="px-3 py-2 text-slate-600">{methodLabel(p)}</td>
+                  <td
+                    className={`px-3 py-2 text-right tabular-nums font-medium ${
+                      p.direction === "in" ? "text-emerald-700" : "text-slate-900"
+                    }`}
+                  >
+                    {p.direction === "out" ? "−" : ""}
+                    {fmtMoney(p.amount)}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    <button
+                      onClick={() => startEdit(p)}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Edit payment"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => remove(p.id)}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                      aria-label="Remove payment"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* List — mobile cards */}
+      <div className="mt-4 space-y-2 md:hidden">
+        {!loaded ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : payments.length === 0 ? (
+          <p className="rounded border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            No payments logged yet. Tap a button above to record one.
+          </p>
+        ) : (
+          payments.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-lg border border-slate-200 bg-white p-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <DirectionPill direction={p.direction} />
+                    <span className="text-xs text-slate-500">{p.date}</span>
+                  </div>
+                  <p className="mt-1 truncate font-medium text-slate-900">
+                    {p.party_name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {methodLabel(p)}
+                  </p>
+                </div>
+                <div
+                  className={`shrink-0 text-right tabular-nums font-semibold ${
+                    p.direction === "in" ? "text-emerald-700" : "text-slate-900"
+                  }`}
+                >
+                  {p.direction === "out" ? "−" : ""}
+                  {fmtMoney(p.amount)}
+                </div>
+              </div>
+              <div className="mt-2 flex gap-1 border-t border-slate-100 pt-2">
+                <button
+                  onClick={() => startEdit(p)}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                  aria-label="Edit payment"
+                >
+                  <PencilSquareIcon className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => remove(p.id)}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+                  aria-label="Remove payment"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DirectionPill({ direction }: { direction: Payment["direction"] }) {
+  if (direction === "in") {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+        In
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-800">
+      Out
+    </span>
+  );
+}
+
+function Tile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "emerald" | "sky" | "rose" | "slate";
+}) {
+  const toneClass = {
+    emerald: "border-emerald-200 bg-emerald-50",
+    sky: "border-sky-200 bg-sky-50",
+    rose: "border-rose-200 bg-rose-50",
+    slate: "border-slate-200 bg-slate-50",
+  }[tone];
+  const valueClass = {
+    emerald: "text-emerald-900",
+    sky: "text-sky-900",
+    rose: "text-rose-900",
+    slate: "text-slate-900",
+  }[tone];
+  return (
+    <div className={`rounded-lg border ${toneClass} px-3 py-2`}>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className={`mt-0.5 text-lg font-bold tabular-nums ${valueClass}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function PaymentForm({
+  value,
+  subs,
+  milestones,
+  saving,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  value: Payment;
+  subs: Distributor[];
+  milestones: ProjectMilestone[];
+  saving: boolean;
+  onChange: (next: Payment) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  function patch(p: Partial<Payment>) {
+    onChange({ ...value, ...p });
+  }
+
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{
+    confidence: "high" | "medium" | "low";
+    fields: string[];
+  } | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  async function handleScanFile(file: File) {
+    setScanError(null);
+    setScanResult(null);
+    setScanning(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ocr/receipt", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setScanError(data.error || "OCR failed");
+        return;
+      }
+      const filled: string[] = [];
+      const patch_: Partial<Payment> = {};
+      if (typeof data.amount === "number" && data.amount > 0) {
+        patch_.amount = data.amount;
+        filled.push("amount");
+      }
+      if (typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        patch_.date = data.date;
+        filled.push("date");
+      }
+      // Vendor only auto-fills the free-text party name. We never overwrite
+      // a sub the user already picked from the dropdown — party_ref stays.
+      if (
+        typeof data.vendor === "string" &&
+        data.vendor.length > 1 &&
+        !value.party_ref
+      ) {
+        patch_.party_name = data.vendor;
+        filled.push("vendor");
+      }
+      if (Object.keys(patch_).length > 0) onChange({ ...value, ...patch_ });
+      setScanResult({ confidence: data.confidence ?? "low", fields: filled });
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanning(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
+  function pickFile(mode: "upload" | "camera") {
+    const el = fileInput.current;
+    if (!el) return;
+    if (mode === "camera") el.setAttribute("capture", "environment");
+    else el.removeAttribute("capture");
+    el.click();
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-300 bg-slate-50 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          {value.direction === "in" ? "Record money in" : "Record money out"}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleScanFile(f);
+            }}
+            className="hidden"
+            aria-label="Scan receipt"
+          />
+          <button
+            type="button"
+            onClick={() => pickFile("upload")}
+            disabled={scanning}
+            className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+            title="Upload a receipt image or PDF — auto-fills amount, date, and vendor"
+          >
+            <SparklesIcon className="h-3.5 w-3.5" />
+            {scanning ? "Reading…" : "Scan receipt"}
+          </button>
+          <button
+            type="button"
+            onClick={() => pickFile("camera")}
+            disabled={scanning}
+            className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+            title="Snap a photo of the receipt (phone)"
+          >
+            <CameraIcon className="h-3.5 w-3.5" />
+            Photo
+          </button>
+        </div>
+      </div>
+      {scanResult ? (
+        <ScanResultBanner
+          result={scanResult}
+          onDismiss={() => setScanResult(null)}
+        />
+      ) : null}
+      {scanError ? (
+        <p className="mb-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {scanError}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Party */}
+        <Field label={value.direction === "in" ? "Paid by" : "Paid to"}>
+          {value.direction === "out" ? (
+            <div className="flex gap-2">
+              <select
+                value={value.party_ref ?? ""}
+                onChange={(e) => {
+                  const ref = e.target.value || undefined;
+                  const sub = subs.find((s) => s.id === ref);
+                  patch({
+                    party_ref: ref,
+                    party_name: sub ? sub.name : value.party_name,
+                  });
+                }}
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+              >
+                <option value="">— pick sub / supplier —</option>
+                {subs.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={value.party_name}
+                onChange={(e) => patch({ party_name: e.target.value })}
+                placeholder="or type a name"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+              />
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={value.party_name}
+              onChange={(e) => patch({ party_name: e.target.value })}
+              placeholder="Client name"
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            />
+          )}
+        </Field>
+
+        {/* Amount */}
+        <Field label="Amount (USD)">
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            value={value.amount || ""}
+            onChange={(e) => patch({ amount: parseFloat(e.target.value) || 0 })}
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm tabular-nums"
+          />
+        </Field>
+
+        {/* Date */}
+        <Field label="Date">
+          <input
+            type="date"
+            value={value.date}
+            onChange={(e) => patch({ date: e.target.value })}
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          />
+        </Field>
+
+        {/* Method */}
+        <Field label="Method">
+          <select
+            value={value.method}
+            onChange={(e) =>
+              patch({ method: e.target.value as Payment["method"] })
+            }
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          >
+            {METHODS.map((m) => (
+              <option key={m.key} value={m.key}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Check number — only when method === "check" */}
+        {value.method === "check" ? (
+          <Field label="Check #">
+            <input
+              type="text"
+              value={value.check_number ?? ""}
+              onChange={(e) => patch({ check_number: e.target.value })}
+              placeholder="e.g. 1247"
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            />
+          </Field>
+        ) : null}
+
+        {/* Milestone — empty for projects that haven't generated their
+         *  schedule yet. Soft hint instead of an empty dropdown. */}
+        <Field label="Milestone (optional)">
+          {milestones.length === 0 ? (
+            <p className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-500">
+              No milestones yet. Open this project&apos;s Schedule tab and
+              regenerate to tie payments to phases.
+            </p>
+          ) : (
+            <select
+              value={value.milestone_ref ?? ""}
+              onChange={(e) =>
+                patch({ milestone_ref: e.target.value || undefined })
+              }
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            >
+              <option value="">— not tied to a milestone —</option>
+              {milestones.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      </div>
+
+      <Field label="Notes (optional)">
+        <textarea
+          value={value.notes ?? ""}
+          onChange={(e) => patch({ notes: e.target.value })}
+          rows={2}
+          placeholder="e.g. 'Foundation draw release', 'Final framer invoice'"
+          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+        />
+      </Field>
+
+      <div className="mt-3 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save payment"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScanResultBanner({
+  result,
+  onDismiss,
+}: {
+  result: { confidence: "high" | "medium" | "low"; fields: string[] };
+  onDismiss: () => void;
+}) {
+  if (result.fields.length === 0) {
+    return (
+      <div className="mb-3 flex items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <span>
+          Couldn&apos;t read the receipt clearly. Enter the fields manually.
+        </span>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-amber-700 hover:underline"
+        >
+          dismiss
+        </button>
+      </div>
+    );
+  }
+  const palette = {
+    high: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    medium: "border-sky-200 bg-sky-50 text-sky-800",
+    low: "border-amber-200 bg-amber-50 text-amber-800",
+  }[result.confidence];
+  return (
+    <div
+      className={`mb-3 flex items-center justify-between gap-2 rounded border px-3 py-2 text-xs ${palette}`}
+    >
+      <span>
+        Filled <strong>{result.fields.join(", ")}</strong> from the receipt
+        {result.confidence === "low"
+          ? " — double-check the values."
+          : result.confidence === "medium"
+            ? " (medium confidence)."
+            : "."}
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="hover:underline opacity-70"
+      >
+        dismiss
+      </button>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-600">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}

@@ -12,6 +12,9 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -41,6 +44,13 @@ interface AuthContextValue {
     password: string,
     companyName: string,
   ) => Promise<void>;
+  /** Google OAuth sign-in. Creates org + profile on first sign-in.
+   *  Throws on failure (caller catches). */
+  signInWithGoogle: () => Promise<void>;
+  /** Apple OAuth sign-in. Same bootstrap as Google; requires the
+   *  Apple provider to be enabled in Firebase Auth and the Vercel
+   *  domain registered in the Apple Services ID. */
+  signInWithApple: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -118,12 +128,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(profileDoc);
   }
 
+  /** Shared bootstrap for OAuth (Google + Apple) sign-ins. First time
+   *  a UID hits us we have to create the org + profile docs ourselves,
+   *  same as signUp does for email/password users. Subsequent sign-ins
+   *  no-op because the docs already exist. */
+  async function ensureOAuthProfile(cred: { user: User }) {
+    const uid = cred.user.uid;
+    const profileSnap = await getDoc(doc(db, "users", uid));
+    if (profileSnap.exists()) return;
+    const orgRef = uid;
+    const displayName =
+      cred.user.displayName || cred.user.email || "My Company";
+    await setDoc(doc(db, "orgs", orgRef), {
+      id: orgRef,
+      name: displayName,
+      owner_uid: uid,
+      created_at: serverTimestamp(),
+    });
+    const profileDoc: UserProfile = {
+      uid,
+      email: cred.user.email || "",
+      display_name: displayName,
+      org_ref: orgRef,
+      role: "owner",
+    };
+    await setDoc(doc(db, "users", uid), {
+      ...profileDoc,
+      created_at: serverTimestamp(),
+    });
+    setProfile(profileDoc);
+  }
+
+  async function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    await ensureOAuthProfile(cred);
+  }
+
+  async function signInWithApple() {
+    // Apple is exposed through Firebase as an OAuth provider with the
+    // ID "apple.com". Requesting name + email up front means we get
+    // them on the very first sign-in (Apple only returns them once,
+    // ever — the first time the user authorizes the app).
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    const cred = await signInWithPopup(auth, provider);
+    await ensureOAuthProfile(cred);
+  }
+
   async function logout() {
     await signOut(auth);
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        signIn,
+        signUp,
+        signInWithGoogle,
+        signInWithApple,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

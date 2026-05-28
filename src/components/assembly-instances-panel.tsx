@@ -1,0 +1,917 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { findStubAssembly } from "@/lib/assemblies/stub-catalog";
+import { computeMaterials, resolveOverrides } from "@/lib/assemblies/compute";
+import type { OrgSettings } from "@/types";
+import NumberInput from "@/components/number-input";
+import {
+  activeVariantOf,
+  findCountProperty,
+  type Assembly,
+  type AssemblyInstance,
+  type AssemblyProperty,
+  type AssemblyVariant,
+  type AssemblyVariantPreset,
+} from "@/types/assembly";
+
+/** Roll up a single variant to a dollar total via the shared compute.
+ *  Applies the org's per-assembly + global cost multipliers when
+ *  costOverrides is provided so card totals match what lands in the
+ *  estimate's QuoteLines. */
+function variantTotal(
+  variant: AssemblyVariant,
+  costOverrides?: OrgSettings["cost_overrides"],
+): number {
+  const assembly = findStubAssembly(variant.assemblyId);
+  if (!assembly) return 0;
+  const propertyMap = Object.fromEntries(
+    variant.propertyValues.map((p) => [p.name, p.value]),
+  );
+  const overrides = resolveOverrides(costOverrides, assembly.id);
+  return computeMaterials(assembly, propertyMap, overrides).total;
+}
+
+/** Roll up the ACTIVE variant of an instance — the one that drives the
+ *  estimate's QuoteLines + project totals. Inactive variants are
+ *  reference state and don't contribute to project totals. */
+function instanceTotal(
+  instance: AssemblyInstance,
+  costOverrides?: OrgSettings["cost_overrides"],
+): number {
+  return variantTotal(activeVariantOf(instance), costOverrides);
+}
+
+
+/** Trade buckets ordered by construction sequence — same order the GC
+ *  experiences on the job, so the assemblies list reads top-to-bottom
+ *  the way the build happens. */
+const TRADE_ORDER: Array<Assembly["trade"]> = [
+  "site",
+  "foundation",
+  "framing",
+  "roofing",
+  "exterior",
+  "plumbing",
+  "electrical",
+  "hvac",
+  "drywall",
+  "flooring",
+  "millwork",
+  "finishes",
+  "other",
+];
+
+const TRADE_LABELS: Record<Assembly["trade"], string> = {
+  site: "Site Work & Outdoor",
+  foundation: "Foundation",
+  framing: "Framing",
+  roofing: "Roofing",
+  exterior: "Exterior",
+  plumbing: "Plumbing",
+  electrical: "Electrical",
+  hvac: "HVAC",
+  drywall: "Drywall & Insulation",
+  flooring: "Flooring",
+  millwork: "Millwork",
+  finishes: "Finishes",
+  other: "Other",
+};
+
+/** Alternating left-accent stripes by group position — white section
+ *  bg, only the stripe distinguishes one trade from the next. Most
+ *  minimal aesthetic; lets the cards inside read clean. */
+const ALT_ACCENTS: Array<{ bar: string }> = [
+  { bar: "bg-slate-400" },
+  { bar: "bg-sky-500" },
+];
+
+interface TradeBucket {
+  trade: Assembly["trade"];
+  label: string;
+  items: AssemblyInstance[];
+}
+
+function groupByTrade(instances: AssemblyInstance[]): TradeBucket[] {
+  const map = new Map<Assembly["trade"], AssemblyInstance[]>();
+  for (const inst of instances) {
+    // Trade comes from the ACTIVE variant's assembly — that's what
+    // currently drives the QuoteLines, so it determines where this
+    // instance belongs in the GC's read-order.
+    const variant = activeVariantOf(inst);
+    const a = findStubAssembly(variant.assemblyId);
+    const trade = a?.trade ?? "other";
+    if (!map.has(trade)) map.set(trade, []);
+    map.get(trade)!.push(inst);
+  }
+  return TRADE_ORDER.filter((t) => map.has(t)).map((t) => ({
+    trade: t,
+    label: TRADE_LABELS[t],
+    items: map.get(t)!,
+  }));
+}
+
+/**
+ * Live-editable list of assembly instances on a quote.
+ *
+ * Built for the "Barry is sitting with a client" scenario: tweak
+ * properties (stud spacing, slab thickness, roof pitch) and the
+ * derived QuoteLines regenerate live so the client sees the cost
+ * update in real time.
+ *
+ * State of the underlying instances + lines is owned by the parent
+ * (quote page); this component is a controlled view.
+ */
+export default function AssemblyInstancesPanel({
+  instances,
+  costOverrides,
+  onChange,
+  onRemove,
+  onSplit,
+  onAddAssembly,
+}: {
+  instances: AssemblyInstance[];
+  /** Per-org cost multipliers from OrgSettings.cost_overrides. When
+   *  set, scales material + labor across every card so on-screen
+   *  totals match what computeMaterials produces for QuoteLines. */
+  costOverrides?: OrgSettings["cost_overrides"];
+  onChange: (next: AssemblyInstance) => void;
+  onRemove: (instanceId: string) => void;
+  /** Break one unit out of an assembly with a count property into a
+   *  sibling instance set to qty=1, ready to customize independently. */
+  onSplit?: (instanceId: string) => void;
+  /** Opens the Add Assembly modal. Optional — when absent the header
+   *  button is hidden (e.g. sandbox / read-only embeds). */
+  onAddAssembly?: () => void;
+}) {
+  if (instances.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-base font-semibold text-slate-900">
+            Assemblies on this quote
+          </h2>
+          <span className="text-xs text-slate-500">
+            {instances.length} assembl{instances.length === 1 ? "y" : "ies"}
+          </span>
+        </div>
+        {onAddAssembly ? (
+          <button
+            type="button"
+            onClick={onAddAssembly}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Add assembly
+          </button>
+        ) : null}
+      </header>
+      {/* Group cards by trade so the GC can find a specific phase
+       *  quickly. Each group is independently collapsible — useful when
+       *  a plan import generates 13 assemblies across 6 trades. */}
+      {groupByTrade(instances).map((group, idx) => (
+        <TradeGroup
+          key={group.trade}
+          group={group}
+          accentIdx={idx}
+          totalInstances={instances.length}
+          costOverrides={costOverrides}
+          onChange={onChange}
+          onRemove={onRemove}
+          onSplit={onSplit}
+        />
+      ))}
+    </section>
+  );
+}
+
+/** One trade section (Framing / Roofing / etc.) with a collapsible
+ *  header showing the trade name + card count + subtotal, and the
+ *  two-column card grid inside. */
+function TradeGroup({
+  group,
+  accentIdx,
+  totalInstances,
+  costOverrides,
+  onChange,
+  onRemove,
+  onSplit,
+}: {
+  group: TradeBucket;
+  accentIdx: number;
+  totalInstances: number;
+  costOverrides?: OrgSettings["cost_overrides"];
+  onChange: (next: AssemblyInstance) => void;
+  onRemove: (instanceId: string) => void;
+  onSplit?: (instanceId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const subtotal = useMemo(
+    () => group.items.reduce((s, i) => s + instanceTotal(i, costOverrides), 0),
+    [group.items, costOverrides],
+  );
+  const accent = ALT_ACCENTS[accentIdx % ALT_ACCENTS.length];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-stretch overflow-hidden rounded-t-xl text-left hover:bg-black/5"
+        aria-expanded={open}
+      >
+        <span className={`w-1.5 ${accent.bar}`} aria-hidden />
+        <span className="flex flex-1 items-center gap-2 px-3 py-2">
+          {open ? (
+            <ChevronDownIcon className="h-4 w-4 text-slate-500" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-slate-500" />
+          )}
+          <span className="text-sm font-semibold text-slate-900">
+            {group.label}
+          </span>
+          <span className="text-xs text-slate-500">
+            {group.items.length} assembl
+            {group.items.length === 1 ? "y" : "ies"}
+          </span>
+          <span className="ml-auto text-sm font-semibold tabular-nums text-slate-700">
+            ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        </span>
+      </button>
+      {open ? (
+        <div
+          className={`grid grid-cols-1 items-start gap-3 p-3 ${
+            group.items.length > 1 ? "md:grid-cols-2" : ""
+          }`}
+        >
+          {group.items.map((instance, idx) => (
+            <AssemblyInstanceCard
+              key={instance.id}
+              instance={instance}
+              costOverrides={costOverrides}
+              onChange={onChange}
+              onRemove={() => onRemove(instance.id)}
+              onSplit={onSplit ? () => onSplit(instance.id) : undefined}
+              // Smart default: keep cards open when the project has 3
+              // or fewer assemblies total; otherwise start collapsed
+              // (except the first of the first group) so a 13-assembly
+              // plan import isn't a wall of text.
+              // Default collapsed everywhere — the property strip
+              // inside is dense enough that having 6+ cards open at
+              // once is overwhelming. Builder expands the one they're
+              // working on. Variant chips + price stay visible on the
+              // collapsed card so they can compare at a glance.
+              defaultCollapsed={true}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
+function AssemblyInstanceCard({
+  instance,
+  costOverrides,
+  onChange,
+  onRemove,
+  onSplit,
+  defaultCollapsed = false,
+}: {
+  instance: AssemblyInstance;
+  costOverrides?: OrgSettings["cost_overrides"];
+  onChange: (next: AssemblyInstance) => void;
+  onRemove: () => void;
+  onSplit?: () => void;
+  defaultCollapsed?: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
+
+  const activeVariant = activeVariantOf(instance);
+  const assembly: Assembly | null = useMemo(
+    () => findStubAssembly(activeVariant.assemblyId),
+    [activeVariant.assemblyId],
+  );
+
+  // Split-1 affordance: shown for any assembly with a discrete unit
+  // count (Quantity / EA). Enabled when count > 1 — lets the GC peel
+  // off one unit to customize (e.g. 1 of 5 doors upgraded to mahogany).
+  // Shown disabled at count=1 so the GC discovers it exists; tooltip
+  // explains how to enable.
+  const countProperty = useMemo(
+    () => (assembly ? findCountProperty(assembly) : null),
+    [assembly],
+  );
+  const countValue = countProperty
+    ? (activeVariant.propertyValues.find((p) => p.name === countProperty.name)
+        ?.value ?? 0)
+    : 0;
+  const showSplit = !!onSplit && !!countProperty;
+  const canSplit = showSplit && countValue > 1;
+
+  // Roll up every variant once so the chips can show their own price +
+  // delta vs active without re-computing inside each chip render.
+  // costOverrides flows in here so variant prices reflect the org's
+  // tuned catalog instead of the stock numbers.
+  const variantTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of instance.variants)
+      m.set(v.id, variantTotal(v, costOverrides));
+    return m;
+  }, [instance.variants, costOverrides]);
+  const activeTotal = variantTotals.get(activeVariant.id) ?? 0;
+
+  const propertyMap = useMemo(
+    () =>
+      Object.fromEntries(
+        activeVariant.propertyValues.map((p) => [p.name, p.value]),
+      ),
+    [activeVariant.propertyValues],
+  );
+
+  const computed = useMemo(() => {
+    if (!assembly) return null;
+    const overrides = resolveOverrides(costOverrides, assembly.id);
+    return computeMaterials(assembly, propertyMap, overrides);
+  }, [assembly, propertyMap, costOverrides]);
+
+  function updateLabel(label: string) {
+    onChange({ ...instance, instanceLabel: label });
+  }
+
+  function switchActive(variantId: string) {
+    if (variantId === instance.activeVariantId) return;
+    onChange({ ...instance, activeVariantId: variantId });
+  }
+
+  function renameVariant(variantId: string, label: string) {
+    onChange({
+      ...instance,
+      variants: instance.variants.map((v) =>
+        v.id === variantId ? { ...v, label } : v,
+      ),
+    });
+  }
+
+  function mintVarId() {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `var_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /** Clone the currently active variant — used by the "Clone current"
+   *  entry in the + Add variant menu when the builder wants to start
+   *  from where they are rather than a preset. */
+  function addVariantFromClone() {
+    const newId = mintVarId();
+    const letter = String.fromCharCode(65 + instance.variants.length);
+    const proposed = `Option ${letter}`;
+    const labelTaken = instance.variants.some((v) => v.label === proposed);
+    const label = labelTaken
+      ? `Variant ${instance.variants.length + 1}`
+      : proposed;
+    const newVariant: AssemblyVariant = {
+      id: newId,
+      label,
+      assemblyId: activeVariant.assemblyId,
+      propertyValues: activeVariant.propertyValues.map((p) => ({ ...p })),
+    };
+    onChange({
+      ...instance,
+      variants: [...instance.variants, newVariant],
+      activeVariantId: newId,
+    });
+  }
+
+  /** Apply a curated preset from the assembly catalog — overrides land
+   *  on top of the new variant's assembly defaults. Property names that
+   *  the preset doesn't override keep their assembly default. */
+  function addVariantFromPreset(preset: AssemblyVariantPreset) {
+    const newId = mintVarId();
+    const targetAssemblyId = preset.assemblyId ?? activeVariant.assemblyId;
+    const targetAssembly = findStubAssembly(targetAssemblyId);
+    if (!targetAssembly) return;
+    // Start from the new assembly's defaults so all required properties
+    // exist, then apply the preset's overrides on top.
+    const propertyValues = targetAssembly.properties.map((p) => {
+      const override = preset.propertyOverrides[p.name];
+      if (override != null) return { name: p.name, value: override };
+      const fallback =
+        p.defaultValue ??
+        (p.kind === "option" ? p.options?.[0]?.value : undefined) ??
+        (p.kind === "choice" ? p.choices?.[0] : undefined) ??
+        0;
+      return { name: p.name, value: fallback };
+    });
+    const newVariant: AssemblyVariant = {
+      id: newId,
+      label: preset.label,
+      assemblyId: targetAssemblyId,
+      propertyValues,
+    };
+    onChange({
+      ...instance,
+      variants: [...instance.variants, newVariant],
+      activeVariantId: newId,
+    });
+  }
+
+  function deleteVariant(variantId: string) {
+    if (instance.variants.length <= 1) return;
+    const remaining = instance.variants.filter((v) => v.id !== variantId);
+    const nextActive =
+      instance.activeVariantId === variantId
+        ? remaining[0].id
+        : instance.activeVariantId;
+    onChange({
+      ...instance,
+      variants: remaining,
+      activeVariantId: nextActive,
+    });
+  }
+
+  function updateActiveProperty(name: string, value: number) {
+    onChange({
+      ...instance,
+      variants: instance.variants.map((v) =>
+        v.id === activeVariant.id
+          ? {
+              ...v,
+              propertyValues: v.propertyValues.map((p) =>
+                p.name === name ? { ...p, value } : p,
+              ),
+            }
+          : v,
+      ),
+    });
+  }
+
+  if (!assembly) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        Assembly definition for{" "}
+        <span className="font-mono">{activeVariant.assemblyId}</span> was
+        not found. It may have been removed from the catalog.{" "}
+        <button
+          onClick={onRemove}
+          className="font-semibold underline hover:no-underline"
+        >
+          Remove from quote
+        </button>
+      </div>
+    );
+  }
+
+  // Compact property summary for the collapsed card header — built from
+  // the active variant's property values.
+  const propSummary = activeVariant.propertyValues
+    .map(({ name, value }) => {
+      const p = assembly.properties.find((x) => x.name === name);
+      if (!p) return null;
+      if (p.kind === "option" && p.options) {
+        const opt = p.options.find((o) => o.value === value);
+        return opt?.label ?? null;
+      }
+      if (!Number.isFinite(value) || value === 0) return null;
+      const uom = p.uom ? ` ${p.uom}` : "";
+      return `${value}${uom}`;
+    })
+    .filter(Boolean)
+    .join(" · ");
+
+  const hasMultipleVariants = instance.variants.length > 1;
+
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Header — instance-level controls (label, swap active variant's
+       *  assembly type, duplicate the whole card, remove the card). */}
+      <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          aria-label={collapsed ? "Expand assembly" : "Collapse assembly"}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? (
+            <ChevronRightIcon className="h-4 w-4" />
+          ) : (
+            <ChevronDownIcon className="h-4 w-4" />
+          )}
+        </button>
+        <input
+          type="text"
+          value={instance.instanceLabel}
+          onChange={(e) => updateLabel(e.target.value)}
+          placeholder="Phase label"
+          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-slate-900 hover:border-slate-300 focus:border-sky-500 focus:outline-none"
+        />
+        {showSplit ? (
+          <button
+            type="button"
+            onClick={canSplit ? onSplit : undefined}
+            disabled={!canSplit}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+              canSplit
+                ? "border-sky-200 bg-white text-sky-700 hover:bg-sky-50"
+                : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+            }`}
+            title={
+              canSplit
+                ? `Peel one ${countProperty!.name === "Quantity" ? "unit" : countProperty!.name} off this assembly into a new sibling card you can customize independently (e.g. change just one of ${countValue} ${countProperty!.uom || ""} to a different option).`
+                : `Bump ${countProperty!.name} above 1 to enable — lets you peel one unit off into a sibling card you can customize independently.`
+            }
+          >
+            Split 1 →
+          </button>
+        ) : null}
+        <span className="text-sm font-semibold tabular-nums text-slate-900">
+          ${activeTotal.toFixed(2)}
+        </span>
+        <button
+          onClick={onRemove}
+          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+          aria-label="Remove assembly"
+          title="Remove assembly (and its derived line items)"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </header>
+
+      {collapsed ? (
+        propSummary ? (
+          <div className="px-4 py-2 text-xs text-slate-500">
+            {hasMultipleVariants ? (
+              <span className="mr-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
+                {activeVariant.label}
+              </span>
+            ) : null}
+            {propSummary}
+          </div>
+        ) : null
+      ) : (
+        <>
+          {/* Variant chips — one per variant, plus an + Add chip. Active
+           *  variant is sky-filled; inactive variants show the delta to
+           *  active so the builder can read "Wood is +$2,400 vs Vinyl"
+           *  at a glance. */}
+          <div className="flex flex-wrap items-stretch gap-2 px-4 pt-3">
+            {instance.variants.map((v) => (
+              <VariantChip
+                key={v.id}
+                variant={v}
+                isActive={v.id === instance.activeVariantId}
+                total={variantTotals.get(v.id) ?? 0}
+                activeTotal={activeTotal}
+                onSelect={() => switchActive(v.id)}
+                onRename={(label) => renameVariant(v.id, label)}
+                onDelete={
+                  hasMultipleVariants ? () => deleteVariant(v.id) : undefined
+                }
+              />
+            ))}
+            <AddVariantMenu
+              presets={assembly.variantPresets ?? []}
+              onCloneCurrent={addVariantFromClone}
+              onPickPreset={addVariantFromPreset}
+            />
+          </div>
+
+          {/* Active variant's property editors. Edits write back to
+           *  the active variant only — inactive variants are untouched.
+           *  Auto-fit grid so columns scale with card width: a card
+           *  wide enough fits all properties on one row; a narrower
+           *  card flows them onto multiple uniform rows. Each property
+           *  is label-over-control, so heights are identical and long
+           *  option labels never get clipped. */}
+          <div
+            className="grid gap-3 px-4 py-3"
+            style={{
+              // 180px min lets option labels up to ~27 chars show
+              // without overflowing the native select's intrinsic
+              // min-width (which derives from the longest option text).
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
+            }}
+          >
+            {assembly.properties.map((p) => (
+              <PropertyEditor
+                key={p.name}
+                property={p}
+                value={propertyMap[p.name] ?? 0}
+                onChange={(v) => updateActiveProperty(p.name, v)}
+              />
+            ))}
+          </div>
+
+          <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
+            <span>
+              Editing{" "}
+              <strong className="text-slate-700">
+                {activeVariant.label}
+              </strong>
+              {" — "}
+              {computed?.lines.length ?? 0} material line
+              {computed?.lines.length === 1 ? "" : "s"} regenerate on every edit
+            </span>
+            {computed?.error ? (
+              <span className="text-rose-600">{computed.error}</span>
+            ) : null}
+          </footer>
+        </>
+      )}
+    </article>
+  );
+}
+
+/** One variant chip in the strip on an instance card. The active variant
+ *  shows a filled sky pill; inactive variants outline with a "Δ vs
+ *  active" indicator. Single-click selects; double-click renames inline;
+ *  hover reveals a trash icon when more than one variant exists. */
+/**
+ * Popover menu opened by clicking the "+ Add variant" button. Surfaces
+ * the assembly's curated presets (Wood Casement Premium, Standing-seam
+ * metal, etc.) so the builder picks a common alternative in one click
+ * instead of cloning + manually tweaking properties. "Clone current"
+ * is always available as the bottom escape hatch.
+ */
+function AddVariantMenu({
+  presets,
+  onCloneCurrent,
+  onPickPreset,
+}: {
+  presets: AssemblyVariantPreset[];
+  onCloneCurrent: () => void;
+  onPickPreset: (preset: AssemblyVariantPreset) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside + Escape to close. Keeps the menu feeling like a
+  // proper popover instead of a sticky modal.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function pick(action: () => void) {
+    action();
+    setOpen(false);
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-sky-500 hover:bg-sky-50 hover:text-sky-700"
+        title="Add a variant — pick a curated preset or clone the active configuration"
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <PlusIcon className="h-3.5 w-3.5" />
+        Add variant
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          {presets.length > 0 ? (
+            <>
+              <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Common alternatives
+              </div>
+              <ul className="max-h-64 overflow-auto py-1">
+                {presets.map((p) => (
+                  <li key={p.label}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => pick(() => onPickPreset(p))}
+                      className="block w-full px-3 py-1.5 text-left text-sm text-slate-800 hover:bg-sky-50 hover:text-sky-800"
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      {p.description ? (
+                        <div className="text-[11px] text-slate-500">
+                          {p.description}
+                        </div>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => pick(onCloneCurrent)}
+              className="block w-full px-3 py-2 text-left text-xs italic text-slate-600 hover:bg-slate-50"
+            >
+              Clone current configuration
+            </button>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VariantChip({
+  variant,
+  isActive,
+  total,
+  activeTotal,
+  onSelect,
+  onRename,
+  onDelete,
+}: {
+  variant: AssemblyVariant;
+  isActive: boolean;
+  total: number;
+  activeTotal: number;
+  onSelect: () => void;
+  onRename: (label: string) => void;
+  onDelete?: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(variant.label);
+  // Mirror external label changes while not renaming.
+  useEffect(() => {
+    if (!renaming) setDraft(variant.label);
+  }, [variant.label, renaming]);
+
+  const delta = total - activeTotal;
+  const deltaColor =
+    delta < -0.005
+      ? "text-emerald-700"
+      : delta > 0.005
+        ? "text-amber-700"
+        : "text-slate-500";
+
+  if (renaming) {
+    return (
+      <span className="inline-flex items-center rounded-lg border border-sky-500 bg-white px-2 py-1">
+        <input
+          autoFocus
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            const clean = draft.trim() || variant.label;
+            onRename(clean);
+            setRenaming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setDraft(variant.label);
+              setRenaming(false);
+            }
+          }}
+          className="w-24 bg-transparent text-xs font-semibold text-slate-900 focus:outline-none"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={
+        "group relative inline-flex items-stretch overflow-hidden rounded-lg border transition-colors " +
+        (isActive
+          ? "border-sky-600 bg-sky-50 text-sky-900 ring-1 ring-sky-600"
+          : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50")
+      }
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        onDoubleClick={() => setRenaming(true)}
+        className="flex flex-col items-start px-3 py-1.5 text-left"
+        title={
+          isActive
+            ? `Active variant — drives totals. Double-click to rename.`
+            : `Switch to ${variant.label} (double-click to rename)`
+        }
+      >
+        <span className="flex items-center gap-1">
+          <span
+            className={
+              "inline-block h-2 w-2 rounded-full " +
+              (isActive ? "bg-sky-600" : "border border-slate-400 bg-white")
+            }
+            aria-hidden
+          />
+          <span className="text-xs font-semibold">{variant.label}</span>
+        </span>
+        <span className="mt-0.5 text-xs tabular-nums text-slate-900">
+          ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {!isActive && Math.abs(delta) >= 0.5 ? (
+            <span className={`ml-1.5 ${deltaColor}`}>
+              {delta > 0 ? "+" : "−"}$
+              {Math.abs(delta).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}
+            </span>
+          ) : null}
+        </span>
+      </button>
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex w-6 items-center justify-center text-slate-400 opacity-0 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+          aria-label={`Delete variant ${variant.label}`}
+          title={`Delete ${variant.label}`}
+        >
+          <XMarkIcon className="h-3 w-3" />
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
+function PropertyEditor({
+  property,
+  value,
+  onChange,
+}: {
+  property: AssemblyProperty;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  // Stacked layout — label above the control. Every property occupies
+  // the same width and height regardless of value type, so a row of
+  // mixed properties stays clean. Long option labels ("Steel,
+  // insulated", "Architectural shingle") get the full column width.
+  const isOption = property.kind === "option" && property.options;
+  const isChoice = property.kind === "choice" && property.choices;
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {property.name}
+      </span>
+      <div className="flex min-w-0 items-stretch overflow-hidden rounded-md border border-slate-300 bg-white text-sm focus-within:border-sky-500">
+        {isOption ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+          >
+            {property.options!.map((opt) => (
+              <option key={opt.label} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : isChoice ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+          >
+            {property.choices!.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <NumberInput
+            value={value}
+            onChange={onChange}
+            className="min-w-0 flex-1 bg-white px-2 py-1.5 text-right text-sm tabular-nums text-slate-900 focus:outline-none"
+          />
+        )}
+        {property.uom ? (
+          <span className="flex shrink-0 items-center bg-slate-50 px-2 text-[11px] font-medium text-slate-500">
+            {property.uom}
+          </span>
+        ) : null}
+      </div>
+    </label>
+  );
+}

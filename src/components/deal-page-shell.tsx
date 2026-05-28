@@ -1,0 +1,230 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ChartBarIcon,
+  ChevronLeftIcon,
+  CurrencyDollarIcon,
+  DocumentIcon,
+  ExclamationTriangleIcon,
+  EyeIcon,
+  HomeIcon,
+  PaperAirplaneIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
+import { deleteDeal, saveDeal } from "@/lib/store";
+import type { Deal } from "@/types";
+import { BUILDER_STAGES } from "@/types/builder";
+
+export type DealTabKey = "overview" | "schedule" | "finances" | "files";
+
+const TABS: Array<{
+  key: DealTabKey;
+  label: string;
+  href: (id: string) => string;
+  icon: typeof HomeIcon;
+}> = [
+  { key: "overview", label: "Overview", href: (id) => `/deals/${id}`, icon: HomeIcon },
+  { key: "schedule", label: "Schedule", href: (id) => `/deals/${id}/schedule`, icon: ChartBarIcon },
+  { key: "finances", label: "Finances", href: (id) => `/deals/${id}/finances`, icon: CurrencyDollarIcon },
+  { key: "files", label: "Files", href: (id) => `/deals/${id}/files`, icon: DocumentIcon },
+];
+
+/**
+ * Shared chrome for every per-deal sub-route: back link, header,
+ * tab nav. Children render under the tab strip in the main column.
+ * The per-deal sidebar (project details + AI + notes) lives only on
+ * the Overview tab so the deeper pages can use the full width.
+ */
+export default function DealPageShell({
+  deal,
+  active,
+  children,
+}: {
+  deal: Deal;
+  active: DealTabKey;
+  children: React.ReactNode;
+}) {
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-7xl space-y-4">
+        <div>
+          <Link
+            href="/deals"
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Pipeline</span>
+            <span className="sm:hidden">Projects</span>
+          </Link>
+        </div>
+
+        <DealHeader deal={deal} />
+
+        <DealTabNav dealId={deal.id} active={active} />
+
+        {children}
+      </div>
+    </AppShell>
+  );
+}
+
+function DealHeader({ deal }: { deal: Deal }) {
+  const router = useRouter();
+  async function onChangeStage(s: Deal["stage"]) {
+    const next = { ...deal, stage: s, updated_at: new Date().toISOString() };
+    await saveDeal(next);
+    router.refresh();
+  }
+  async function onDelete() {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    await deleteDeal(deal.id);
+    router.replace("/deals");
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+          {deal.name}
+        </h1>
+        {/* Subtitle: client · type. Hidden on mobile (companion mode);
+         *  shown on desktop where horizontal real estate is plentiful. */}
+        <p className="mt-1 hidden text-sm text-slate-500 md:block">
+          {deal.account_name || "No client"} · {deal.manufacturer || "—"} ·{" "}
+          {deal.deal_type === "quotation" ? "Detailed Estimate" : "Ballpark / Budget"}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        {/* Proposal: icon-only on mobile to save width. */}
+        <Tooltip
+          variant="directive"
+          label="Build the document your client signs."
+        >
+          <Link
+            href={`/deals/${deal.id}/proposal`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 sm:px-3"
+            aria-label="Proposal"
+          >
+            <PaperAirplaneIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Proposal</span>
+          </Link>
+        </Tooltip>
+        {/* View-as-client: icon-only on mobile. */}
+        <Tooltip label="Preview the client portal exactly as your client will see it — no login required on their end.">
+          <Link
+            href={`/deals/${deal.id}/portal`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 sm:px-3"
+            aria-label="View as client"
+          >
+            <EyeIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">View as client</span>
+          </Link>
+        </Tooltip>
+        <Tooltip label="Move the project through your pipeline.">
+          <select
+            value={deal.stage}
+            onChange={(e) => void onChangeStage(e.target.value as Deal["stage"])}
+            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 sm:px-3"
+          >
+            {BUILDER_STAGES.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
+        <Tooltip label="Permanently delete this project and all attached docs, photos, and history. Cannot be undone.">
+          <button
+            onClick={() => void onDelete()}
+            aria-label="Delete project"
+            className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+function DealTabNav({
+  dealId,
+  active,
+}: {
+  dealId: string;
+  active: DealTabKey;
+}) {
+  return (
+    <nav
+      aria-label="Project sections"
+      className="-mx-1 flex items-center gap-1 overflow-x-auto border-b border-slate-200"
+    >
+      {TABS.map((t) => {
+        const Icon = t.icon;
+        const isActive = t.key === active;
+        return (
+          <Link
+            key={t.key}
+            href={t.href(dealId)}
+            className={
+              "inline-flex min-h-[44px] shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors " +
+              (isActive
+                ? "border-sky-600 text-sky-700"
+                : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900")
+            }
+            aria-current={isActive ? "page" : undefined}
+          >
+            <Icon className="h-4 w-4" />
+            {t.label}
+          </Link>
+        );
+      })}
+      {/* Quote editor — sits at the end of the strip. On mobile,
+       *  always visible (after horizontal scroll past the 4 tabs);
+       *  on desktop, pushed right with ml-auto. */}
+      <Link
+        href={`/deals/${dealId}/quote`}
+        className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-semibold text-sky-700 hover:border-sky-300 hover:bg-sky-50 sm:ml-auto"
+      >
+        Quote editor →
+      </Link>
+    </nav>
+  );
+}
+
+export function DealLoadingShell() {
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-7xl">
+        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">
+          Loading project…
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+export function DealNotFoundShell() {
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-7xl">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-12 text-center text-sm text-amber-900 shadow-sm">
+          <ExclamationTriangleIcon className="mx-auto mb-3 h-6 w-6 text-amber-500" />
+          Project not found, or it belongs to a different organization.
+          <div className="mt-4">
+            <Link
+              href="/deals"
+              className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+              Back to pipeline
+            </Link>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}

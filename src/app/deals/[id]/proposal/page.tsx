@@ -1,0 +1,678 @@
+"use client";
+
+// Proposal — the client-facing sales document the builder sends to a
+// homeowner BEFORE construction begins. Polished, branded, no cost
+// basis or margin visible. Includes scope summary, phase-grouped line
+// items with customer pricing only, payment schedule preview from the
+// draw milestones, and signature blocks for client + builder
+// acceptance.
+//
+// Architecture mirrors the draw-request page (lender-facing). Same
+// browser-native print path — no PDF library needed.
+
+import { use, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeftIcon,
+  PrinterIcon,
+  EnvelopeIcon,
+  CheckCircleIcon,
+  LinkIcon,
+} from "@heroicons/react/24/outline";
+import { ClientSignLink, Deal, OrgSettings, QuoteLine, newId } from "@/types";
+import { ProjectMilestone } from "@/types/builder";
+import {
+  createClientSignLink,
+  getClientSignLink,
+  getDeal,
+  getSettings,
+  listMilestones,
+  listQuoteLines,
+  saveDeal,
+} from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import Tooltip from "@/components/tooltip";
+
+const fmtMoney = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoneyRound = (n: number) =>
+  `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+
+export default function ProposalPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const router = useRouter();
+  const { profile } = useAuth();
+  const [deal, setDeal] = useState<Deal | null>(null);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [lines, setLines] = useState<QuoteLine[]>([]);
+  const [settings, setSettings] = useState<OrgSettings | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  // Client-acceptance flow: GC clicks 'Mark as accepted', a small inline
+  // form captures the client's typed signature, then the deal auto-
+  // advances from Estimate Sent → Contract Signed. Used during the demo
+  // and the real flow when the GC is on the phone with the client.
+  const [showAcceptForm, setShowAcceptForm] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
+  const [accepting, setAccepting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    async function load() {
+      const d = await getDeal(id);
+      if (!active) return;
+      if (!d || d.org_ref !== profile!.org_ref) {
+        router.replace("/deals");
+        return;
+      }
+      const [m, ql, s] = await Promise.all([
+        listMilestones(id),
+        listQuoteLines(id),
+        getSettings(profile!.org_ref),
+      ]);
+      if (!active) return;
+      setDeal(d);
+      setMilestones(m);
+      setLines(ql);
+      setSettings(s);
+      setLoaded(true);
+    }
+    void load();
+    return () => { active = false; };
+  }, [id, profile, router]);
+
+  // Group line items by product_code (which we repurposed as phase
+  // category in the builder estimate generator). Keep ordering stable.
+  const grouped = useMemo(() => {
+    const out: { phase: string; lines: QuoteLine[]; subtotal: number }[] = [];
+    const seen = new Map<string, number>();
+    for (const l of lines) {
+      const phase = l.product_code || "Other";
+      let idx = seen.get(phase);
+      if (idx === undefined) {
+        idx = out.length;
+        seen.set(phase, idx);
+        out.push({ phase, lines: [], subtotal: 0 });
+      }
+      out[idx].lines.push(l);
+      out[idx].subtotal += l.customer_extended || 0;
+    }
+    return out;
+  }, [lines]);
+
+  if (!deal || !loaded) {
+    return (
+      <div className="min-h-screen bg-slate-50 px-6 py-10 text-sm text-slate-500">
+        Loading proposal…
+      </div>
+    );
+  }
+
+  const totalCustomer = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+
+  const proposalDate = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // Proposal validity: typical 30-day expiration window from issue date.
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 30);
+  const validUntilLabel = validUntil.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  /** Ensure a client sign link exists for this deal, creating one with
+   *  the current proposal snapshot if missing. Idempotent — calling
+   *  twice returns the same token. Returns the public /sign/{token}
+   *  URL the GC sends to the client. */
+  async function ensureSignLink(): Promise<string | null> {
+    if (!deal) return null;
+    const fresh = await getDeal(id);
+    if (!fresh) return null;
+
+    // Build the snapshot from current deal + settings + lines.
+    const snapshot = (token: string, created_at: string): ClientSignLink => ({
+      token,
+      deal_ref: deal.id,
+      org_ref: deal.org_ref,
+      deal_name: deal.name,
+      client_name: deal.account_name,
+      client_address: deal.ship_to_address,
+      business_name: settings?.company_name || "Your builder",
+      business_owner_name: settings?.prepared_by_name,
+      business_phone: settings?.company_phone,
+      business_email: settings?.company_email,
+      business_license: settings?.cage_code,
+      contract_amount: totalCustomer,
+      lines,
+      created_at,
+    });
+
+    let token = fresh.client_sign_token;
+    if (token) {
+      const existing = await getClientSignLink(token);
+      if (existing) {
+        // Reuse the same URL so the client doesn't get a fresh link on
+        // every re-send. BUT if it hasn't been signed yet, refresh the
+        // snapshot from current data — the GC may have updated the
+        // estimate or filled in their company name since. Once signed,
+        // the snapshot is frozen (audit integrity).
+        if (!existing.signed_at) {
+          await createClientSignLink(snapshot(token, existing.created_at));
+        }
+        return `${window.location.origin}/sign/${token}`;
+      }
+    }
+
+    token = newId("sgn") + Math.random().toString(36).slice(2, 8);
+    await createClientSignLink(snapshot(token, new Date().toISOString()));
+    await saveDeal({
+      ...fresh,
+      client_sign_token: token,
+      updated_at: new Date().toISOString(),
+    });
+    return `${window.location.origin}/sign/${token}`;
+  }
+
+  async function emailToClient() {
+    if (!deal) return;
+    setEmailing(true);
+    try {
+      const signUrl = await ensureSignLink();
+      if (!signUrl) return;
+      const subject = `Project Proposal — ${deal.name}`;
+      const body = [
+        `Hi,`,
+        ``,
+        `Here's your proposal for ${deal.name}.`,
+        ``,
+        `Total contract amount: ${fmtMoneyRound(totalCustomer)}`,
+        `Target start: ${deal.due_date || "TBD"}`,
+        `Proposal valid until: ${validUntilLabel}`,
+        ``,
+        `Review and sign here: ${signUrl}`,
+        ``,
+        `Reply to this email or call with any questions.`,
+        ``,
+        `Thanks,`,
+        `${settings?.prepared_by_name || settings?.company_name || "Your builder"}`,
+      ].join("\n");
+      const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = href;
+    } finally {
+      setEmailing(false);
+    }
+  }
+
+  async function copyShareLink() {
+    const url = await ensureSignLink();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyToast("Sign link copied — share it with your client.");
+      setTimeout(() => setCopyToast(null), 3500);
+    } catch {
+      // Fallback: prompt() the URL so the GC can copy manually
+      window.prompt("Copy this sign link:", url);
+    }
+  }
+
+  async function acceptProposal() {
+    if (!deal) return;
+    const signed = signatureName.trim();
+    if (!signed) return;
+    setAccepting(true);
+    try {
+      const now = new Date().toISOString();
+      // Advance from Estimate Sent → Contract Signed, capture signature
+      // + acceptance timestamp, lock in the contract value from the
+      // current estimate total. The award_total field is what milestone
+      // amounts roll up from (see effectiveContractValue).
+      await saveDeal({
+        ...deal,
+        stage: "awarded",
+        award_total: deal.total_quote_value || deal.award_total,
+        award_date: now,
+        notes: deal.notes
+          ? `${deal.notes}\n\nAccepted by ${signed} on ${new Date().toLocaleDateString()}.`
+          : `Accepted by ${signed} on ${new Date().toLocaleDateString()}.`,
+        updated_at: now,
+      });
+      // Refresh local state so the toolbar reflects the new stage and
+      // the 'Accept' button hides.
+      const fresh = await getDeal(id);
+      if (fresh) setDeal(fresh);
+      setShowAcceptForm(false);
+      setSignatureName("");
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  const canAccept = deal?.stage === "quoted";
+  const alreadyAccepted = deal && ["awarded", "po_sent", "partially_shipped", "closed_won"].includes(deal.stage);
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Toolbar — hidden on print */}
+      <div className="border-b border-slate-200 bg-white print:hidden">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+          <Link
+            href={`/deals/${id}`}
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back to project
+          </Link>
+          <div className="flex flex-wrap gap-2">
+            {canAccept && (
+              <Tooltip
+                variant="directive"
+                placement="bottom"
+                label="Log that the client signed in person or over the phone. Captures a typed signature and advances the project from Estimate Sent → Contract Signed."
+              >
+                <button
+                  onClick={() => setShowAcceptForm(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  Mark as accepted
+                </button>
+              </Tooltip>
+            )}
+            {alreadyAccepted && (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+                <CheckCircleIcon className="h-4 w-4" />
+                Accepted
+              </span>
+            )}
+            <Tooltip placement="bottom" label="Copy a public sign-and-accept link to your clipboard. The client opens it on any device — no login required.">
+              <button
+                onClick={copyShareLink}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Copy sign link
+              </button>
+            </Tooltip>
+            <Tooltip
+              variant="directive"
+              placement="bottom"
+              label="Open your email app with the proposal + sign link pre-filled. Edit the body before sending — your client can sign without an account."
+            >
+              <button
+                onClick={emailToClient}
+                disabled={emailing}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <EnvelopeIcon className="h-4 w-4" />
+                {emailing ? "Preparing…" : "Email to client"}
+              </button>
+            </Tooltip>
+            <Tooltip placement="bottom" label="Print or save the proposal as a PDF using your browser's native print dialog.">
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
+              >
+                <PrinterIcon className="h-4 w-4" />
+                Print / Save PDF
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+        {copyToast && (
+          <div className="mx-auto max-w-5xl px-6 pb-3">
+            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">
+              {copyToast}
+            </p>
+          </div>
+        )}
+        {showAcceptForm && (
+          <div className="mx-auto max-w-5xl px-6 pb-4">
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-900">
+                Mark proposal as accepted by client
+              </p>
+              <p className="mt-1 text-xs text-emerald-800">
+                Captures the typed signature and advances the project from
+                Estimate Sent → Contract Signed. Contract value locks at{" "}
+                {fmtMoneyRound(deal?.total_quote_value || 0)}.
+              </p>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <div className="min-w-[240px] flex-1">
+                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-emerald-900">
+                    Client signature (typed full name)
+                  </label>
+                  <input
+                    type="text"
+                    value={signatureName}
+                    onChange={(e) => setSignatureName(e.target.value)}
+                    placeholder={deal?.account_name || "Full legal name"}
+                    autoFocus
+                    className="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <button
+                  onClick={acceptProposal}
+                  disabled={accepting || !signatureName.trim()}
+                  className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  {accepting ? "Saving…" : "Confirm acceptance"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAcceptForm(false);
+                    setSignatureName("");
+                  }}
+                  className="rounded-md px-3 py-2 text-sm text-slate-600 hover:text-slate-900"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Document */}
+      <div className="mx-auto max-w-5xl px-6 py-10 print:px-0 print:py-0">
+        <article className="rounded-lg border border-slate-200 bg-white p-10 shadow-sm print:rounded-none print:border-0 print:p-8 print:shadow-none">
+          {/* Header */}
+          <header className="border-b-2 border-sky-700 pb-6">
+            <div className="flex flex-wrap items-start justify-between gap-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                  Project Proposal
+                </p>
+                <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
+                  {deal.name}
+                </h1>
+                {deal.solicitation_number && (
+                  <p className="mt-1 font-mono text-xs text-slate-500">
+                    Job #: {deal.solicitation_number}
+                  </p>
+                )}
+              </div>
+              <div className="text-right text-xs text-slate-600">
+                <div>Date: <span className="font-medium text-slate-900">{proposalDate}</span></div>
+                <div className="mt-0.5">Valid until: <span className="font-medium text-slate-900">{validUntilLabel}</span></div>
+              </div>
+            </div>
+          </header>
+
+          {/* Parties */}
+          <section className="mt-6 grid grid-cols-2 gap-8">
+            <Party
+              label="Prepared by"
+              name={settings?.company_name || settings?.prepared_by_name || "—"}
+              address={settings?.company_address}
+              phone={settings?.company_phone}
+              email={settings?.company_email}
+              license={settings?.cage_code}
+            />
+            <Party
+              label="Prepared for"
+              name={deal.account_name || "—"}
+              address={deal.ship_to_address}
+              email={deal.ship_to_poc_email}
+            />
+          </section>
+
+          {/* Project address */}
+          {deal.ship_to_address && (
+            <section className="mt-6 rounded-md bg-sky-50 px-4 py-3 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Project Address:{" "}
+              </span>
+              <span className="whitespace-pre-line text-slate-900">{deal.ship_to_address}</span>
+            </section>
+          )}
+
+          {/* Contract summary */}
+          <section className="mt-8 rounded-lg border-2 border-sky-700 bg-sky-50 p-6">
+            <div className="flex items-baseline justify-between gap-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+                  Total Contract Amount
+                </p>
+                <p className="mt-1 text-4xl font-bold tabular-nums text-slate-900">
+                  {fmtMoneyRound(totalCustomer)}
+                </p>
+              </div>
+              <div className="text-right text-xs text-slate-600">
+                <div>Project type: <span className="font-medium text-slate-900">{deal.manufacturer || "—"}</span></div>
+                {deal.due_date && (
+                  <div className="mt-0.5">Target start: <span className="font-medium text-slate-900">{new Date(deal.due_date).toLocaleDateString()}</span></div>
+                )}
+                <div className="mt-0.5">Line items: <span className="font-medium text-slate-900">{lines.length}</span></div>
+              </div>
+            </div>
+          </section>
+
+          {/* Scope of Work */}
+          {grouped.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                Scope of Work
+              </h2>
+              <div className="mt-3 space-y-5">
+                {grouped.map((g) => (
+                  <div key={g.phase}>
+                    <div className="flex items-baseline justify-between border-b border-slate-200 pb-1.5">
+                      <h3 className="text-sm font-semibold text-slate-900">{g.phase}</h3>
+                      <span className="text-sm font-semibold tabular-nums text-sky-700">
+                        {fmtMoney(g.subtotal)}
+                      </span>
+                    </div>
+                    <ul className="mt-2 space-y-1.5 text-xs text-slate-700">
+                      {g.lines.map((l) => (
+                        <li key={l.id} className="flex items-start gap-3">
+                          <span className="flex-1">{l.description}</span>
+                          <span className="flex-shrink-0 tabular-nums text-slate-500">
+                            {l.qty.toLocaleString()} × {fmtMoney(l.customer_unit_price)}
+                          </span>
+                          <span className="w-24 flex-shrink-0 text-right font-medium tabular-nums text-slate-900">
+                            {fmtMoney(l.customer_extended)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex items-baseline justify-between border-t-2 border-slate-900 pt-3">
+                <span className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                  Total
+                </span>
+                <span className="text-xl font-bold tabular-nums text-slate-900">
+                  {fmtMoney(totalCustomer)}
+                </span>
+              </div>
+            </section>
+          ) : (
+            <section className="mt-8 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+              No line items in the estimate yet. Build the estimate before sending the proposal.
+            </section>
+          )}
+
+          {/* Payment Schedule */}
+          {milestones.length > 0 && (
+            <section className="mt-8">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                Payment Schedule
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Draws are released as each phase completes. The schedule below approximates the
+                billing cadence for your reference.
+              </p>
+              <table className="mt-3 min-w-full text-xs">
+                <thead className="border-y-2 border-slate-900 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                  <tr>
+                    <th className="px-2 py-2 text-left">#</th>
+                    <th className="px-2 py-2 text-left">Phase</th>
+                    <th className="px-2 py-2 text-left">When</th>
+                    <th className="px-2 py-2 text-right">% of Contract</th>
+                    <th className="px-2 py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {milestones
+                    .slice()
+                    .sort((a, b) => a.order - b.order)
+                    .map((m, i) => (
+                      <tr key={m.id}>
+                        <td className="px-2 py-1.5">{i + 1}</td>
+                        <td className="px-2 py-1.5 font-medium text-slate-900">{m.name}</td>
+                        <td className="px-2 py-1.5 text-slate-600">
+                          {m.planned_start_date && m.planned_end_date
+                            ? `${m.planned_start_date} → ${m.planned_end_date}`
+                            : "—"}
+                        </td>
+                        <td className="px-2 py-1.5 text-right">{m.percentage}%</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">
+                          {fmtMoney(m.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-900 bg-slate-50 text-xs font-bold uppercase tracking-wider">
+                    <td colSpan={3} className="px-2 py-2">Total</td>
+                    <td className="px-2 py-2 text-right">100%</td>
+                    <td className="px-2 py-2 text-right tabular-nums">
+                      {fmtMoney(milestones.reduce((s, m) => s + m.amount, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </section>
+          )}
+
+          {/* Terms */}
+          <section className="mt-10 rounded-md border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
+            <p className="font-semibold uppercase tracking-wider text-slate-900">
+              Standard Terms
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              <li>This proposal is valid for 30 days from the date issued.</li>
+              <li>Pricing is based on the scope of work above; changes during construction
+                  are documented and billed via written change orders.</li>
+              <li>Allowances (where noted) reflect typical mid-grade selections; actual
+                  costs may vary based on the homeowner&apos;s final selections.</li>
+              <li>Payments follow the Payment Schedule above; each draw is released upon
+                  homeowner approval of phase completion.</li>
+              <li>A separate written contract incorporating these terms will be executed
+                  at acceptance.</li>
+            </ul>
+          </section>
+
+          {/* Acceptance */}
+          <section className="mt-10 grid grid-cols-2 gap-8 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
+            <div>
+              <p className="font-semibold uppercase tracking-wider text-slate-900">
+                Acceptance &amp; Authorization
+              </p>
+              <p className="mt-1.5">
+                By signing below, the Owner accepts this proposal and authorizes the
+                Contractor to proceed with the work as described. A written contract
+                incorporating these terms will be executed concurrently.
+              </p>
+              <SignatureBlock label="Owner" name={deal.account_name} />
+            </div>
+            <div>
+              <p className="font-semibold uppercase tracking-wider text-slate-900">
+                Contractor
+              </p>
+              <p className="mt-1.5">
+                The Contractor proposes to furnish materials and labor for the Work
+                described above for the total contract amount stated.
+              </p>
+              <SignatureBlock label="Contractor" name={settings?.prepared_by_name || settings?.company_name} />
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="mt-8 border-t border-slate-100 pt-3 text-center text-[10px] text-slate-400">
+            {settings?.company_name && `${settings.company_name} · `}
+            Proposal generated {proposalDate}
+            {settings?.cage_code && ` · License #${settings.cage_code}`}
+          </footer>
+        </article>
+      </div>
+
+      <PrintStyles />
+    </div>
+  );
+}
+
+function Party({
+  label,
+  name,
+  address,
+  phone,
+  email,
+  license,
+}: {
+  label: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  license?: string;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-900">{name}</div>
+      {address && (
+        <div className="mt-0.5 whitespace-pre-line text-xs text-slate-600">{address}</div>
+      )}
+      {(phone || email) && (
+        <div className="mt-1 text-[11px] text-slate-500">
+          {phone}
+          {phone && email && " · "}
+          {email}
+        </div>
+      )}
+      {license && (
+        <div className="mt-0.5 text-[10px] text-slate-400">License #{license}</div>
+      )}
+    </div>
+  );
+}
+
+function SignatureBlock({ label, name }: { label: string; name?: string }) {
+  return (
+    <div className="mt-6">
+      <div className="border-b border-slate-400 pb-1" style={{ minHeight: "2.25rem" }} />
+      <div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
+        {label} · {name || "Signature"} · Date
+      </div>
+    </div>
+  );
+}
+
+function PrintStyles() {
+  return (
+    <style>{`
+      @media print {
+        @page { size: Letter; margin: 0.5in; }
+        html, body { background: white !important; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    `}</style>
+  );
+}

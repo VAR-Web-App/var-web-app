@@ -64,6 +64,60 @@ service cloud.firestore {
     match /contacts/{id}    { allow read, update, delete: if ownsByOrg(); allow create: if creatingForOwnOrg(); }
     match /distributors/{id}{ allow read, update, delete: if ownsByOrg(); allow create: if creatingForOwnOrg(); }
 
+    // Client sign links: PUBLIC collection. A random token serves as the
+    // doc ID; whoever has the token (the homeowner the GC emailed) can
+    // read the proposal contents and sign it without an account.
+    //
+    // - allow read: public (the trust boundary is the unguessable token)
+    // - allow create: only by an authed GC for their own org
+    // - allow update: ONLY to write the signature fields; everything else
+    //   stays a frozen snapshot. Either:
+    //     (a) the public client adds signed_by_name/signed_at, OR
+    //     (b) the authed GC marks synced_to_deal once they've picked up
+    //         the signature into the deal record.
+    match /client_sign_links/{token} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.token == token
+        && request.resource.data.org_ref == callerOrgRef();
+      allow update: if (
+        // Public client signing: only signature fields touched, doc was
+        // not previously signed (anti-tamper).
+        resource.data.signed_at == null
+        && request.resource.data.signed_at is string
+        && request.resource.data.signed_by_name is string
+        && request.resource.data.deal_ref == resource.data.deal_ref
+        && request.resource.data.org_ref == resource.data.org_ref
+        && request.resource.data.token == resource.data.token
+        && request.resource.data.contract_amount == resource.data.contract_amount
+      ) || (
+        // GC sync flag (authed): flips synced_to_deal after pulling the
+        // signature into the deal record.
+        request.auth != null
+        && resource.data.org_ref == callerOrgRef()
+      );
+      // Once signed, no deletion (audit trail).
+      allow delete: if request.auth != null
+        && resource.data.org_ref == callerOrgRef()
+        && resource.data.signed_at == null;
+    }
+
+    // Sub schedule links: PUBLIC collection, same trust model as
+    // client_sign_links. The token (doc ID) is the trust boundary — a
+    // sub opens /s/{token} from their schedule text with no account.
+    // The doc holds a read-only snapshot of that sub's assignments.
+    //
+    // - allow read: public
+    // - allow create/update/delete: only the authed builder, own org
+    match /sub_schedule_links/{token} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.token == token
+        && request.resource.data.org_ref == callerOrgRef();
+      allow update, delete: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
+    }
+
     // Settings: keyed by org_ref directly. Each user can only access their
     // own org's settings doc.
     match /settings/{orgRef} {
@@ -88,6 +142,66 @@ service cloud.firestore {
     // org-scoped queries without a parent fetch, but the rules check the
     // parent deal as the source of truth.
     match /quote_lines/{lineId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
+    // Project milestones (Builder vertical): one milestone per draw.
+    // Same gate-on-parent-deal pattern as quote_lines / attachments.
+    match /project_milestones/{msId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
+    // Project photos (Builder vertical): phase-tagged build photos.
+    match /project_photos/{photoId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
+    // Project RFQs (Builder vertical): subcontractor bid requests.
+    match /project_rfqs/{rfqId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
+    // Sub acknowledgments: written ONLY by the server (admin SDK) after
+    // /api/sub/acknowledge validates the token. The GC reads them to
+    // surface "sub confirmed" / "sub flagged a conflict" badges. No
+    // client write path — admin SDK bypasses these rules.
+    match /sub_acknowledgments/{ackId} {
+      allow read: if request.auth != null
+                  && resource.data.org_ref == callerOrgRef();
+      allow write: if false;
+    }
+
+    // Project change orders (Builder vertical): scope/cost changes
+    // during construction with client approval.
+    match /project_change_orders/{coId} {
       function dealOrg() {
         return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
       }

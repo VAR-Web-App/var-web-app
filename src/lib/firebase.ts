@@ -6,7 +6,14 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -18,12 +25,37 @@ const firebaseConfig = {
 };
 
 let app: FirebaseApp;
+let firestoreInitialized = false;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApps()[0];
+  // If the app already exists, getFirestore was probably already called too
+  // (Next.js fast-refresh path). Skip the initializeFirestore() call —
+  // calling it twice throws.
+  firestoreInitialized = true;
 }
 
+// ignoreUndefinedProperties: true makes setDoc/updateDoc silently drop any
+// fields whose value is undefined, instead of throwing 'Unsupported field
+// value: undefined'. We have several optional fields on Deal/Account that
+// are typed as `T | undefined`, and without this flag every create would
+// fail unless callers explicitly stripped undefined keys.
+//
+// localCache: persistentLocalCache enables IndexedDB-backed offline
+// persistence. Recent reads stay in cache; writes queue locally and
+// replay when network returns. persistentMultipleTabManager keeps
+// the cache coherent across multiple browser tabs of the same app.
+// Defaults to 100 MB cache — plenty for one builder's project history.
+export const db: Firestore = firestoreInitialized
+  ? getFirestore(app)
+  : initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+
 export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
+export const storage: FirebaseStorage = getStorage(app);
 export { app };

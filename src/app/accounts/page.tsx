@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import Tooltip from "@/components/tooltip";
 import { Account } from "@/types";
 import { listAccounts, saveAccount, deleteAccount, newId } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -25,12 +26,12 @@ export default function AccountsPage() {
   function startNew() {
     if (!profile) return;
     setEditing({
-      id: newId("acc"),
+      id: newId("client"),
       name: "",
-      type: "federal",
+      type: "commercial",   // builders default to private clients
       contract_vehicles: [],
       ship_to_addresses: [],
-      payment_terms: "Net 30",
+      payment_terms: "Per draw schedule",
       notes: "",
       org_ref: profile.org_ref,
     });
@@ -44,36 +45,44 @@ export default function AccountsPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this account?")) return;
+    if (!confirm("Delete this client?")) return;
     await deleteAccount(id);
     await refresh();
   }
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Accounts</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Federal agencies, state agencies, and commercial buyers — the customers your deals are tied to.
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Clients</h1>
+          <p className="mt-1 hidden text-sm text-slate-500 md:block">
+            Homeowners, developers, and other clients tied to your projects.
           </p>
         </div>
-        <button
-          onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        <Tooltip
+          variant="directive"
+          label="Add a new client (homeowner, developer, or other party who owns the project). You'll be able to pick them when starting a new project."
+          placement="left"
         >
-          <PlusIcon className="h-4 w-4" />
-          New Account
-        </button>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800 sm:px-4"
+          >
+            <PlusIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">New Client</span>
+            <span className="sm:hidden">New</span>
+          </button>
+        </Tooltip>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Desktop table */}
+      <section className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Type</th>
-              <th className="px-4 py-3 text-left">Contract Vehicles</th>
+              <th className="px-4 py-3 text-left">Notes</th>
               <th className="px-4 py-3 text-left">Payment Terms</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -83,7 +92,7 @@ export default function AccountsPage() {
               <tr key={a.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-900">{a.name}</td>
                 <td className="px-4 py-3 text-xs text-slate-700">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 capitalize">{a.type}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 capitalize">{clientTypeLabel(a.type)}</span>
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-700">
                   {a.contract_vehicles.length > 0 ? a.contract_vehicles.join(", ") : "—"}
@@ -93,7 +102,7 @@ export default function AccountsPage() {
                   <div className="flex justify-end gap-1">
                     <button
                       onClick={() => setEditing(a)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                      className="text-xs font-medium text-sky-700 hover:text-sky-800"
                     >
                       Edit
                     </button>
@@ -110,7 +119,7 @@ export default function AccountsPage() {
             {accounts.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                  No accounts yet. Click <span className="text-blue-600">New Account</span> above.
+                  No clients yet. Click <span className="text-sky-700">New Client</span> above.
                 </td>
               </tr>
             )}
@@ -118,42 +127,92 @@ export default function AccountsPage() {
         </table>
       </section>
 
+      {/* Mobile card list */}
+      <section className="space-y-2 md:hidden">
+        {accounts.length === 0 ? (
+          <p className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
+            No clients yet.
+          </p>
+        ) : (
+          accounts.map((a) => (
+            <div
+              key={a.id}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900">{a.name}</p>
+                  <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
+                    {clientTypeLabel(a.type)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onDelete(a.id)}
+                  aria-label="Delete"
+                  className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+              {a.payment_terms && (
+                <p className="mt-2 text-xs text-slate-600">
+                  Terms: {a.payment_terms}
+                </p>
+              )}
+              {a.contract_vehicles.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {a.contract_vehicles.join(", ")}
+                </p>
+              )}
+              <div className="mt-3">
+                <button
+                  onClick={() => setEditing(a)}
+                  className="text-xs font-medium text-sky-700 hover:text-sky-800"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+
       {editing && (
-        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Account" : "New Account"}>
+        <Modal onClose={() => setEditing(null)} title={editing.name ? "Edit Client" : "New Client"}>
           <div className="space-y-4">
             <Input
-              label="Name"
+              label="Client name"
               required
               value={editing.name}
               onChange={(v) => setEditing({ ...editing, name: v })}
-              placeholder="e.g. Department of Sample Administration"
+              placeholder="e.g. Maddox Family"
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField
-                label="Type"
+                label="Client type"
                 value={editing.type}
                 onChange={(v) => setEditing({ ...editing, type: v as Account["type"] })}
                 options={[
-                  { value: "federal", label: "Federal" },
-                  { value: "state", label: "State" },
-                  { value: "commercial", label: "Commercial" },
+                  { value: "commercial", label: "Homeowner" },
+                  { value: "federal", label: "Developer / Investor" },
+                  { value: "state", label: "General Contractor (sub work)" },
                 ]}
               />
               <Input
                 label="Payment terms"
                 value={editing.payment_terms}
                 onChange={(v) => setEditing({ ...editing, payment_terms: v })}
-                placeholder="Net 30"
+                placeholder="Per draw schedule"
               />
             </div>
             <Input
-              label="Contract vehicles (comma-separated)"
+              label="Notes / referrals (comma-separated)"
               value={editing.contract_vehicles.join(", ")}
               onChange={(v) => setEditing({ ...editing, contract_vehicles: v.split(",").map((x) => x.trim()).filter(Boolean) })}
-              placeholder="GSA Schedule 70, MAS IT"
+              placeholder="Architect referral — Smith Designs"
             />
             <TextArea
-              label="Ship-to addresses (one per line)"
+              label="Project addresses (one per line, blank line between)"
               value={editing.ship_to_addresses.join("\n\n")}
               onChange={(v) => setEditing({ ...editing, ship_to_addresses: v.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean) })}
             />
@@ -170,6 +229,13 @@ export default function AccountsPage() {
   );
 }
 
+// Builder rebrand: federal/state/commercial keys are reused as
+// homeowner/developer/builder labels until we change the underlying
+// type union (kept stable so store + parsers don't break).
+function clientTypeLabel(t: Account["type"]): string {
+  return t === "commercial" ? "Homeowner" : t === "federal" ? "Developer" : "General Contractor";
+}
+
 // ── shared form components ────────────────────────────────────────
 
 export function Modal({
@@ -182,15 +248,18 @@ export function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-slate-200 px-6 py-4">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-4 py-4 sm:px-6">{children}</div>
       </div>
     </div>
   );
@@ -207,7 +276,7 @@ export function ModalFooter({ onCancel, onSave }: { onCancel: () => void; onSave
       </button>
       <button
         onClick={onSave}
-        className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
       >
         Save
       </button>
@@ -241,7 +310,7 @@ export function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       />
     </div>
   );
@@ -265,7 +334,7 @@ export function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       />
     </div>
   );
@@ -288,7 +357,7 @@ export function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

@@ -58,15 +58,15 @@ export default function DemoSampleDealPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Demo banner */}
-      <div className="border-b border-amber-200 bg-amber-50">
+      <div className="border-b border-sky-200 bg-sky-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3 text-sm">
-          <span className="text-amber-900">
+          <span className="text-sky-900">
             <span className="font-semibold">Demo deal</span> — read-only walkthrough.
             Sign up to drop in your own docs.
           </span>
           <Link
             href="/login"
-            className="inline-flex items-center gap-1 rounded-md bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+            className="inline-flex items-center gap-1 rounded-md bg-sky-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
           >
             Get started
             <ArrowRightIcon className="h-3 w-3" />
@@ -280,10 +280,10 @@ function ComparisonCard({ comparison }: { comparison: ReturnType<typeof compareB
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-amber-200 bg-amber-50 px-6 py-4">
+      <div className="border-b border-sky-200 bg-sky-50 px-6 py-4">
         <div className="flex flex-wrap items-baseline justify-between gap-4">
           <div className="flex items-center gap-3">
-            <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-amber-600" />
+            <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-sky-600" />
             <div>
               <h2 className="text-sm font-semibold text-slate-900">
                 {totalIssues} discrepanc{totalIssues === 1 ? "y" : "ies"}
@@ -328,7 +328,7 @@ function ComparisonCard({ comparison }: { comparison: ReturnType<typeof compareB
               if (priceChanged) labels.push("Price Δ");
               const dColor = extDelta > 0 ? "text-emerald-700" : "text-red-700";
               return (
-                <tr key={i} className="bg-amber-50/30">
+                <tr key={i} className="bg-sky-50/30">
                   <td className="px-4 py-3 align-top">
                     <div className="font-mono text-xs text-slate-900">{row.part_number}</div>
                     <div className="mt-0.5 text-xs text-slate-500">{row.award.description}</div>
@@ -342,7 +342,7 @@ function ComparisonCard({ comparison }: { comparison: ReturnType<typeof compareB
                     <div className="text-[11px] text-slate-500">= {fmtMoney(row.award.extended_price)}</div>
                   </td>
                   <td className="px-4 py-3 align-top text-xs">
-                    <div className="font-medium text-amber-900">{labels.join(" + ")}</div>
+                    <div className="font-medium text-sky-900">{labels.join(" + ")}</div>
                     {Math.abs(extDelta) > 0.01 && (
                       <div className={`tabular-nums ${dColor}`}>
                         {fmtDelta(extDelta)} on this line
@@ -353,7 +353,7 @@ function ComparisonCard({ comparison }: { comparison: ReturnType<typeof compareB
               );
             })}
             {comparison.only_in_quote.map((line, i) => (
-              <tr key={`q${i}`} className="bg-amber-50/30">
+              <tr key={`q${i}`} className="bg-sky-50/30">
                 <td className="px-4 py-3 align-top">
                   <div className="font-mono text-xs text-slate-900">{line.part_number}</div>
                   <div className="mt-0.5 text-xs text-slate-500">{line.description}</div>
@@ -364,7 +364,7 @@ function ComparisonCard({ comparison }: { comparison: ReturnType<typeof compareB
                 </td>
                 <td className="px-4 py-3 text-right align-top text-xs italic text-slate-400">—</td>
                 <td className="px-4 py-3 align-top text-xs">
-                  <div className="font-medium text-amber-900">Only in quote</div>
+                  <div className="font-medium text-sky-900">Only in quote</div>
                   <div className="text-slate-500">customer dropped from award</div>
                 </td>
               </tr>
