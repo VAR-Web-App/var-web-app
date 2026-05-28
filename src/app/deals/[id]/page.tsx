@@ -109,7 +109,7 @@ export default function DealOverviewPage({
           <DealMetadataCard deal={deal} stageColor={stage?.color ?? ""} />
           <NotesCard
             deal={deal}
-            onUpdate={(notes) => void updateDeal({ notes })}
+            onUpdate={(notes) => updateDeal({ notes })}
           />
         </div>
       </div>
@@ -197,43 +197,70 @@ function NotesCard({
   onUpdate,
 }: {
   deal: Deal;
-  onUpdate: (notes: string) => void;
+  onUpdate: (notes: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(deal.notes);
-  useEffect(() => setDraft(deal.notes), [deal.notes]);
+  const [draft, setDraft] = useState(deal.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Re-sync draft from server only when we're NOT in the middle of an
+  // edit — otherwise the user's in-progress typing gets stomped if any
+  // other field on the deal updates and re-fires the parent's
+  // useEffect (e.g. the sign-link auto-advance).
+  useEffect(() => {
+    if (!editing) setDraft(deal.notes ?? "");
+  }, [deal.notes, editing]);
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onUpdate(draft);
+      setEditing(false);
+      setSavedAt(Date.now());
+      window.setTimeout(() => setSavedAt(null), 2200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <h2 className="text-sm font-semibold text-slate-900">Notes</h2>
         {editing ? (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                setDraft(deal.notes);
+                setDraft(deal.notes ?? "");
                 setEditing(false);
               }}
-              className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              disabled={saving}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              onClick={() => {
-                onUpdate(draft);
-                setEditing(false);
-              }}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+              onClick={() => void save()}
+              disabled={saving}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
             >
-              Save
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs font-medium text-blue-600 hover:text-blue-700"
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            {savedAt && (
+              <span className="text-xs text-emerald-600">✓ Saved</span>
+            )}
+            <button
+              onClick={() => setEditing(true)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              Edit
+            </button>
+          </div>
         )}
       </div>
       <div className="p-4 text-sm sm:p-6">
@@ -242,6 +269,7 @@ function NotesCard({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             className="block min-h-[100px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Brick: Dove White (selected 5/12). Front door: solid wood. …"
           />
         ) : (
           <p className="whitespace-pre-line text-slate-700">

@@ -844,7 +844,7 @@ function SignatureBlock({
             className="italic text-slate-900"
             style={{ fontFamily: "Brush Script MT, cursive", fontSize: "1.5rem" }}
           >
-            /s/ {signature}
+            {signature}
           </span>
         )}
         {signedAt && (
