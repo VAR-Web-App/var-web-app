@@ -795,7 +795,7 @@ function ApplyChoiceModal({
           >
             Replace plan output
             <span className="block text-xs font-normal text-sky-100">
-              Swap out the previous extraction&apos;s {noun} and assemblies for the new ones. Your manual edits, RFQ-won bids, and 1build-priced lines are kept.
+              Swap out the previous extraction&apos;s {noun} and assemblies for the new ones. Anything you&apos;ve hand-edited or accepted from sub bids is kept.
             </span>
           </button>
           <button

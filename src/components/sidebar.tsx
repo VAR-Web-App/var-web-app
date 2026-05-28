@@ -13,10 +13,12 @@ import {
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   XMarkIcon,
+  InboxIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import Tooltip from "@/components/tooltip";
+import { useInboxCount } from "@/lib/use-inbox-count";
 
 interface NavItem {
   href: string;
@@ -30,6 +32,12 @@ interface NavItem {
 // labels and icons. Routes will be aliased once /projects + /clients
 // land. For now Pipeline still routes to /deals.
 const NAV: NavItem[] = [
+  {
+    href: "/inbox",
+    label: "Inbox",
+    icon: InboxIcon,
+    hint: "Things waiting on you — sub bids to award, draws pending client approval, change orders out for signature. One screen, every project.",
+  },
   {
     href: "/deals",
     label: "Projects",
@@ -80,6 +88,10 @@ export default function Sidebar({
   const pathname = usePathname();
   const { profile, logout } = useAuth();
   const router = useRouter();
+  // Live count of unattended items across all projects — drives the
+  // pill on the Inbox nav row. Hook re-queries every couple minutes,
+  // so the badge stays roughly current without manual refresh.
+  const inboxCount = useInboxCount(profile?.org_ref);
 
   // Auto-close the mobile drawer on route change. Without this, tapping
   // a nav item navigates but leaves the drawer covering the new page.
@@ -179,7 +191,15 @@ export default function Sidebar({
                 }`}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.href === "/inbox" && inboxCount > 0 && (
+                  <span
+                    className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold text-slate-900"
+                    aria-label={`${inboxCount} items needing attention`}
+                  >
+                    {inboxCount > 99 ? "99+" : inboxCount}
+                  </span>
+                )}
               </Link>
             </Tooltip>
           );
