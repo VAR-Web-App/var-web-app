@@ -154,6 +154,19 @@ export default function DrawRequestPage({
   const showCO = tpl.show_change_orders ?? true;
   const showSOV = tpl.show_schedule_of_values ?? true;
   const showOwnerSig = tpl.show_owner_signature ?? true;
+  const showNotary = tpl.show_notary_block ?? false;
+
+  // Retainage math — AIA G702 lines 5a, 5b, 5, 6, 7, 8, 9. When
+  // retainage % = 0, line 5/5a/5b are $0 and line 6 = line 4, line 8
+  // = line 4 - line 7. Materials-stored retainage (5b) is always 0
+  // until we track stored materials separately from work completed.
+  const retainagePct = tpl.retainage_percent ?? 0;
+  const retainageOnCompleted = totalApproved * (retainagePct / 100);
+  const retainageOnStored = 0;
+  const totalRetainage = retainageOnCompleted + retainageOnStored;
+  const totalEarnedLessRetainage = totalApproved - totalRetainage;
+  const currentPaymentDue = Math.max(0, totalEarnedLessRetainage - previouslyPaid);
+  const balanceToFinishWithRetainage = contractValue - totalEarnedLessRetainage;
 
   async function pushToQuickBooks() {
     if (!deal || !thisMs) return;
@@ -387,30 +400,73 @@ export default function DrawRequestPage({
             </section>
           )}
 
-          {/* Summary box (the bank's eyes go here first). Mirrors AIA G702
-             Application & Certificate for Payment line numbering. */}
-          <section className="mt-6 grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm sm:grid-cols-4">
-            <SummaryStat label="Original Contract Sum" value={fmtMoney(baseContract)} />
-            <SummaryStat
-              label="Net Change by COs"
-              value={`${approvedCoTotal >= 0 ? "+" : "−"}${fmtMoney(Math.abs(approvedCoTotal))}`}
-            />
-            <SummaryStat label="Contract Sum to Date" value={fmtMoney(contractValue)} accent />
-            <SummaryStat label="Total Completed To Date" value={fmtMoney(totalApproved)} />
-            <SummaryStat label="Less Previous Payments" value={fmtMoney(previouslyPaid)} />
-            <SummaryStat
-              label="This Draw Request"
-              value={fmtMoney(thisRequest)}
-              accent
-            />
-            <SummaryStat label="Project Completion" value={`${completionPercent.toFixed(1)}%`} />
-            <SummaryStat
-              label="Balance to Finish"
-              value={fmtMoney(remaining)}
-            />
-            <SummaryStat label="Phase" value={thisMs.name} />
-            <SummaryStat label="Status" value={MILESTONE_STATUS_LABELS[thisMs.status]} />
-          </section>
+          {/* Summary box — full AIA G702 9-line format in AIA mode, with
+             retainage split when retainage % is configured. Simple mode
+             gets a smaller 4-stat snapshot. */}
+          {template === "aia" ? (
+            <section className="mt-6 overflow-hidden rounded-lg border border-slate-300 bg-white">
+              <header className="border-b border-slate-300 bg-slate-50 px-4 py-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Application & Certificate for Payment
+                </h2>
+                <p className="mt-0.5 text-[10px] text-slate-500">
+                  Per AIA Document G702
+                </p>
+              </header>
+              <table className="min-w-full text-xs">
+                <tbody className="divide-y divide-slate-200">
+                  <G702Line n="1" label="Original Contract Sum" value={baseContract} />
+                  <G702Line n="2" label="Net Change by Change Orders" value={approvedCoTotal} signed />
+                  <G702Line n="3" label="Contract Sum to Date (Line 1 ± 2)" value={contractValue} bold />
+                  <G702Line n="4" label="Total Completed & Stored to Date" value={totalApproved} />
+                  <G702Line
+                    n="5a"
+                    label={`Retainage on Completed Work (${retainagePct || 0}% of Line 4)`}
+                    value={retainageOnCompleted}
+                  />
+                  <G702Line
+                    n="5b"
+                    label="Retainage on Stored Materials"
+                    value={retainageOnStored}
+                  />
+                  <G702Line n="5" label="Total Retainage" value={totalRetainage} bold />
+                  <G702Line
+                    n="6"
+                    label="Total Earned Less Retainage (Line 4 − 5)"
+                    value={totalEarnedLessRetainage}
+                    bold
+                  />
+                  <G702Line
+                    n="7"
+                    label="Less Previous Certificates for Payment"
+                    value={previouslyPaid}
+                  />
+                  <G702Line
+                    n="8"
+                    label="CURRENT PAYMENT DUE (Line 6 − 7)"
+                    value={currentPaymentDue}
+                    accent
+                  />
+                  <G702Line
+                    n="9"
+                    label="Balance to Finish Including Retainage"
+                    value={balanceToFinishWithRetainage}
+                  />
+                </tbody>
+              </table>
+              <footer className="border-t border-slate-300 bg-slate-50 px-4 py-2 text-[10px] text-slate-500">
+                Project: {completionPercent.toFixed(1)}% complete · This phase: {thisMs.name} ·
+                Status: {MILESTONE_STATUS_LABELS[thisMs.status]}
+              </footer>
+            </section>
+          ) : (
+            <section className="mt-6 grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm sm:grid-cols-4">
+              <SummaryStat label="Contract Total" value={fmtMoney(contractValue)} />
+              <SummaryStat label="Previously Paid" value={fmtMoney(previouslyPaid)} />
+              <SummaryStat label="This Invoice" value={fmtMoney(thisRequest)} accent />
+              <SummaryStat label="Balance After" value={fmtMoney(remaining)} />
+            </section>
+          )}
 
           {/* Approved Change Orders summary — included if any. AIA only;
              simple invoice rolls COs into the contract total instead.
@@ -609,6 +665,7 @@ export default function DrawRequestPage({
                     `The undersigned Contractor certifies that to the best of the Contractor's knowledge, information, and belief, the Work covered by this Application for Payment has been completed in accordance with the Contract Documents, that all amounts have been paid by the Contractor for Work for which previous Certificates for Payment were issued, and that current payment shown herein is now due.`}
                 </p>
                 <SignatureBlock label="Contractor" name={settings?.prepared_by_name || settings?.company_name} />
+                {showNotary && <NotaryBlock />}
               </div>
               {showOwnerSig && (
                 <div>
@@ -696,6 +753,51 @@ function Party({
   );
 }
 
+function G702Line({
+  n,
+  label,
+  value,
+  signed,
+  bold,
+  accent,
+}: {
+  n: string;
+  label: string;
+  value: number;
+  signed?: boolean;
+  bold?: boolean;
+  accent?: boolean;
+}) {
+  // One row of the official AIA G702 9-line summary. Number column +
+  // label + right-aligned dollar amount. `signed` shows ± for the
+  // change-order delta; `bold` emphasizes the major subtotals
+  // (Lines 3, 5, 6); `accent` colors Line 8 (Current Payment Due).
+  const formatted = signed
+    ? `${value >= 0 ? "+" : "−"}${fmtMoney(Math.abs(value))}`
+    : fmtMoney(value);
+  return (
+    <tr className={accent ? "bg-sky-50" : undefined}>
+      <td className="w-10 px-3 py-1.5 text-center font-mono text-[11px] text-slate-500">
+        {n}
+      </td>
+      <td
+        className={`px-3 py-1.5 ${
+          bold || accent ? "font-semibold" : ""
+        } ${accent ? "text-sky-900" : "text-slate-700"}`}
+      >
+        {label}
+      </td>
+      <td
+        className={`px-3 py-1.5 text-right tabular-nums ${
+          bold || accent ? "font-bold" : ""
+        } ${accent ? "text-sky-700" : "text-slate-900"}`}
+      >
+        {formatted}
+      </td>
+    </tr>
+  );
+}
+
 function SummaryStat({
   label,
   value,
@@ -753,6 +855,49 @@ function SignatureBlock({
       </div>
       <div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
         {label} · {name || "Signature"} · Date
+      </div>
+    </div>
+  );
+}
+
+function NotaryBlock() {
+  // Standard "subscribed and sworn" jurat. State / County / Day blanks
+  // are ink-only — the notary fills them in at signing. Banks and
+  // title companies rely on this block to treat the pay app as a
+  // sworn statement (separate from the contractor's signature line
+  // above). The actual seal goes in the box on the right.
+  return (
+    <div className="mt-6 border border-slate-300 p-3 text-[10px] leading-relaxed text-slate-700">
+      <div className="font-semibold uppercase tracking-wider text-slate-900">
+        Notary Acknowledgement
+      </div>
+      <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-3">
+        <div>
+          <p>
+            State of <span className="inline-block min-w-[6rem] border-b border-slate-400">&nbsp;</span>,
+            County of <span className="inline-block min-w-[6rem] border-b border-slate-400">&nbsp;</span>
+          </p>
+          <p className="mt-1.5">
+            Subscribed and sworn to before me this{" "}
+            <span className="inline-block min-w-[2.5rem] border-b border-slate-400">&nbsp;</span>{" "}
+            day of{" "}
+            <span className="inline-block min-w-[6rem] border-b border-slate-400">&nbsp;</span>,{" "}
+            20<span className="inline-block min-w-[2rem] border-b border-slate-400">&nbsp;</span>.
+          </p>
+          <p className="mt-3">
+            Notary Public:{" "}
+            <span className="inline-block min-w-[10rem] border-b border-slate-400">&nbsp;</span>
+          </p>
+          <p className="mt-1">
+            My commission expires:{" "}
+            <span className="inline-block min-w-[6rem] border-b border-slate-400">&nbsp;</span>
+          </p>
+        </div>
+        <div className="flex items-center justify-center border border-dashed border-slate-300 px-3 py-2 text-center text-[9px] uppercase tracking-wider text-slate-400">
+          Notary
+          <br />
+          Seal
+        </div>
       </div>
     </div>
   );

@@ -417,6 +417,26 @@ export interface OrgSettings {
     show_schedule_of_values?: boolean;
     show_owner_signature?: boolean;
     show_subs_on_phase?: boolean;
+    /**
+     * Retainage withheld per draw, as a percent (e.g. 10 = 10%). 0 or
+     * absent = retainage disabled (current behavior). When set, the AIA
+     * template renders the proper 9-line G702 numbering including 5a
+     * (Retainage on Completed Work), 5b (Retainage on Stored Materials),
+     * and a Total Retainage line, plus a retainage column on the
+     * Schedule of Values. The "Current Payment Due" is reduced by this
+     * draw's retainage portion. Residential construction lenders
+     * typically hold 5-10%, sometimes reducing at 50% complete.
+     */
+    retainage_percent?: number;
+    /**
+     * Render the notary "subscribed and sworn" block under the
+     * contractor's signature. Some banks (and most title companies)
+     * treat the pay application as a sworn statement and require this.
+     * Off by default — the contractor still has to actually get it
+     * notarized for the seal to mean anything, so we don't add the
+     * block unless the builder explicitly enables it.
+     */
+    show_notary_block?: boolean;
   };
 }
 

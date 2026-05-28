@@ -268,6 +268,28 @@ function InvoiceTemplateEditor({
           <Toggle label="Approved change orders" checked={showCO} onChange={(c) => patch({ show_change_orders: c })} />
           <Toggle label="Schedule of values (AIA)" checked={showSOV} onChange={(c) => patch({ show_schedule_of_values: c })} />
           <Toggle label="Owner's approval signature" checked={showOwner} onChange={(c) => patch({ show_owner_signature: c })} />
+          <Toggle
+            label="Notary block (AIA, sworn pay app)"
+            checked={v.show_notary_block ?? false}
+            onChange={(c) => patch({ show_notary_block: c })}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Input
+          type="number"
+          label="Retainage % (lender hold-back per draw)"
+          value={String(v.retainage_percent ?? 0)}
+          onChange={(val) =>
+            patch({ retainage_percent: Math.max(0, Math.min(100, parseFloat(val) || 0)) })
+          }
+        />
+        <div className="text-[11px] leading-relaxed text-slate-500 sm:pt-7">
+          Set 0 to disable. 10% is the residential standard. When set,
+          the AIA invoice renders the full G702 9-line summary with
+          retainage split (5a / 5b) and reduces the &ldquo;Current Payment
+          Due&rdquo; by this draw&apos;s retainage portion.
         </div>
       </div>
     </div>
