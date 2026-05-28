@@ -300,7 +300,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: '3/4" T&G subfloor, 4×8 sheet',
         uom: "SHEET",
-        quantityFormula: "{Floor Length} * {Floor Width} / 32",
+        // 1.10 waste factor — sheets get ripped at stair openings,
+        // mech room platforms, plumbing chases, and the perimeter
+        // band where the floor rectangle meets the joist layout.
+        // Cnadd cross-check showed the previous no-waste formula
+        // was shorting both floors against the architect's count.
+        quantityFormula: "{Floor Length} * {Floor Width} / 32 * 1.10",
         unitCostUsd: 52.0,
         laborCostUsd: 9.0,
         csiDivision: "06",
