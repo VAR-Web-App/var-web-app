@@ -43,6 +43,8 @@ Output JSON ONLY (no prose, no markdown fences). Schema:
   "footprint_dimensions": string | null,         // overall building envelope L×W including porches/garage/overhangs (see FOOTPRINT RULES)
   "conditioned_footprint_dimensions": string | null,  // heated/cooled first-floor footprint ONLY, excludes porch+garage (see FOOTPRINT RULES)
   "roof_area_sqft": number | null,               // total roof finish area in SF if directly labeled; null if not printed
+  "roof_type": "gable" | "hip" | "gable+hip" | "complex" | null,  // see ROOF RULES
+  "roof_pitch_in_12": number | null,             // primary pitch rise (e.g. 8 for "8/12"); null if multiple major pitches or unreadable
   "max_ridge_height": string | null,             // e.g. "34'-0\""
   "stories": number | null,
   "foundation_type": string | null,              // "crawl", "slab", "basement", etc.
@@ -114,7 +116,14 @@ If the plan has a door schedule, READ IT — schedules are the most reliable cou
 
 pocket_doors_estimated counts ONLY pocket / sliding-into-wall doors. Subset of interior_doors_estimated. Pocket doors are common in custom homes (8-15 each) — usually pantry, master bath, walk-in closet, ensuite entry. If the door schedule annotates them ("P" or "POCKET"), count those. If no schedule callout is visible, return null and note in ambiguity_notes rather than estimating.
 
-windows_estimated counts individual window units (including each window in a "ganged" pair if they're separate sashes). Typical residential homes have 15–40 windows; if you see significantly more, double-check that you're counting units and not panes within mullioned windows.
+windows_estimated counts individual window units. Typical residential homes have 15-50 windows; custom 5,000+ SF plans can exceed 60. Count rules:
+
+- COUNT EACH unit in a "ganged" group as a separate window. Architect schedules use shorthand like "(2) 2'-8" × 5'-0"" or "[3] 36×72 CASEMENT" — the parenthetical number is the quantity to use; that callout represents 2 or 3 separate window units that you should add to the total. DO NOT count it as 1 window.
+- COUNT separate sashes within a bay or bow window assembly (typical bay = 3 sashes; count as 3).
+- DO NOT count individual panes within a single mullioned sash (a single window with 6 grilles is 1 window, not 6).
+- DO NOT count transom or sidelite glass at exterior doors as windows — those are part of the door unit.
+- DO read the window schedule (every plan set has one) — the total at the bottom or right side of the schedule is your most reliable number. If totals are printed there, prefer them over your own count.
+- If you find yourself returning fewer than 15 on a 3+ bedroom custom plan, double-check the schedule for grouped callouts you may have read as 1.
 
 FOOTPRINT RULES — getting these two fields right matters a lot, because downstream math splits framing scope (which uses conditioned area) from roof/siding scope (which uses overall envelope).
 
@@ -125,7 +134,20 @@ conditioned_footprint_dimensions = the FIRST-FLOOR HEATED/COOLED area only. Leng
 When both are equal: the building has no attached porch or garage; both fields can carry the same value.
 When you only have one: prefer to return BOTH (with the same value) rather than null, unless the difference is meaningful and you genuinely can't read the other.
 
-roof_area_sqft = total roof finish area (shingle/metal panel coverage area) ONLY when the plan explicitly labels it. Many plan sets print this on the roof plan or in a roof finish schedule (e.g. "TOTAL ROOF AREA: 4,250 SF"). Do NOT calculate or estimate this from footprint × pitch — return null and let downstream do that. The point of this field is to capture a labeled value if one exists, so we use the architect's number rather than our calculated estimate.`;
+roof_area_sqft = total roof finish area (shingle/metal panel coverage area) ONLY when the plan explicitly labels it. Many plan sets print this on the roof plan or in a roof finish schedule (e.g. "TOTAL ROOF AREA: 4,250 SF"). Do NOT calculate or estimate this from footprint × pitch — return null and let downstream do that. The point of this field is to capture a labeled value if one exists, so we use the architect's number rather than our calculated estimate.
+
+ROOF RULES — these drive eave LF and gutter LF calculations downstream, so getting them right has real $ impact.
+
+roof_type classifies the primary roof shape from the roof plan or front/rear elevations:
+- "gable" — triangular wall ends; eaves run ONLY on the two long sides (typical simple builder roof). Pure gable has zero hip planes.
+- "hip" — all four sides slope; eaves run on EVERY side of the structure (typical southern / coastal residential look).
+- "gable+hip" — a mix of gable and hip planes (e.g. main house is hip but the garage or great room has a gable end). Common on custom plans.
+- "complex" — three or more distinct roof planes / multiple intersecting ridges / dormers / cross-gables / clipped gables. Custom architect plans often land here.
+- null — can't tell from the plan; downstream will assume "complex" as a safer default.
+
+roof_pitch_in_12 = the rise of the PRIMARY roof slope per 12 inches of run. Plan callouts show this as a small triangle with "8/12" or "10/12" labeled on it, usually on the elevation drawings or roof plan. Return the rise number only (the "8" or "10"). Common residential pitches: 4/12 (low), 6/12 (median), 8/12 (standard custom), 10/12 (steeper / Craftsman), 12/12 (very steep). Return null when:
+- Multiple major pitches dominate (e.g. 8/12 main + 4/12 porch — flag in ambiguity_notes which is primary)
+- The pitch isn't labeled on the elevations (don't guess from drawing geometry; null is fine)`;
 
 interface ExtractionResult {
   plan_name: string | null;
@@ -142,6 +164,8 @@ interface ExtractionResult {
   footprint_dimensions: string | null;
   conditioned_footprint_dimensions: string | null;
   roof_area_sqft: number | null;
+  roof_type: "gable" | "hip" | "gable+hip" | "complex" | null;
+  roof_pitch_in_12: number | null;
   max_ridge_height: string | null;
   stories: number | null;
   foundation_type: string | null;
