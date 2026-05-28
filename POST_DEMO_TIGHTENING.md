@@ -6,6 +6,39 @@ rounds we shipped on 2026-05-28. Use this as the post-Barry punch
 list. Each item has a priority based on dollar-impact on a typical
 custom-home estimate.
 
+## CRITICAL — auto-generate MEP + finishes + site work assemblies
+
+The converter (`instancesAndLinesFromPlan`) currently only generates
+the structural shell (foundation, framing, openings, roof, ceiling,
+gutters, paint, hardwood). The catalog HAS plumbing, electrical,
+HVAC, kitchen, bath, site work, septic, appliance assemblies — they
+just aren't called from the converter.
+
+Result: AI estimate sums to ~$265K on Maddox vs. $1.45M contract.
+Most of the gap is missing trade scope, not pricing accuracy.
+
+Auto-generate these in the converter (each is bedrooms / sqft /
+count-based, no new schema needed):
+
+- [ ] `stub-plumbing-rough` — whole-house plumbing (total fixture
+      count = baths × 3 + kitchen × 1 + laundry × 1)
+- [ ] `stub-electrical-whole-home` — service + circuits + fixtures
+      (drive off conditioned sqft + bedrooms)
+- [ ] `stub-hvac-ducted` — single instance per system; size from
+      conditioned sqft (tonnage = sqft / 500)
+- [ ] `stub-kitchen-cabinetry` — one instance (linear feet from
+      kitchen room dimensions if surfaced, fallback to ~25 LF)
+- [ ] `stub-countertops` — kitchen + bath count, ~60 SF each
+- [ ] `stub-bath-suite` — one instance per full bath + half bath
+- [ ] `stub-appliance-allowance` — kitchen fixture count
+- [ ] `stub-site-work` — perimeter × clearing factor
+- [ ] `stub-septic-system` — only when foundation is rural / no
+      municipal sewer flagged
+
+Expected impact: estimate jumps from $265K → ~$900K-$1.1M, putting
+us in the right zone (the rest is GC overhead + profit + soft
+costs).
+
 ## High priority (worth tracking down)
 
 - [ ] **Second-floor joist count formula.** Architect spec on Maddox

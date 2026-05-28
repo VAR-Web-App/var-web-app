@@ -279,6 +279,7 @@ export default function ProposalPage({
             {canAccept && (
               <Tooltip
                 variant="directive"
+                placement="bottom"
                 label="Log that the client signed in person or over the phone. Captures a typed signature and advances the project from Estimate Sent → Contract Signed."
               >
                 <button
@@ -296,7 +297,7 @@ export default function ProposalPage({
                 Accepted
               </span>
             )}
-            <Tooltip label="Copy a public sign-and-accept link to your clipboard. The client opens it on any device — no login required.">
+            <Tooltip placement="bottom" label="Copy a public sign-and-accept link to your clipboard. The client opens it on any device — no login required.">
               <button
                 onClick={copyShareLink}
                 className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -307,6 +308,7 @@ export default function ProposalPage({
             </Tooltip>
             <Tooltip
               variant="directive"
+              placement="bottom"
               label="Open your email app with the proposal + sign link pre-filled. Edit the body before sending — your client can sign without an account."
             >
               <button
@@ -318,7 +320,7 @@ export default function ProposalPage({
                 {emailing ? "Preparing…" : "Email to client"}
               </button>
             </Tooltip>
-            <Tooltip label="Print or save the proposal as a PDF using your browser's native print dialog.">
+            <Tooltip placement="bottom" label="Print or save the proposal as a PDF using your browser's native print dialog.">
               <button
                 onClick={() => window.print()}
                 className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
