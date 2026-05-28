@@ -287,18 +287,41 @@ export function instancesFromPlan(
     (parsedFootprint ? parsedFootprint.length * parsedFootprint.width : null) ??
     (extraction.total_sqft ? extraction.total_sqft / stories : 1500);
 
-  // Always have a footprint — fall back to a 1.4:1 rectangle around
-  // first-floor sqft. Most residential plans land between 1.2:1 and 1.6:1
-  // (length:width) so this is a reasonable default. Without this fallback,
-  // roof/gutters/floor framing silently drop when extraction can't read
-  // the printed footprint string.
-  const footprint =
-    parsedFootprint ??
-    (() => {
-      const ratio = 1.4;
-      const width = Math.sqrt(firstFloorSqft / ratio);
-      return { length: width * ratio, width };
-    })();
+  // Overall building footprint = first-floor heated area + porch slab
+  // + garage pad. Same problem as the conditioned footprint: Claude's
+  // footprint_dimensions reading is volatile — Cnadd cross-check
+  // showed round 5 returning 295 LF perimeter and round 6 returning
+  // 369 LF perimeter on the SAME plan, which made roof/wall/sheathing
+  // quantities swing 64% between runs. Anchor area to the sum of the
+  // authoritative sqft numbers (first floor + porch + garage), use
+  // the parsed dimensions for the length:width RATIO only.
+  //
+  // When parsed area is within 20% of the expected envelope, trust
+  // it as-is (Claude got both length and width right). Otherwise
+  // re-derive the rectangle to match the expected area.
+  const expectedEnvelopeArea =
+    firstFloorSqft +
+    (extraction.porch_sqft ?? 0) +
+    (extraction.garage_sqft ?? 0);
+  const parsedEnvelopeArea = parsedFootprint
+    ? parsedFootprint.length * parsedFootprint.width
+    : null;
+  const envelopeAgrees =
+    parsedEnvelopeArea != null &&
+    expectedEnvelopeArea > 0 &&
+    Math.abs(parsedEnvelopeArea - expectedEnvelopeArea) /
+      expectedEnvelopeArea <
+      0.2;
+  const footprint = envelopeAgrees
+    ? parsedFootprint!
+    : (() => {
+        const ratio = parsedFootprint
+          ? parsedFootprint.length / parsedFootprint.width
+          : 1.4;
+        const safeArea = expectedEnvelopeArea > 0 ? expectedEnvelopeArea : firstFloorSqft;
+        const width = Math.sqrt(safeArea / ratio);
+        return { length: width * ratio, width };
+      })();
 
   const perimeter = 2 * (footprint.length + footprint.width);
 
@@ -609,20 +632,34 @@ export function instancesFromPlan(
   // approximates a 6/12 pitch + 5% eave buffer). Real geometry:
   //   pitch_factor = sqrt(1 + (rise/12)^2)
   // For 6/12: 1.118, 8/12: 1.20, 10/12: 1.30, 12/12: 1.41. Plus
-  // ~5-10% for eave overhangs. Scale Roof Run so the formula output
-  // lands at the correct roof area.
+  // ~10% for eave overhangs. Plus a roof-type bonus for complex
+  // roofs where dormers / valleys / cross-gables add area the bare
+  // footprint × pitch calc misses.
   //
-  // Default pitch is 8/12 — the de facto standard on custom plans
-  // (Maddox-class). 6/12 was rolling Roof Run BACKWARDS (scale 0.93)
-  // when Claude didn't surface a pitch, shorting Cnadd roof items
-  // 20-27% across the package. The 1.10 eave buffer captures the
-  // overhangs that extend past the building envelope on any roof —
-  // applied unconditionally because architect roof areas consistently
-  // run ~10% over the bare footprint × pitch calc, with or without
-  // porches in the envelope.
+  // Default pitch 8/12 = de facto modern custom standard.
+  // Roof-type bonuses calibrated against Cnadd architect spec on
+  // Maddox: anchored footprint × 1.65 lands at 248 sheets (exact).
+  // With pitch factor 1.20 and eave buffer 1.10, that's a 1.25
+  // bonus for "complex".
   const pitchForRoof = extraction.roof_pitch_in_12 ?? 8;
   const pitchFactorReal = Math.sqrt(1 + (pitchForRoof / 12) ** 2);
-  const targetRoofMultiplier = pitchFactorReal * 1.10;
+  let roofShapeBonus: number;
+  switch (roofType) {
+    case "gable":
+      roofShapeBonus = 1.0;
+      break;
+    case "hip":
+      roofShapeBonus = 1.05;
+      break;
+    case "gable+hip":
+      roofShapeBonus = 1.12;
+      break;
+    case "complex":
+    default:
+      roofShapeBonus = 1.25;
+      break;
+  }
+  const targetRoofMultiplier = pitchFactorReal * 1.10 * roofShapeBonus;
   const roofScaleFactor = targetRoofMultiplier / 1.20;
 
   if (extraction.roof_area_sqft && extraction.roof_area_sqft > 0) {
