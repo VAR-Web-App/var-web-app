@@ -175,7 +175,7 @@ export default function PlanExtractor({
   function pickFile(picked: File | null) {
     setError(null);
     // Don't wipe extraction here — re-upload should be an explicit action
-    // (the "Re-upload" button below) so the GC doesn't accidentally lose
+    // (the "Replace" button below) so the GC doesn't accidentally lose
     // their saved extraction by clicking the drop zone.
     setFile(picked);
   }
@@ -325,6 +325,22 @@ export default function PlanExtractor({
    */
   async function applyAssemblies() {
     if (!extraction) return;
+    // Apply appends, it doesn't replace. Warn the GC if this estimate
+    // already has line items so they don't end up with the plan applied
+    // twice (extracts × 2 lines). The "Replace" flow only swaps the
+    // extraction in-place; once Apply runs, the lines are committed and
+    // a re-apply will double them up.
+    const existing = await listQuoteLines(dealId);
+    if (existing.length > 0) {
+      const ok = confirm(
+        `This estimate already has ${existing.length} line item${
+          existing.length === 1 ? "" : "s"
+        }. Apply will ADD the plan's lines on top — it does not replace.\n\n` +
+          `If you've already applied this plan once and want to retry, delete the existing lines from the quote editor first.\n\n` +
+          `Continue anyway?`,
+      );
+      if (!ok) return;
+    }
     setApplyingMode("assemblies");
     setApplyProgress(0);
     setApplying(true);
@@ -389,6 +405,19 @@ export default function PlanExtractor({
 
   async function applyToEstimate() {
     if (!extraction) return;
+    // Same duplicate-apply guard as applyAssemblies — Apply appends,
+    // not replaces. Double-apply gives the GC two of every line.
+    const existing = await listQuoteLines(dealId);
+    if (existing.length > 0) {
+      const ok = confirm(
+        `This estimate already has ${existing.length} line item${
+          existing.length === 1 ? "" : "s"
+        }. Apply will ADD the plan's lines on top — it does not replace.\n\n` +
+          `If you've already applied this plan once and want to retry, delete the existing lines from the quote editor first.\n\n` +
+          `Continue anyway?`,
+      );
+      if (!ok) return;
+    }
     setApplyingMode("flat");
     setApplyProgress(0);
     setApplying(true);
@@ -638,8 +667,9 @@ function ExtractionResults({
         <button
           onClick={onReset}
           className="text-xs font-medium text-slate-500 hover:text-slate-700"
+          title="Replace this extraction with a new plan upload. Existing estimate lines (if you already applied) are not touched."
         >
-          Try another file
+          Replace
         </button>
       </div>
 
@@ -1091,7 +1121,7 @@ function round(n: number, places: number): number {
 // saved on the deal. Gives Barry an at-a-glance confirmation that work
 // is preserved, plus visibility into how many AI-flagged verifications
 // are still open. Click 'Show details' to expand into the full editor;
-// 'Re-upload' to replace with a new plan.
+// 'Replace' to swap in a new plan.
 function ExtractionSummary({
   extraction,
   unresolvedFlagCount,
@@ -1146,10 +1176,10 @@ function ExtractionSummary({
             type="button"
             onClick={onReupload}
             className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            title="Replace with a new plan"
+            title="Replace this extraction with a new plan upload. Existing estimate lines (if you already applied) are not touched."
           >
             <ArrowPathIcon className="h-3.5 w-3.5" />
-            Re-upload
+            Replace
           </button>
         </div>
       </div>
