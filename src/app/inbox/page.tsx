@@ -19,6 +19,8 @@ import {
   BanknotesIcon,
   DocumentCheckIcon,
   CheckCircleIcon,
+  CloudIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { useAuth } from "@/lib/auth-context";
@@ -37,13 +39,16 @@ import type {
 
 interface InboxItem {
   id: string;
-  kind: "bid" | "draw" | "co";
+  kind: "bid" | "draw" | "co" | "weather";
   dealId: string;
   dealName: string;
   title: string;
   subtitle: string;
   href: string;
   amount?: number;
+  /** Weather items are dismissable. Other kinds clear by action
+   *  (award the bid, sign the draw, approve the CO). */
+  dismissable?: boolean;
   // Lower = more urgent visually (used for sort + section ordering).
   priority: number;
 }
@@ -51,11 +56,51 @@ interface InboxItem {
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+const DISMISSED_KEY = "inbox.dismissed_alerts";
+
+function loadDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(set: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...set]));
+  } catch {
+    // localStorage full / disabled — silently ignore.
+  }
+}
+
 export default function InboxPage() {
   const { profile } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Dismissed alert IDs persist in localStorage so the user can clear
+  // a weather watch and have it stay cleared across reloads. Only
+  // weather items are dismissable today; bids / draws / COs clear
+  // automatically when the GC takes action.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setDismissed(loadDismissed());
+  }, []);
+
+  function dismiss(id: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveDismissed(next);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!profile?.org_ref) return;
@@ -175,6 +220,28 @@ export default function InboxPage() {
         }
       }
 
+      // 4. Weather watches — surface the demo override alerts so the
+      // GC sees them in the same place they see bids/draws/COs. Each
+      // is dismissable via the X button (state lives in localStorage).
+      // Live-forecast alerts can be added here later by querying the
+      // same Open-Meteo path the schedule banner uses; for now the
+      // demo_weather_alert override is the source of truth.
+      for (const d of deals) {
+        if (!d.demo_weather_alert) continue;
+        const id = `weather-${d.id}-${d.demo_weather_alert.date}`;
+        all.push({
+          id,
+          kind: "weather",
+          dealId: d.id,
+          dealName: d.name,
+          title: `Weather watch: ${d.demo_weather_alert.reason}`,
+          subtitle: `Forecast ${d.demo_weather_alert.date} • check the schedule for affected phases`,
+          href: `/deals/${d.id}/schedule`,
+          dismissable: true,
+          priority: 4,
+        });
+      }
+
       all.sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;
         return a.dealName.localeCompare(b.dealName);
@@ -213,7 +280,10 @@ export default function InboxPage() {
           </div>
           {loaded && (
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              {items.length} {items.length === 1 ? "item" : "items"}
+              {items.filter((i) => !dismissed.has(i.id)).length}{" "}
+              {items.filter((i) => !dismissed.has(i.id)).length === 1
+                ? "item"
+                : "items"}
             </span>
           )}
         </header>
@@ -235,56 +305,79 @@ export default function InboxPage() {
           </div>
         )}
 
-        {loaded && !loadError && items.length === 0 && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
-            <CheckCircleIcon className="mx-auto h-10 w-10 text-emerald-600" />
-            <h2 className="mt-3 text-base font-semibold text-emerald-900">
-              All clear
-            </h2>
-            <p className="mt-1 text-sm text-emerald-700">
-              No bids waiting to be awarded, no draws pending client signature,
-              no change orders out for approval. Get yourself a coffee.
-            </p>
-          </div>
-        )}
+        {(() => {
+          const visibleItems = items.filter((i) => !dismissed.has(i.id));
+          return (
+            <>
+              {loaded && !loadError && visibleItems.length === 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
+                  <CheckCircleIcon className="mx-auto h-10 w-10 text-emerald-600" />
+                  <h2 className="mt-3 text-base font-semibold text-emerald-900">
+                    All clear
+                  </h2>
+                  <p className="mt-1 text-sm text-emerald-700">
+                    No bids waiting to be awarded, no draws pending client
+                    signature, no change orders out for approval. Get
+                    yourself a coffee.
+                  </p>
+                </div>
+              )}
 
-        {loaded && items.length > 0 && (
-          <ul className="space-y-2">
-            {items.map((it) => (
-              <li key={it.id}>
-                <Link
-                  href={it.href}
-                  className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <KindIcon kind={it.kind} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="truncate text-sm font-semibold text-slate-900">
-                          {it.title}
-                        </p>
-                        <span className="shrink-0 text-xs text-slate-500">
-                          {it.dealName}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-600">
-                        {it.subtitle}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+              {loaded && visibleItems.length > 0 && (
+                <ul className="space-y-2">
+                  {visibleItems.map((it) => (
+                    <li key={it.id} className="relative">
+                      <Link
+                        href={it.href}
+                        className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow"
+                      >
+                        <div className="flex items-start gap-3">
+                          <KindIcon kind={it.kind} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline justify-between gap-3 pr-6">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {it.title}
+                              </p>
+                              <span className="shrink-0 text-xs text-slate-500">
+                                {it.dealName}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              {it.subtitle}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                      {it.dismissable && (
+                        <button
+                          type="button"
+                          aria-label="Dismiss"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            dismiss(it.id);
+                          }}
+                          className="absolute right-2 top-2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        >
+                          <XMarkIcon className="h-4 w-4" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-        {loaded && items.length > 0 && (
-          <footer className="mt-6 flex items-center gap-2 text-xs text-slate-500">
-            <InboxIcon className="h-4 w-4" />
-            Items clear automatically when you take action — award a bid,
-            sign a draw, approve a change order.
-          </footer>
-        )}
+              {loaded && visibleItems.length > 0 && (
+                <footer className="mt-6 flex items-center gap-2 text-xs text-slate-500">
+                  <InboxIcon className="h-4 w-4" />
+                  Items clear automatically when you take action — award a
+                  bid, sign a draw, approve a change order. Weather watches
+                  dismiss via the × button.
+                </footer>
+              )}
+            </>
+          );
+        })()}
       </div>
     </AppShell>
   );
@@ -292,7 +385,8 @@ export default function InboxPage() {
 
 function KindIcon({ kind }: { kind: InboxItem["kind"] }) {
   // Color-code by action category so the eye can scan: amber = bid
-  // (your decision), sky = draw (client decision pending), violet = CO.
+  // (your decision), sky = draw (client decision pending), violet = CO,
+  // slate cloud = weather watch (informational, dismissable).
   const className = "h-5 w-5 flex-shrink-0";
   switch (kind) {
     case "bid":
@@ -311,6 +405,12 @@ function KindIcon({ kind }: { kind: InboxItem["kind"] }) {
       return (
         <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-violet-700">
           <DocumentCheckIcon className={className} />
+        </span>
+      );
+    case "weather":
+      return (
+        <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+          <CloudIcon className={className} />
         </span>
       );
   }

@@ -3,6 +3,21 @@
 import { useEffect, useState } from "react";
 import { listDeals, listMilestones, listRFQs, listChangeOrders } from "@/lib/store";
 
+// Same localStorage key the /inbox page writes. We read it here so
+// dismissed weather watches don't keep inflating the sidebar badge.
+const DISMISSED_KEY = "inbox.dismissed_alerts";
+function loadDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * Fetches the count of items needing the GC's attention across all
  * projects. Drives the badge on the Inbox nav row and the page-header
@@ -63,7 +78,20 @@ export function useInboxCount(orgRef: string | undefined): number {
           .flat()
           .filter((c) => c.status === "sent").length;
 
-        if (active) setCount(drawsPending + bidsToAward + cosPending);
+        // Weather watches counted from each deal's demo_weather_alert
+        // override. Live-forecast alerts could be added here later.
+        // Dismissed ones are filtered out so the badge respects the
+        // user's "I've seen it" clicks.
+        const dismissed = loadDismissed();
+        const weatherCount = deals.filter((d) => {
+          if (!d.demo_weather_alert) return false;
+          const id = `weather-${d.id}-${d.demo_weather_alert.date}`;
+          return !dismissed.has(id);
+        }).length;
+
+        if (active) {
+          setCount(drawsPending + bidsToAward + cosPending + weatherCount);
+        }
       } catch (e) {
         console.warn("[inbox-count] refresh failed", e);
       }
