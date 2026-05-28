@@ -32,6 +32,19 @@ interface PlanInput {
   porch_sqft: number | null;
   garage_sqft: number | null;
   garage_cars: number | null;
+  /** Overhead garage door count when the architect labels it.
+   *  Drives the garage door instance directly when present — the
+   *  car-count + footprint heuristic is the fallback. */
+  garage_doors_estimated?: number | null;
+  /** Architect-labeled stone-veneer accent area, in SF. When
+   *  present, fed straight into the siding assembly's Stone
+   *  Veneer Accent Area property. */
+  stone_veneer_sqft?: number | null;
+  /** Architect-listed total floor joist count, when surfaced from
+   *  the framing schedule. Custom plans bin joists by length so a
+   *  uniform-length formula always undersells — using the printed
+   *  count when available is far more reliable. */
+  floor_joist_count_estimated?: number | null;
   bedrooms: number | null;
   full_baths: number | null;
   half_baths: number | null;
@@ -388,6 +401,27 @@ export function instancesFromPlan(
     framingLength = framingWidth * 1.4;
   }
 
+  // Back-solve the Joist Buffer property from the architect joist
+  // count when one is surfaced. The assembly formula is
+  //   joist_count = Floor Length × (12 / Joist Spacing) × Joist Buffer
+  // so Joist Buffer = arch_count / (Floor Length × 12 / Joist Spacing).
+  // When no architect count is given, second floors get a higher
+  // default buffer (1.8) than first floors (1.5) because second-
+  // floor framing carries more bearing-wall pickup and stair
+  // openings — Maddox cross-check showed architect-spec
+  // second-floor counts run ~2× the first-floor / spacing math
+  // while first-floor counts land near 1.5×.
+  const archJoistCount = extraction.floor_joist_count_estimated;
+  function joistBufferFor(floorLength: number, spacing: number, defaultBuffer: number): number {
+    if (archJoistCount && archJoistCount > 0) {
+      const implied = archJoistCount / ((floorLength * 12) / spacing);
+      // Clamp between 1.0 and 3.5 so a misread architect number
+      // can't blow up the line.
+      return Math.min(3.5, Math.max(1.0, implied));
+    }
+    return defaultBuffer;
+  }
+
   // ── First-floor framing (over any non-slab foundation) ──────────
   // Slab-on-grade IS the first floor, so no joists needed. Crawl spaces
   // and basements need full floor framing sitting on the foundation
@@ -408,6 +442,7 @@ export function instancesFromPlan(
         "Floor Width": framingWidth,
         "Joist Spacing": 16,
         "Floor Insulation Area": floorInsulationArea,
+        "Joist Buffer": joistBufferFor(framingLength, 16, 1.5),
       })!,
     );
   }
@@ -424,6 +459,9 @@ export function instancesFromPlan(
         "Floor Length": l2,
         "Floor Width": w2,
         "Joist Spacing": 16,
+        // 1.8 default for second floors — beam pickup + stair
+        // openings + headers run higher than first-floor math.
+        "Joist Buffer": joistBufferFor(l2, 16, 1.8),
       })!,
     );
   }
@@ -563,18 +601,23 @@ export function instancesFromPlan(
 
   // ── Siding ────────────────────────────────────────────────────
   const totalWallArea = perimeter * avgWallHeight * stories;
-  // Detect stone-veneer accent from notable_features so the assembly's
-  // accent line picks up a non-zero area. Architect spec on Maddox-
-  // class plans typically calls out 50-150 SF of accent stone (porch
-  // column wraps, chimney chase, foundation reveal). 80 SF is a
-  // reasonable median when Claude flags it but doesn't quantify.
-  const hasStoneAccent = featuresJoined.includes("stone");
+  // Stone-veneer accent area: prefer the architect-labeled SF when
+  // Claude reads it off the finish schedule or elevation. Fall back
+  // to a notable_features keyword scan with an 80 SF median when
+  // stone is mentioned but not quantified, or zero when neither
+  // signal is present.
+  const labeledStoneSqft = extraction.stone_veneer_sqft;
+  const stoneAccentArea =
+    labeledStoneSqft && labeledStoneSqft > 0
+      ? Math.round(labeledStoneSqft)
+      : featuresJoined.includes("stone")
+        ? 80
+        : 0;
   out.push(
     makeInstance("stub-siding", "Exterior siding", {
       "Wall Area": Math.round(totalWallArea),
-      // Default to vinyl (cheapest baseline); builder switches live.
       "Siding Material": 1.0,
-      "Stone Veneer Accent Area": hasStoneAccent ? 80 : 0,
+      "Stone Veneer Accent Area": stoneAccentArea,
     })!,
   );
 
@@ -717,22 +760,36 @@ export function instancesFromPlan(
   }
 
   // ── Garage door ──────────────────────────────────────────────
-  // garage_cars is a *bay capacity* hint from Claude — not a door
-  // count. For 2-car plans the choice between "one 16' double" and
-  // "two separate 8-9' singles" hinges on garage footprint: a roomy
-  // ≥600 SF garage almost always has two discrete openings (side-
-  // entry + main entry, or two bays), while a tight 400-500 SF
-  // garage is a single 16' double over both bays. 3-car plans land
-  // on 16' + 8' as the typical split.
+  // Prefer the architect-counted overhead door count when Claude
+  // surfaces it from the elevation. Otherwise fall back to the
+  // car-bay + footprint heuristic (one 16' double for tight 2-car
+  // garages, two singles for spacious 2-car or split 3-car).
   const cars = extraction.garage_cars ?? 0;
   const garageSqft = extraction.garage_sqft ?? 0;
-  if (cars > 0) {
-    let doorCount = 1;
-    let doorWidth = 9;
-    let label = "Garage door";
-    if (cars === 1) {
+  const extractedDoorCount = extraction.garage_doors_estimated;
+  if (cars > 0 || (extractedDoorCount && extractedDoorCount > 0)) {
+    let doorCount: number;
+    let doorWidth: number;
+    let label: string;
+    if (extractedDoorCount && extractedDoorCount > 0) {
+      // Architect count drives the instance directly. Width split:
+      // a single door is 9-10' single, a pair is two 9' singles,
+      // three or more land in the "wide + narrow" mix at 12'.
+      doorCount = extractedDoorCount;
+      if (doorCount === 1) {
+        doorWidth = cars >= 2 ? 16 : 9; // single door for 2-car = 16' double
+        label = doorWidth === 16 ? "Garage door (double)" : "Garage door";
+      } else if (doorCount === 2) {
+        doorWidth = 9;
+        label = "Garage doors (two single)";
+      } else {
+        doorWidth = 12;
+        label = `Garage doors (${doorCount})`;
+      }
+    } else if (cars === 1) {
       doorCount = 1;
       doorWidth = 9;
+      label = "Garage door";
     } else if (cars === 2 && garageSqft >= 600) {
       doorCount = 2;
       doorWidth = 9;
@@ -742,9 +799,8 @@ export function instancesFromPlan(
       doorWidth = 16;
       label = "Garage door (double)";
     } else {
-      // 3+ cars — assume 16' double + 8-9' single
       doorCount = 2;
-      doorWidth = 12; // weighted average of 16' + 9'
+      doorWidth = 12;
       label = "Garage doors (double + single)";
     }
     out.push(

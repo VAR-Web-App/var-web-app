@@ -61,6 +61,9 @@ const SAMPLE_EXTRACTION: PlanExtraction = {
     pocket_doors_estimated: 4,
     windows_estimated: 28,
   },
+  garage_doors_estimated: 2,
+  stone_veneer_sqft: 120,
+  floor_joist_count_estimated: 64,
   notable_features: [
     "Vaulted great room with reclaimed beam",
     "Wraparound covered porch on south + east elevations",
@@ -83,6 +86,20 @@ export interface PlanExtraction {
   porch_sqft: number | null;
   garage_sqft: number | null;
   garage_cars: number | null;
+  /** Overhead garage door COUNT (separate from car-bay count).
+   *  Architect-counted from front elevation when available. */
+  garage_doors_estimated?: number | null;
+  /** Architect-labeled stone-veneer accent area (SF). When present,
+   *  the converter feeds it straight into the siding assembly's
+   *  Stone Veneer Accent Area property instead of using the
+   *  notable_features keyword fallback. */
+  stone_veneer_sqft?: number | null;
+  /** Architect-listed total floor joist count, when a framing
+   *  schedule lists joists by length bin. Custom plans bin joists
+   *  by unique length so a uniform-length formula always
+   *  undersells — this lets the converter respect the printed
+   *  count when surfaced. */
+  floor_joist_count_estimated?: number | null;
   bedrooms: number | null;
   full_baths: number | null;
   half_baths: number | null;

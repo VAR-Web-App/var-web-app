@@ -41,13 +41,15 @@ costs).
 
 ## High priority (worth tracking down)
 
-- [ ] **Second-floor joist count formula.** Architect spec on Maddox
-  carries 160 second-floor I-joists vs. our 52 (~32% of spec). The
-  architect bins joists by unique length (e.g., 6 ea 16', 14 ea
-  14', 20 ea 12', …), so a uniform-length formula always undersells.
-  Either: (a) generate joists per-length-bin using floor-shape
-  heuristics, or (b) accept the gap and document it as "estimator
-  must reconcile second-floor framing per plan."
+- [x] **Second-floor joist count formula.** ✅ 2026-05-28 — new
+  "Joist Buffer" property on stub-floor-2x10-16oc. Converter
+  back-solves it from `floor_joist_count_estimated` when the
+  architect schedule is surfaced (clamped 1.0–3.5 so misreads
+  can't blow up the line); falls back to 1.5 for first floors
+  and 1.8 for second floors when no architect count is available.
+  Second-floor default raised from 1.5 → 1.8 to reflect bearing-
+  wall pickup + stair-opening headers that custom plans
+  consistently spec heavier than first-floor framing.
 
 - [x] **Interior door count + pocket door handling.** ✅ 2026-05-28
   — added `interior_doors_estimated` + `pocket_doors_estimated`
@@ -138,9 +140,9 @@ costs).
   porch-system generator could use it instead of LVL for porch
   beams.
 
-- [ ] **Column corbels.** Maddox spec: 16 ea decorative column
-  corbels. Lower-volume item; only on plans with substantial
-  porches.
+- [x] **Column corbels.** ✅ 2026-05-28 — added as a per-column
+  material line on stub-porch-system. Defaults 1:1 with column
+  count; builders zero out when the design is clean/contemporary.
 
 - [x] **Window count on grouped units.** ✅ 2026-05-28 — extraction
   prompt now spells out grouped-callout rules ("(2) 2'-8"×5'-0"" =
@@ -152,10 +154,14 @@ costs).
 ## Schema additions (would help all of the above)
 
 - [x] `pocket_doors_estimated: number | null` ✅ 2026-05-28
-- [ ] `garage_doors_estimated: number | null` (separate from cars) —
-      worked around via `garage_sqft + cars` heuristic in converter
-- [ ] `stone_veneer_sqft: number | null` — worked around via
-      notable_features keyword scan + 80 SF default
+- [x] `garage_doors_estimated: number | null` ✅ 2026-05-28 —
+      converter prefers the architect count when surfaced, falls
+      back to the cars + garage footprint heuristic.
+- [x] `stone_veneer_sqft: number | null` ✅ 2026-05-28 — converter
+      prefers the labeled SF, falls back to the notable_features
+      keyword scan + 80 SF default.
+- [x] `floor_joist_count_estimated: number | null` ✅ 2026-05-28 —
+      drives the Joist Buffer multiplier on stub-floor-2x10-16oc.
 - [x] `roof_type: "gable" | "hip" | "gable+hip" | "complex" | null`
   ✅ 2026-05-28 — drives eave/ridge LF scaling for drainage + trim
 - [x] `roof_pitch_in_12: number | null` ✅ 2026-05-28 — drives

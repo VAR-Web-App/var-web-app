@@ -250,18 +250,26 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       // line) — slab plans and basements don't need it. Converter
       // sets to floor area when foundation is crawl.
       { name: "Floor Insulation Area", uom: "SF", defaultValue: 0 },
+      // Multiplier on top of the bare length-divided-by-spacing math
+      // to cover doubled joists at openings, bearing-wall pickup,
+      // and beam landings. 1.5 is the median for a typical beam
+      // layout; 2.0+ for custom plans with multiple intersecting
+      // beams, floor recesses, or large stair openings. The
+      // converter back-solves this from the architect's joist
+      // schedule count when one is surfaced; builders adjust per
+      // project from the assembly card.
+      { name: "Joist Buffer", uom: "", defaultValue: 1.5 },
     ],
     materials: [
       {
         name: "Floor joist (per joist type)",
         uom: "EA",
-        // 1.50 buffer covers: doubled joists under interior bearing
-        // walls, doubled-up framing at floor-opening edges (stair
-        // chases, chimneys, fireplaces), and cantilever extensions.
-        // Architect counts on Maddox-class custom plans run ~50%
-        // above the bare length-divided-by-spacing math, which the
-        // old "+1" undershoot.
-        quantityFormula: "{Floor Length} * (12 / {Joist Spacing}) * 1.5",
+        // Bare count = Floor Length / Joist Spacing; the Joist Buffer
+        // multiplier then covers doubled joists, beam landings, and
+        // length-binning on custom plans where architects spec many
+        // sub-spans rather than one continuous run.
+        quantityFormula:
+          "{Floor Length} * (12 / {Joist Spacing}) * {Joist Buffer}",
         unitCostUsd: 0,
         // 24 = dimensional 2×10 baseline; multiplier scales to I-joists.
         unitCostFormula: "24 * {Joist Type}",
@@ -723,6 +731,18 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 38.0,
         laborCostUsd: 12.0,
         csiDivision: "05",
+      },
+      {
+        // Decorative column corbels at the top of each column —
+        // common on Craftsman / Southern Living porch styles. Default
+        // matches Column Count 1:1; builders zero out when the design
+        // is clean/contemporary.
+        name: "Decorative column corbel (per column)",
+        uom: "EA",
+        quantityFormula: "{Column Count}",
+        unitCostUsd: 65.0,
+        laborCostUsd: 35.0,
+        csiDivision: "06",
       },
       {
         name: "Porch ceiling finish (bead board / soffit panel)",
