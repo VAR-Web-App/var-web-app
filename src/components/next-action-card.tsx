@@ -56,7 +56,7 @@ function pickAction(deal: Deal): NextAction {
       return {
         banner: "New lead",
         headline: `Start the estimate for ${deal.account_name || "this lead"}.`,
-        body: "Drop the plan PDF (floor plan, full build set, or design plan) and the AI pulls square footage, room counts, and pre-fills the estimate.",
+        body: "Drop the plan PDF (floor plan, full build set, or design plan) and the app pulls square footage, room counts, and pre-fills the estimate.",
         primary: {
           label: "Upload plan",
           href: `/deals/${id}/files`,

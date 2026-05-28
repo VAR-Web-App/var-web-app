@@ -107,6 +107,7 @@ export default function PlanExtractor({
   initialExtraction,
   initialResolvedFlags,
   onExtracted,
+  onApplied,
 }: {
   dealId: string;
   orgRef: string;
@@ -115,10 +116,21 @@ export default function PlanExtractor({
   initialExtraction?: PlanExtraction;
   initialResolvedFlags?: number[];
   onExtracted?: (extraction: PlanExtraction) => void;
+  /** Fired after a successful Apply (either flat or assembly mode).
+   *  The quote-editor passes this so it can re-fetch its line state
+   *  in place instead of relying on the default router.push("/quote")
+   *  (which is a no-op when the user is already on /quote and would
+   *  leave the editor showing stale, empty lines while the new data
+   *  sits in Firestore). */
+  onApplied?: () => void;
 }) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const progressTimer = useRef<number | null>(null);
+  /** Aborts the in-flight upload + extraction when the user hits
+   *  Cancel mid-flight. Vercel Blob's upload() and our fetch() both
+   *  honor the signal. Reset on each new run. */
+  const abortRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [slowExtractionHint, setSlowExtractionHint] = useState(false);
@@ -130,6 +142,14 @@ export default function PlanExtractor({
     "flat" | "assemblies" | null
   >(null);
   const [applyProgress, setApplyProgress] = useState(0);
+  /** Set when the user clicks Apply (or Create estimate from assemblies)
+   *  AND there are existing line items on the quote. Drives the in-app
+   *  Replace / Add / Cancel modal — replaces the old window.confirm()
+   *  which felt clunky and didn't offer Replace. */
+  const [pendingApply, setPendingApply] = useState<{
+    kind: "flat" | "assemblies";
+    existingCount: number;
+  } | null>(null);
   const [extraction, setExtraction] = useState<PlanExtraction | null>(
     initialExtraction ?? null,
   );
@@ -220,12 +240,16 @@ export default function PlanExtractor({
     if (file.size > MAX_BYTES) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
       setError(
-        `This PDF is ${mb} MB. The extractor caps at 32 MB (Claude's PDF input limit). ` +
+        `This PDF is ${mb} MB. The extractor caps at 32 MB per file. ` +
           `Try compressing the PDF — re-exporting at a lower DPI usually halves the size.`,
       );
       return;
     }
 
+    // Fresh abort controller for this run. Honored by the upload() call
+    // and the /api/plan-extract fetch so the Cancel button can stop both
+    // halves of the operation mid-flight.
+    abortRef.current = new AbortController();
     setExtracting(true);
     setProgress(0);
     setError(null);
@@ -276,6 +300,7 @@ export default function PlanExtractor({
         access: "public",
         handleUploadUrl: "/api/upload",
         contentType: file.type || "application/pdf",
+        abortSignal: abortRef.current.signal,
         onUploadProgress: ({ percentage }) => {
           // Map the 0-100 upload percentage into our 0-18 visual range
           // so the bar feels honest about what's actually happening.
@@ -303,6 +328,7 @@ export default function PlanExtractor({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
+        signal: abortRef.current.signal,
       });
       // Parse defensively: even with the blob hop, the function can
       // still 504 (extraction timeout) or return a non-JSON edge error.
@@ -328,7 +354,15 @@ export default function PlanExtractor({
       setCollapsed(false);
       onExtracted?.(json.extraction);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // User-initiated cancel: don't render an angry error message.
+      // The "Cancelled" affordance is just clearing back to the dropzone.
+      const isAbort =
+        (e instanceof Error && e.name === "AbortError") ||
+        (e instanceof DOMException && e.name === "AbortError") ||
+        abortRef.current?.signal.aborted;
+      if (!isAbort) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       if (progressTimer.current !== null) {
         clearInterval(progressTimer.current);
@@ -350,23 +384,18 @@ export default function PlanExtractor({
    * with the assemblies panel populated, ready to tweak properties at
    * the kitchen table.
    */
-  async function applyAssemblies() {
+  async function applyAssemblies(replace = false, skipExistingCheck = false) {
     if (!extraction) return;
-    // Apply appends, it doesn't replace. Warn the GC if this estimate
-    // already has line items so they don't end up with the plan applied
-    // twice (extracts × 2 lines). The "Replace" flow only swaps the
-    // extraction in-place; once Apply runs, the lines are committed and
-    // a re-apply will double them up.
-    const existing = await listQuoteLines(dealId);
-    if (existing.length > 0) {
-      const ok = confirm(
-        `This estimate already has ${existing.length} line item${
-          existing.length === 1 ? "" : "s"
-        }. Apply will ADD the plan's lines on top — it does not replace.\n\n` +
-          `If you've already applied this plan once and want to retry, delete the existing lines from the quote editor first.\n\n` +
-          `Continue anyway?`,
-      );
-      if (!ok) return;
+    // First-call branch: if the quote already has lines, open the modal
+    // and let the user choose Replace / Add / Cancel before doing
+    // anything. The modal re-invokes this function with skipExistingCheck
+    // = true once they pick a path.
+    if (!skipExistingCheck) {
+      const existing = await listQuoteLines(dealId);
+      if (existing.length > 0) {
+        setPendingApply({ kind: "assemblies", existingCount: existing.length });
+        return;
+      }
     }
     setApplyingMode("assemblies");
     setApplyProgress(0);
@@ -388,8 +417,11 @@ export default function PlanExtractor({
       const settings = await getSettings(orgRef);
       const markup = settings?.default_markup_percent ?? 20;
 
-      const existingLines = await listQuoteLines(dealId);
-      const existingInstances = deal.assembly_instances ?? [];
+      // Replace mode: pretend there are no existing lines/instances, so
+      // the new plan output overwrites instead of stacking. Add mode:
+      // fetch existing and append (original behavior).
+      const existingLines = replace ? [] : await listQuoteLines(dealId);
+      const existingInstances = replace ? [] : (deal.assembly_instances ?? []);
 
       const { instances, lines } = instancesAndLinesFromPlan(
         extraction as unknown as Parameters<typeof instancesAndLinesFromPlan>[0],
@@ -420,7 +452,13 @@ export default function PlanExtractor({
 
       setApplyProgress(100);
       await new Promise((r) => setTimeout(r, 200));
-      router.push(`/deals/${dealId}/quote`);
+      // If the parent (quote editor) wants to refresh in place, let it.
+      // Otherwise push to the quote page so Overview lands there.
+      if (onApplied) {
+        onApplied();
+      } else {
+        router.push(`/deals/${dealId}/quote`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -430,20 +468,14 @@ export default function PlanExtractor({
     }
   }
 
-  async function applyToEstimate() {
+  async function applyToEstimate(replace = false, skipExistingCheck = false) {
     if (!extraction) return;
-    // Same duplicate-apply guard as applyAssemblies — Apply appends,
-    // not replaces. Double-apply gives the GC two of every line.
-    const existing = await listQuoteLines(dealId);
-    if (existing.length > 0) {
-      const ok = confirm(
-        `This estimate already has ${existing.length} line item${
-          existing.length === 1 ? "" : "s"
-        }. Apply will ADD the plan's lines on top — it does not replace.\n\n` +
-          `If you've already applied this plan once and want to retry, delete the existing lines from the quote editor first.\n\n` +
-          `Continue anyway?`,
-      );
-      if (!ok) return;
+    if (!skipExistingCheck) {
+      const existing = await listQuoteLines(dealId);
+      if (existing.length > 0) {
+        setPendingApply({ kind: "flat", existingCount: existing.length });
+        return;
+      }
     }
     setApplyingMode("flat");
     setApplyProgress(0);
@@ -458,8 +490,9 @@ export default function PlanExtractor({
     }, 80);
     try {
       const newLines = generateEstimateLines(extraction);
-      // Append to any existing lines so prior manual entries survive.
-      const existing = await listQuoteLines(dealId);
+      // Replace mode wipes existing lines first; Add mode appends so
+      // prior manual entries survive.
+      const existing = replace ? [] : await listQuoteLines(dealId);
       const renumbered: QuoteLine[] = [
         ...existing,
         ...newLines.map((l, i) => ({ ...l, line_number: existing.length + i + 1 })),
@@ -484,7 +517,11 @@ export default function PlanExtractor({
 
       setApplyProgress(100);
       await new Promise((r) => setTimeout(r, 200));
-      router.push(`/deals/${dealId}/quote`);
+      if (onApplied) {
+        onApplied();
+      } else {
+        router.push(`/deals/${dealId}/quote`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -513,7 +550,7 @@ export default function PlanExtractor({
     <section className="rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm">
       <div className="flex items-center gap-2 border-b border-sky-200 px-6 py-4">
         <SparklesIcon className="h-5 w-5 text-sky-700" />
-        <h2 className="text-sm font-semibold text-slate-900">AI Plan Extraction</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Plan Extraction</h2>
         <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
           Beta
         </span>
@@ -569,9 +606,17 @@ export default function PlanExtractor({
             {file && (
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => pickFile(null)}
-                  disabled={extracting}
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => {
+                    // Mid-flight: abort the upload + extraction signal.
+                    // The runExtraction catch ignores AbortError so we
+                    // unwind cleanly without a scary error banner.
+                    if (extracting) {
+                      abortRef.current?.abort();
+                    } else {
+                      pickFile(null);
+                    }
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
@@ -600,7 +645,7 @@ export default function PlanExtractor({
                     </div>
                     {slowExtractionHint && (
                       <span className="text-[11px] italic text-slate-500">
-                        Claude is still analyzing the plan — large plan sets can run 30-45s.
+                        Still analyzing the plan — large plan sets can run 30-45s.
                       </span>
                     )}
                   </div>
@@ -644,8 +689,8 @@ export default function PlanExtractor({
             resolvedFlags={resolvedFlags}
             onToggleFlag={toggleFlag}
             onUpdate={setExtraction}
-            onApply={applyToEstimate}
-            onApplyAssemblies={applyAssemblies}
+            onApply={() => void applyToEstimate()}
+            onApplyAssemblies={() => void applyAssemblies()}
             onReset={startReupload}
             applying={applying}
             applyingMode={applyingMode}
@@ -653,7 +698,105 @@ export default function PlanExtractor({
           />
         )}
       </div>
+
+      {pendingApply && (
+        <ApplyChoiceModal
+          existingCount={pendingApply.existingCount}
+          kind={pendingApply.kind}
+          onReplace={() => {
+            const choice = pendingApply;
+            setPendingApply(null);
+            if (choice.kind === "assemblies") {
+              void applyAssemblies(true, true);
+            } else {
+              void applyToEstimate(true, true);
+            }
+          }}
+          onAdd={() => {
+            const choice = pendingApply;
+            setPendingApply(null);
+            if (choice.kind === "assemblies") {
+              void applyAssemblies(false, true);
+            } else {
+              void applyToEstimate(false, true);
+            }
+          }}
+          onCancel={() => setPendingApply(null)}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Three-option modal shown when the builder tries to Apply / Create
+ * estimate from assemblies and the quote already has line items.
+ * Replaces the old window.confirm() — gives a real Replace option
+ * (which the confirm couldn't offer) and keeps the visual style
+ * consistent with the rest of the app.
+ */
+function ApplyChoiceModal({
+  existingCount,
+  kind,
+  onReplace,
+  onAdd,
+  onCancel,
+}: {
+  existingCount: number;
+  kind: "flat" | "assemblies";
+  onReplace: () => void;
+  onAdd: () => void;
+  onCancel: () => void;
+}) {
+  const noun = existingCount === 1 ? "line item" : "line items";
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-slate-900">
+          This estimate already has {existingCount} {noun}
+        </h3>
+        <p className="mt-2 text-sm text-slate-600">
+          What would you like to do with the plan&apos;s {kind === "assemblies" ? "assemblies" : "lines"}?
+        </p>
+        <div className="mt-5 space-y-2">
+          <button
+            type="button"
+            onClick={onReplace}
+            className="w-full rounded-md bg-sky-700 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+          >
+            Replace
+            <span className="block text-xs font-normal text-sky-100">
+              Delete all {existingCount} existing {noun} and start fresh with the plan&apos;s output.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="w-full rounded-md border border-slate-300 bg-white px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+          >
+            Add to existing
+            <span className="block text-xs font-normal text-slate-500">
+              Append the plan&apos;s {kind === "assemblies" ? "assemblies" : "lines"} on top of the current estimate.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full rounded-md px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -853,7 +996,7 @@ function ExtractionResults({
           className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-400"
           title="Generate parametric assemblies you can edit live at the kitchen table."
         >
-          {applyingMode === "assemblies" ? "Generating…" : "Create assemblies →"}
+          {applyingMode === "assemblies" ? "Generating…" : "Create estimate from assemblies →"}
         </button>
       </div>
     </div>

@@ -804,6 +804,18 @@ export default function DealQuotePage({
             deal.floor_plan_extraction as unknown as PlanExtraction | undefined
           }
           initialResolvedFlags={deal.resolved_ambiguity_indices}
+          onApplied={async () => {
+            // Plan apply ran in-place — re-fetch lines so the editor
+            // doesn't sit on stale empty/old state while the new lines
+            // are sitting in Firestore. Refreshing the deal too because
+            // the apply rolls totals onto it.
+            const [freshLines, freshDeal] = await Promise.all([
+              listQuoteLines(id),
+              getDeal(id),
+            ]);
+            setLines(freshLines);
+            if (freshDeal) setDeal(freshDeal);
+          }}
         />
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
