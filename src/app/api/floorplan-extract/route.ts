@@ -109,18 +109,47 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const formData = await req.formData().catch(() => null);
-  if (!formData) {
-    return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 });
+  // The client uploads the PDF directly to Vercel Blob first (see
+  // /api/upload), then calls this route with just the resulting URL.
+  // Keeping the request body tiny dodges Vercel's 4.5MB function-body
+  // ceiling — important because plan-set PDFs routinely run 5-30MB.
+  const body = (await req.json().catch(() => null)) as
+    | { blob_url?: string; filename?: string }
+    | null;
+  if (!body || typeof body.blob_url !== "string") {
+    return NextResponse.json(
+      { error: "Expected JSON body with { blob_url: string }" },
+      { status: 400 }
+    );
   }
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing 'file' in form data" }, { status: 400 });
+
+  // Fetch the file from Blob storage. We trust the URL because it
+  // came from our own /api/upload handshake; there's no XSS path
+  // where a third party could plant a malicious URL here (the route
+  // is auth-gated by Vercel's blob token issuance).
+  let buffer: Buffer;
+  try {
+    const blobRes = await fetch(body.blob_url);
+    if (!blobRes.ok) {
+      return NextResponse.json(
+        { error: `Could not fetch uploaded PDF (${blobRes.status})` },
+        { status: 502 }
+      );
+    }
+    buffer = Buffer.from(await blobRes.arrayBuffer());
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error: "Failed to download uploaded PDF",
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 502 }
+    );
   }
-  if (file.size === 0) {
-    return NextResponse.json({ error: "File is empty" }, { status: 400 });
+  if (buffer.length === 0) {
+    return NextResponse.json({ error: "Uploaded file is empty" }, { status: 400 });
   }
-  if (file.size > 32 * 1024 * 1024) {
+  if (buffer.length > 32 * 1024 * 1024) {
     return NextResponse.json(
       { error: "File exceeds 32MB limit (Claude PDF input cap)" },
       { status: 413 }
@@ -128,7 +157,6 @@ export async function POST(req: NextRequest) {
   }
 
   // PDFs supported directly via Claude's document content blocks.
-  const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString("base64");
 
   const client = new Anthropic({ apiKey });

@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
+import { upload } from "@vercel/blob/client";
 import { QuoteLine } from "@/types";
 import { saveQuoteLines, listQuoteLines, getDeal, saveDeal, getSettings, newId } from "@/lib/store";
 import { instancesAndLinesFromFloorPlan } from "@/lib/assemblies/from-floorplan";
@@ -209,22 +210,16 @@ export default function FloorPlanExtractor({
   async function runExtraction() {
     if (!file) return;
 
-    // Vercel App Router serverless functions cap request bodies at
-    // ~4.5MB. The Anthropic SDK accepts PDFs up to 32MB, but if we
-    // try to upload a bigger file via FormData the request never
-    // reaches our route — Vercel's edge returns a plain-text 413
-    // ("Request Entity Too Large"), which used to blow up the client
-    // when we tried to parse it as JSON. Bail early with a clean
-    // message instead.
-    const MAX_BYTES = 4 * 1024 * 1024;
+    // 32MB ceiling — matches Claude's PDF input cap. The /api/upload
+    // route enforces the same limit server-side via maximumSizeInBytes
+    // on the signed token, but checking here gives a clean message
+    // before we spin up the upload at all.
+    const MAX_BYTES = 32 * 1024 * 1024;
     if (file.size > MAX_BYTES) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
       setError(
-        `This PDF is ${mb} MB. The uploader caps at 4 MB right now ` +
-          `(serverless body-size limit). Try compressing the PDF — ` +
-          `most plan sets shrink a lot if you re-export at a lower ` +
-          `DPI or strip embedded images. Direct large-file upload is ` +
-          `on the roadmap.`,
+        `This PDF is ${mb} MB. The extractor caps at 32 MB (Claude's PDF input limit). ` +
+          `Try compressing the PDF — re-exporting at a lower DPI usually halves the size.`,
       );
       return;
     }
@@ -233,43 +228,69 @@ export default function FloorPlanExtractor({
     setProgress(0);
     setError(null);
 
-    // Time-based progress simulation: Claude vision is one-shot, so we
-    // can't read real progress. Animate 0→95% over ~12s (typical
-    // residential plan extraction), holding at 95% until the API
-    // returns. Snap to 100% on completion. Never lies — we only show
-    // 100% when we actually have the response.
-    const start = performance.now();
-    const targetMs = 12000; // 12s expected
+    // Time-based progress simulation across two phases:
+    //   0–20%   blob upload (variable, depends on file size + connection)
+    //   20–95%  Claude vision (one-shot, ~12s for residential plans)
+    // We snap to 20% when upload completes, then ease 20→95 over ~12s
+    // holding at 95 until the API returns. Snap to 100% on success.
+    const targetMs = 12000;
+    let phaseStart = performance.now();
+    let phaseStartProgress = 0;
+    let phaseEndProgress = 20;
+    let phaseDuration = 0; // unknown until upload completes
     progressTimer.current = window.setInterval(() => {
-      const elapsed = performance.now() - start;
-      // Ease-out curve: fast at first, slow as we approach 95%.
-      const t = Math.min(1, elapsed / targetMs);
-      const eased = 1 - Math.pow(1 - t, 2.2);
-      setProgress(Math.min(95, eased * 95));
+      const elapsed = performance.now() - phaseStart;
+      if (phaseDuration === 0) {
+        // Upload phase — creep 0→18 slowly; the real signal comes from
+        // the upload() onUploadProgress callback below.
+        const creep = Math.min(18, elapsed / 200);
+        setProgress((p) => Math.max(p, creep));
+      } else {
+        const t = Math.min(1, elapsed / phaseDuration);
+        const eased = 1 - Math.pow(1 - t, 2.2);
+        const range = phaseEndProgress - phaseStartProgress;
+        setProgress(phaseStartProgress + eased * range);
+      }
     }, 100);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Phase 1 — direct upload to Vercel Blob via the signed-token
+      // handshake at /api/upload. This bypasses the 4.5MB Vercel
+      // function body limit; Blob accepts up to 4.5GB.
+      const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_");
+      const blob = await upload(`plan-uploads/${Date.now()}-${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        contentType: file.type || "application/pdf",
+        onUploadProgress: ({ percentage }) => {
+          // Map the 0-100 upload percentage into our 0-18 visual range
+          // so the bar feels honest about what's actually happening.
+          setProgress((p) => Math.max(p, (percentage / 100) * 18));
+        },
+      });
+
+      // Phase 2 — call the extractor with just the blob URL. Tiny
+      // request, never hits the 4.5MB function-body ceiling.
+      setProgress(20);
+      phaseStart = performance.now();
+      phaseStartProgress = 20;
+      phaseEndProgress = 95;
+      phaseDuration = targetMs;
+
       const res = await fetch("/api/floorplan-extract", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
       });
-      // Parse defensively: when Vercel/edge bounces the request before
-      // it hits our route (size limits, gateway timeouts, etc.) the
-      // body is plain text, not JSON. Read once as text and decide.
+      // Parse defensively: even with the blob hop, the function can
+      // still 504 (extraction timeout) or return a non-JSON edge error.
       const bodyText = await res.text();
       let json: { ok?: boolean; error?: string; extraction?: FloorPlanExtraction } | null = null;
       try {
         json = bodyText ? JSON.parse(bodyText) : null;
       } catch {
-        // Non-JSON body — usually a 413/504 from Vercel's edge.
         const snippet = bodyText.slice(0, 80).replace(/\s+/g, " ").trim();
-        throw new Error(
-          res.status === 413
-            ? "PDF too large for upload (server rejected it). Compress the PDF and try again."
-            : `Server returned ${res.status}: ${snippet || "no response body"}`,
-        );
+        throw new Error(`Server returned ${res.status}: ${snippet || "no response body"}`);
       }
       if (!res.ok || !json?.ok || !json.extraction) {
         throw new Error(json?.error || `Request failed (${res.status})`);
