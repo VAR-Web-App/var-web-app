@@ -606,16 +606,23 @@ export function instancesFromPlan(
   let roofRun: number;
   let roofWidth: number;
   // The assembly's roof formula is hardcoded to area × 1.20 (which
-  // approximates a 6/12 pitch + 5% eave buffer). When the actual
-  // pitch is different, real geometry says:
+  // approximates a 6/12 pitch + 5% eave buffer). Real geometry:
   //   pitch_factor = sqrt(1 + (rise/12)^2)
-  // For an 8/12: 1.20, 10/12: 1.30, 12/12: 1.41. Plus ~5% for eaves.
-  // Scale Roof Run by (real_factor / 1.20) so the formula output
+  // For 6/12: 1.118, 8/12: 1.20, 10/12: 1.30, 12/12: 1.41. Plus
+  // ~5-10% for eave overhangs. Scale Roof Run so the formula output
   // lands at the correct roof area.
-  const pitchForRoof = extraction.roof_pitch_in_12 ?? 6;
+  //
+  // Default pitch is 8/12 — the de facto standard on custom plans
+  // (Maddox-class). 6/12 was rolling Roof Run BACKWARDS (scale 0.93)
+  // when Claude didn't surface a pitch, shorting Cnadd roof items
+  // 20-27% across the package. The 1.10 eave buffer captures the
+  // overhangs that extend past the building envelope on any roof —
+  // applied unconditionally because architect roof areas consistently
+  // run ~10% over the bare footprint × pitch calc, with or without
+  // porches in the envelope.
+  const pitchForRoof = extraction.roof_pitch_in_12 ?? 8;
   const pitchFactorReal = Math.sqrt(1 + (pitchForRoof / 12) ** 2);
-  const eaveBuffer = (extraction.porch_sqft ?? 0) > 0 ? 1.0 : 1.05;
-  const targetRoofMultiplier = pitchFactorReal * eaveBuffer;
+  const targetRoofMultiplier = pitchFactorReal * 1.10;
   const roofScaleFactor = targetRoofMultiplier / 1.20;
 
   if (extraction.roof_area_sqft && extraction.roof_area_sqft > 0) {
@@ -741,18 +748,18 @@ export function instancesFromPlan(
       ridgeLfFactor = (longSide - shortSide) / buildingPerimeter; // shorter
       break;
     case "gable+hip":
-      eaveLfFactor = 0.85; // ~3 sides
+      eaveLfFactor = 1.0; // wraps ~3 sides + a bit
       ridgeLfFactor = longSide / buildingPerimeter;
       break;
     case "complex":
     default:
-      // Custom plans with dormers/wings — eaves exceed perimeter a
-      // bit. Cnadd cross-check on Maddox (architect classified as
-      // complex) had eave LF / building perimeter = 1.09, so 1.2 is
-      // the working ceiling. The previous 1.6 was overshooting by
-      // ~50% on gutters and downspouts.
-      eaveLfFactor = 1.2;
-      ridgeLfFactor = 0.5;
+      // Custom plans with dormers / wings / cross-gables — eaves
+      // exceed perimeter because every secondary mass adds its own
+      // eaves. Cnadd round 5 cross-check vs Maddox: architect's
+      // gutter LF / building perimeter = 1.36 (architect 402 LF on
+      // ~295 LF perimeter). 1.35 is the working default; was 1.2.
+      eaveLfFactor = 1.35;
+      ridgeLfFactor = 0.55;
       break;
   }
 
@@ -767,10 +774,10 @@ export function instancesFromPlan(
 
   // ── Exterior trim (fascia + soffit + drip edge + ridge vent) ──
   // Fascia/drip edge land at every eave AND every rake — bump the
-  // gutter eave factor by ~50% to capture rakes. Architect Maddox
-  // ratio of fascia : gutters was 1.64; 1.5 is the working default.
+  // gutter eave factor by ~65% to capture rakes. Cnadd cross-check
+  // vs Maddox: architect's fascia:gutter ratio is 1.64. Was 1.5.
   // Ridge vent uses the dedicated ridge LF factor.
-  const trimEaveLf = Math.round(eaveLf * 1.5);
+  const trimEaveLf = Math.round(eaveLf * 1.65);
   const ridgeLf = Math.round(buildingPerimeter * ridgeLfFactor);
   out.push(
     makeInstance("stub-exterior-trim", "Exterior trim (fascia + soffit + drip + ridge)", {
