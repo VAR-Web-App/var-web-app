@@ -355,15 +355,20 @@ export function instancesFromPlan(
     );
   } else {
     // Strip footing runs under exterior CMU walls AND under interior
-    // bearing walls (center beam line, partition that picks up second-
-    // floor load). Bump conditioned perimeter by 25% to capture
-    // interior bearing footings — Cnadd cross-check showed pure
-    // perimeter shorted footing concrete by 35% (architect 26 CY vs
-    // our 17). Heavier footing dims when a CMU wall (and pier loads)
-    // sit on top: default 16×8 is sized for stick-frame on slab; CMU +
+    // bearing walls (center beam line, partition picking up second-
+    // floor load), under porch slab edge, under garage perimeter, and
+    // at every plumbing/mech room footing pad. Cnadd round 4 cross-
+    // check vs Maddox: architect's effective footing perimeter is
+    // ~2.0× the conditioned exterior perimeter. 1.6× is the working
+    // middle ground — matches Maddox's 26 CY when applied to a 229 LF
+    // conditioned perimeter, while staying within reason on simpler
+    // single-story slab plans.
+    //
+    // Heavier footing dims when a CMU wall (and pier loads) sit on
+    // top: default 16×8 is sized for stick-frame on slab; CMU +
     // 2-story stick framing needs 24×12 to hit typical residential
     // bearing capacity.
-    const footingLength = Math.round(foundationPerimeter * 1.25);
+    const footingLength = Math.round(foundationPerimeter * 1.6);
     const footingWidth = cmuWall ? 24 : catalogDefault(fdnId, "Footing Width");
     const footingDepth = cmuWall ? 12 : catalogDefault(fdnId, "Footing Depth");
     out.push(
@@ -476,7 +481,7 @@ export function instancesFromPlan(
         "Floor Width": framingWidth,
         "Joist Spacing": 16,
         "Floor Insulation Area": floorInsulationArea,
-        "Joist Buffer": joistBufferFor(framingLength, 16, 1.5),
+        "Joist Buffer": joistBufferFor(framingLength, 16, 1.8),
       })!,
     );
   }
@@ -513,9 +518,12 @@ export function instancesFromPlan(
         "Floor Length": l2,
         "Floor Width": w2,
         "Joist Spacing": 16,
-        // 1.8 default for second floors — beam pickup + stair
+        // 2.0 default for second floors — beam pickup + stair
         // openings + headers run higher than first-floor math.
-        "Joist Buffer": joistBufferFor(l2, 16, 1.8),
+        // First floor at 1.8, second at 2.0 — matches the architect-
+        // count pattern on the Maddox cross-check after my heuristic
+        // bumps.
+        "Joist Buffer": joistBufferFor(l2, 16, 2.0),
       })!,
     );
   }
@@ -597,24 +605,33 @@ export function instancesFromPlan(
   // baseline when no label exists.
   let roofRun: number;
   let roofWidth: number;
+  // The assembly's roof formula is hardcoded to area × 1.20 (which
+  // approximates a 6/12 pitch + 5% eave buffer). When the actual
+  // pitch is different, real geometry says:
+  //   pitch_factor = sqrt(1 + (rise/12)^2)
+  // For an 8/12: 1.20, 10/12: 1.30, 12/12: 1.41. Plus ~5% for eaves.
+  // Scale Roof Run by (real_factor / 1.20) so the formula output
+  // lands at the correct roof area.
+  const pitchForRoof = extraction.roof_pitch_in_12 ?? 6;
+  const pitchFactorReal = Math.sqrt(1 + (pitchForRoof / 12) ** 2);
+  const eaveBuffer = (extraction.porch_sqft ?? 0) > 0 ? 1.0 : 1.05;
+  const targetRoofMultiplier = pitchFactorReal * eaveBuffer;
+  const roofScaleFactor = targetRoofMultiplier / 1.20;
+
   if (extraction.roof_area_sqft && extraction.roof_area_sqft > 0) {
-    // Roof formula: Run × Width × 1.20 (pitch slope + eave buffer).
-    // Solve for L × W = roof_area / 1.20, then split 1.4:1.
+    // Architect-labeled roof area — back-derive Run × Width that produces
+    // it after the assembly's 1.20 multiplier (no further scaling needed,
+    // architect's number is authoritative).
     const projectedRoofArea = extraction.roof_area_sqft / 1.20;
     roofWidth = Math.sqrt(projectedRoofArea / 1.4);
     roofRun = roofWidth * 1.4;
   } else {
     roofRun = Math.max(footprint.length, footprint.width);
     roofWidth = Math.min(footprint.length, footprint.width);
-    // When Claude returns footprint as the OVERALL building envelope
-    // (porch slab included), the assembly's 1.20 multiplier double-
-    // counts: 1.15 for pitch + 5% for eaves that the porch already
-    // occupies. Trim 4.2% on the run dimension so the product lands
-    // back at the pure-pitch ratio. No-op on slab plans without a
-    // porch where the eave overhang is real.
-    if ((extraction.porch_sqft ?? 0) > 0) {
-      roofRun = roofRun * (1.15 / 1.20);
-    }
+    // Apply the pitch correction. Roof Run × Roof Width × 1.20 in the
+    // assembly = footprint area × 1.20 (hardcoded). We want footprint
+    // area × targetRoofMultiplier instead, so scale Roof Run by ratio.
+    roofRun = roofRun * roofScaleFactor;
   }
   // Detect metal-roof or tile spec from notable_features so the
   // unit cost matches the architect-spec'd finish rather than the
