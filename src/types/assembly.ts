@@ -73,6 +73,12 @@ export interface AssemblyMaterial {
   laborCostFormula?: string;
   /** Optional CSI division code for grouping ("06" = Wood/Composites, etc.). */
   csiDivision?: string;
+  /** Optional override of the parent assembly's catId for this one
+   *  material. E.g. an exterior-wall assembly is generally framing
+   *  (#40) but its drywall material rolls up to Drywall (#51) and
+   *  its insulation material to Insulation (#50). Falls back to
+   *  Assembly.catId when absent. */
+  catId?: string;
 }
 
 /**
@@ -125,6 +131,12 @@ export interface Assembly {
    *  progressively-more-expensive upgrades that match real client
    *  conversations ("standard vs premium"). */
   variantPresets?: AssemblyVariantPreset[];
+  /** Default Barry-template section ID (e.g. "21" for FOOTINGS, "40"
+   *  for FRAMING). Every QuoteLine generated from this assembly's
+   *  materials gets stamped with this catId so the AI-generated
+   *  estimate lines up with Barry's Good Faith Estimate taxonomy.
+   *  Individual materials can override via AssemblyMaterial.catId. */
+  catId?: string;
 }
 
 /** A property's value as filled in by the user for one Assembly instance. */
@@ -142,6 +154,9 @@ export interface AssemblyMaterialLine {
   laborCostUsd: number;
   /** quantity × (unitCost + labor). */
   lineTotalUsd: number;
+  /** Resolved Barry-template section ID — material.catId, falling back
+   *  to assembly.catId. Optional so legacy lines stay valid. */
+  catId?: string;
 }
 
 /**

@@ -1406,6 +1406,21 @@ function PriceSourcePill({ source }: { source: PriceSource }) {
   );
 }
 
+/** Tiny pill showing which section of Barry's Good Faith Estimate template
+ *  this line rolls up to (e.g. #21 = FOOTINGS, #40.6 = Exterior Doors).
+ *  Set by the plan converter via Assembly.catId / AssemblyMaterial.catId.
+ *  Manual lines and pre-Barry-taxonomy records don't render the pill. */
+function CatIdPill({ catId }: { catId: string }) {
+  return (
+    <span
+      title={`Maps to Good Faith Estimate section #${catId}`}
+      className="inline-flex shrink-0 items-center rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
+    >
+      #{catId}
+    </span>
+  );
+}
+
 function EmptyState({
   onAddBlank,
   hasParsedBoms,
@@ -1586,6 +1601,7 @@ function LineEditor({
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-2">
                     <PriceSourcePill source={resolvePriceSource(line)} />
+                    {line.cat_id && <CatIdPill catId={line.cat_id} />}
                     <CellInput
                       value={line.description}
                       onChange={(v) => onUpdate(origIdx, { description: v })}
