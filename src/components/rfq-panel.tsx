@@ -310,7 +310,7 @@ function RFQRow({
   );
 }
 
-function RFQModal({
+export function RFQModal({
   deal,
   subs,
   builderName,

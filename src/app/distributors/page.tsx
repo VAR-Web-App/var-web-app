@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
 import Tooltip from "@/components/tooltip";
-import { Distributor, Deal } from "@/types";
+import { Distributor, Deal, OrgSettings } from "@/types";
 import { ProjectRFQ, RFQ_STATUS_LABELS, RFQ_STATUS_STYLES } from "@/types/builder";
 import {
   listDistributors,
@@ -21,7 +21,9 @@ import {
   getSettings,
   listDeals,
   listRFQs,
+  saveRFQ,
 } from "@/lib/store";
+import { RFQModal } from "@/components/rfq-panel";
 import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
 
@@ -38,17 +40,29 @@ export default function DistributorsPage() {
   const [openRfqs, setOpenRfqs] = useState<
     Array<{ rfq: ProjectRFQ; deal: Deal }>
   >([]);
+  // All deals (used by the New RFQ project picker — RFQs are scoped
+  // to a project, so the builder has to pick which one before the
+  // modal can open).
+  const [allDeals, setAllDeals] = useState<Deal[]>([]);
+  // Two-stage new-RFQ flow: pick a project, then the modal opens.
+  // null = neither stage active. "picking" = project picker visible.
+  // A Deal object = picked, modal visible.
+  const [newRfqStage, setNewRfqStage] = useState<"picking" | Deal | null>(null);
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
 
   useEffect(() => {
     if (!profile) return;
     let active = true;
     void (async () => {
-      const [subs, deals] = await Promise.all([
+      const [subs, deals, settings] = await Promise.all([
         listDistributors(profile.org_ref),
         listDeals(profile.org_ref),
+        getSettings(profile.org_ref),
       ]);
       if (!active) return;
       setDistributors(subs);
+      setAllDeals(deals);
+      setOrgSettings(settings);
 
       // Fan out RFQ queries per deal — same approach as Inbox. Per-deal
       // failures degrade to empty so one broken project can't strand
@@ -156,7 +170,7 @@ export default function DistributorsPage() {
        *  each deal's Finances tab one at a time. Awarded + closed RFQs
        *  are filtered out — those don't need attention. */}
       <section className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <ClipboardDocumentListIcon className="h-4 w-4 text-slate-500" />
@@ -167,9 +181,20 @@ export default function DistributorsPage() {
               the project to review bids or award.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-            {openRfqs.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+              {openRfqs.length}
+            </span>
+            {allDeals.length > 0 && (
+              <button
+                onClick={() => setNewRfqStage("picking")}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+                New RFQ
+              </button>
+            )}
+          </div>
         </header>
         {openRfqs.length === 0 ? (
           <div className="px-6 py-8 text-center text-sm text-slate-500">
@@ -378,6 +403,59 @@ export default function DistributorsPage() {
           </div>
           <ModalFooter onCancel={() => setEditing(null)} onSave={onSave} />
         </Modal>
+      )}
+
+      {/* Stage 1 of New RFQ: project picker. RFQs are scoped to a
+       *  specific deal, so the builder picks which project this RFQ
+       *  is for before we open the full modal. */}
+      {newRfqStage === "picking" && (
+        <Modal
+          onClose={() => setNewRfqStage(null)}
+          title="Which project is this RFQ for?"
+        >
+          <div className="space-y-2 p-1">
+            {allDeals.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No projects yet. Create one from the Projects page first.
+              </p>
+            ) : (
+              allDeals.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setNewRfqStage(d)}
+                  className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 hover:border-sky-300 hover:bg-sky-50"
+                >
+                  <p className="truncate">{d.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {d.account_name || "—"}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Stage 2: the actual RFQ create modal — same component used on
+       *  the project Finances tab, just spawned from here. On save we
+       *  persist + refresh the Open RFQs list so the new row appears. */}
+      {newRfqStage && typeof newRfqStage !== "string" && (
+        <RFQModal
+          deal={newRfqStage}
+          subs={distributors}
+          builderName={orgSettings?.company_name ?? ""}
+          fromNumberHint={orgSettings?.sms_config?.from_number}
+          onSave={async (rfq) => {
+            await saveRFQ(rfq);
+            // Optimistic update of the org-wide list.
+            setOpenRfqs((prev) => [
+              { rfq, deal: newRfqStage as Deal },
+              ...prev.filter((r) => r.rfq.id !== rfq.id),
+            ]);
+            setNewRfqStage(null);
+          }}
+          onClose={() => setNewRfqStage(null)}
+        />
       )}
     </AppShell>
   );

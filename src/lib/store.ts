@@ -1014,12 +1014,16 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
       listMilestones(deal.id),
       listPhotos(deal.id),
     ]);
-    const rfqs = await listRFQs(deal.id);
+    const [rfqs, changeOrders] = await Promise.all([
+      listRFQs(deal.id),
+      listChangeOrders(deal.id),
+    ]);
     for (const l of lines) await removeFromCollection("quote_lines", l.id);
     for (const a of atts) await deleteAttachment(a.id);
     for (const m of milestones) await deleteMilestone(m.id);
     for (const p of photos) await deletePhoto(p.id);
     for (const r of rfqs) await deleteRFQ(r.id);
+    for (const co of changeOrders) await deleteChangeOrder(co.id);
     await deleteDeal(deal.id);
   }
 
