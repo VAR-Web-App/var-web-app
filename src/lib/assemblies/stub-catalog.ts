@@ -413,6 +413,14 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         uom: "EA",
         defaultValue: 8,
       },
+      {
+        // Crawl-space floor area for compacted sand fill — set by the
+        // converter when foundation is crawl space, left at 0 for
+        // full basements (where the floor is the slab, not sand).
+        name: "Crawl Floor Area",
+        uom: "SF",
+        defaultValue: 0,
+      },
     ],
     materials: [
       {
@@ -452,11 +460,16 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       },
       {
         // CMU piers — each sits on a pad footing handled separately
-        // below. Block count = 4 standard blocks per pier (2 wide × 2
-        // tall, average), bumped for typical taller mid-span piers.
+        // below. Block count = ~2 blocks per pier for typical 32-40"
+        // crawl-space piers. Previously 5 (basement-grade) — too tall
+        // for the residential crawl-space case which dominates the
+        // installed base. Maddox cross-check: architect spec = 73
+        // piers / 73 blocks (1 each), our old 5× formula overshot by
+        // ~290 blocks. 2 is a safer middle ground that handles taller
+        // mid-span piers without doubling up on short ones.
         name: "CMU pier blocks (interior)",
         uom: "EA",
-        quantityFormula: "{Pier Count} * 5",
+        quantityFormula: "{Pier Count} * 2",
         unitCostUsd: 2.4,
         laborCostUsd: 4.2,
         csiDivision: "04",
@@ -471,6 +484,40 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 195.0,
         laborCostUsd: 75.0,
         csiDivision: "03",
+      },
+      {
+        // PT 2×8 sill plate sits on top course of CMU as the bearing
+        // for first-floor framing. Architect spec on Maddox: 256 LF
+        // (16 ea × 16'). Scales linearly with perimeter.
+        name: "PT 2×8 sill plate",
+        uom: "LF",
+        quantityFormula: "{Wall Length}",
+        unitCostUsd: 2.4,
+        laborCostUsd: 0.6,
+        csiDivision: "06",
+      },
+      {
+        // Galvanized termite shield sits between the sill plate and
+        // the CMU bond beam — required by code in termite-zone
+        // climates (most of the South/Southeast). Same LF as sill.
+        name: "Termite shield (galvanized)",
+        uom: "LF",
+        quantityFormula: "{Wall Length}",
+        unitCostUsd: 0.85,
+        laborCostUsd: 0.35,
+        csiDivision: "07",
+      },
+      {
+        // Compacted sand fill for the crawl-space floor. Only generated
+        // when the converter sets Crawl Floor Area > 0 (crawl-space
+        // foundations); basements have a slab floor instead.
+        name: "Compacted sand fill (crawl-space floor)",
+        uom: "SF",
+        quantityFormula: "{Crawl Floor Area}",
+        unitCostUsd: 0.45,
+        laborCostUsd: 0.55,
+        csiDivision: "31",
+        catId: "28", // GRAVEL (closest Barry-template fit)
       },
     ],
     variantPresets: [
