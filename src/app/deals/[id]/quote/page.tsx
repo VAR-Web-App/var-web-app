@@ -805,16 +805,27 @@ export default function DealQuotePage({
           }
           initialResolvedFlags={deal.resolved_ambiguity_indices}
           onApplied={async () => {
-            // Plan apply ran in-place — re-fetch lines so the editor
-            // doesn't sit on stale empty/old state while the new lines
-            // are sitting in Firestore. Refreshing the deal too because
-            // the apply rolls totals onto it.
+            // Plan apply ran in-place — re-fetch lines, deal record,
+            // AND assembly instances so the editor doesn't sit on
+            // stale state while the new data lives in Firestore.
+            // The assembly panel reads its own assemblyInstances state
+            // (initialized once on mount), so refreshing the deal alone
+            // wouldn't surface the new instances — we have to push
+            // them into the panel's state explicitly.
             const [freshLines, freshDeal] = await Promise.all([
               listQuoteLines(id),
               getDeal(id),
             ]);
             setLines(freshLines);
-            if (freshDeal) setDeal(freshDeal);
+            if (freshDeal) {
+              setDeal(freshDeal);
+              const freshInstances = (freshDeal.assembly_instances ?? []).map(
+                migrateInstance,
+              );
+              setAssemblyInstances(freshInstances);
+              setSavedInstancesSnapshot(JSON.stringify(freshInstances));
+              setSavedLinesSnapshot(JSON.stringify(freshLines));
+            }
           }}
         />
 
