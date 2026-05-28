@@ -1252,14 +1252,10 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "04",
         catId: "42", // STONE (Barry's section)
       },
-      {
-        name: "House wrap (Tyvek) + tape",
-        uom: "SF",
-        quantityFormula: "{Wall Area} * 1.05",
-        unitCostUsd: 0.18,
-        laborCostUsd: 0.20,
-        csiDivision: "07",
-      },
+      // House wrap intentionally NOT in this assembly — it lives on
+      // the exterior wall assembly already (housewrap is attached to
+      // sheathing, before siding goes on, so it's part of the wall
+      // package). Cnadd cross-check caught the double-count.
       {
         name: "Trim, J-channel, corner boards",
         uom: "LF",
