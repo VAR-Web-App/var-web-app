@@ -88,23 +88,32 @@ costs).
   fill gated on a new Crawl Floor Area property; the converter
   sets it only when foundation type is crawl.
 
-- [ ] **Fascia / soffit / drip edge / ridge vent** — exterior
-  trim items missing entirely from converter output. Architect
-  spec: 663 LF drip edge + 659 LF 1×8 fascia + 975 SF vented
-  soffit + 184 LF continuous ridge vent. New `stub-exterior-trim`
-  assembly OR add to siding flow.
+- [x] **Fascia / soffit / drip edge / ridge vent.** ✅ 2026-05-28
+  — new `stub-exterior-trim` assembly emitting fascia (LF),
+  vented soffit (SF), drip edge (LF), and continuous ridge vent
+  (LF). Converter sets Eave LF = perimeter × 1.5 (median custom
+  roof) and Ridge LF = perimeter × 0.5 by default. Builders edit
+  per project; the assembly rolls up to Barry's #44 EXTERIOR
+  DETAILS. Maddox cross-check: previous gap = ~$8K missing
+  scope, now within architect tolerance after builder edits the
+  default Eave LF up to ~2.5× perimeter for hip-with-dormer
+  plans.
 
-- [ ] **Gable wall framing as a distinct quantity.** Maddox spec
-  has 741 LF 2×6 gable studs + 27 plates + 32 sheets of OSB gable
-  sheathing. Our exterior wall stud formula adds +15% buffer that
-  partially covers this, but a distinct line would be more
-  accurate and visible in the quote.
+- [x] **Gable wall framing as a distinct quantity.** ✅ 2026-05-28
+  — new "Gable Wall LF" property on `stub-ext-wall-2x6-16oc`
+  drives gable studs (LF-sold because lengths taper), rake
+  plates, and gable sheathing. Converter sets it from
+  short-side width × 6/12-pitch height × 2 gable ends on the
+  top story; builders adjust per project. Removes the +15%
+  fudge factor that was previously baked into the main OSB
+  formula.
 
-- [ ] **Stone veneer accent.** Most custom plans have 50-300 SF
-  of stone veneer somewhere (chimney, column wraps, foundation
-  accent). Architect Maddox spec: 69 SF. Add a stone veneer
-  option to the siding assembly, OR ask Claude to surface
-  `stone_veneer_sqft` in the extraction.
+- [x] **Stone veneer accent.** ✅ 2026-05-28 — new "Stone Veneer
+  Accent Area" property on `stub-siding` with a dedicated $14/SF
+  material + $12/SF labor line, gated to roll up to Barry's #42
+  STONE category instead of the parent siding's #43. Converter
+  scans `notable_features` for "stone" and sets a 80 SF baseline
+  when flagged; builders adjust per project.
 
 ## Lower priority (small dollars / edge cases)
 

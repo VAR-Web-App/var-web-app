@@ -31,6 +31,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         kind: "choice",
         choices: SPACING_CHOICES,
       },
+      // Total LF of gable-wall studs above the eave plate at every
+      // gable end. Set by the converter from roof geometry on
+      // multi-story plans (~footprint width × 6' average gable
+      // height × 2 ends). Default 0 means no gable framing — fine
+      // for pure hip-roof or single-story slab plans.
+      { name: "Gable Wall LF", uom: "LF", defaultValue: 0 },
     ],
     materials: [
       {
@@ -38,8 +44,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         uom: "EA",
         // Base stud count from spacing × 1.25 buffer for corners (3-stud
         // corners × 4), headers + cripples at every opening (~4 studs
-        // per door/window), and gable wall studs on the top story of a
-        // 2-story home. Architect-spec counts run ~25% above the bare
+        // per door/window). Architect-spec counts run ~25% above the bare
         // LF/spacing math, which the previous "+4" undershoot.
         quantityFormula: "{Wall Length} * (12 / {Stud Spacing}) * 1.25",
         unitCostUsd: 9.5,
@@ -47,9 +52,25 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "06",
       },
       {
+        name: "2×6 gable-wall studs (variable length)",
+        uom: "LF",
+        // Total LF of gable studs as set by the converter / builder.
+        // Sold by LF rather than EA because gable studs come in many
+        // lengths (taper from peak to eave) — architects spec the
+        // total LF in the cut list rather than a piece count.
+        // Maddox spec: 741 LF on a 2-story custom + 2 gable ends.
+        quantityFormula: "{Gable Wall LF}",
+        unitCostUsd: 1.10,
+        laborCostUsd: 0.55,
+        csiDivision: "06",
+      },
+      {
         name: "2×6 top plate (double)",
         uom: "LF",
-        quantityFormula: "{Wall Length} * 2",
+        // Main wall plates + ~10% additional for gable rake plates
+        // that follow the roof slope at every gable end. Architect
+        // spec on Maddox: 27 plates beyond the rectangular wall plane.
+        quantityFormula: "{Wall Length} * 2 + {Gable Wall LF} * 0.15",
         unitCostUsd: 2.1,
         laborCostUsd: 0.6,
         csiDivision: "06",
@@ -65,10 +86,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: '7/16" OSB sheathing, 4×8 sheet',
         uom: "SHEET",
-        // Bumped 1.15x to cover gable wall sheathing on top-story walls
-        // (which the LF×Height calc doesn't capture — gables are
-        // triangles above the rectangular wall plane).
-        quantityFormula: "{Wall Length} * {Wall Height} / 32 * 1.15",
+        // Rectangular wall plane + gable triangle sheathing. Each LF
+        // of gable stud carries ~0.5 SF of triangle sheathing on
+        // average (gables taper). Architect spec on Maddox: 32 gable
+        // sheets ≈ 1024 SF gable sheathing on 741 LF gable studs.
+        quantityFormula:
+          "({Wall Length} * {Wall Height} + {Gable Wall LF} * 0.5) / 32",
         unitCostUsd: 28.0,
         laborCostUsd: 8.0,
         csiDivision: "06",
@@ -1153,12 +1176,20 @@ export const STUB_ASSEMBLIES: Assembly[] = [
           { label: "Brick (full)", value: 3.8 },
         ],
       },
+      // Optional accent area applied ON TOP of the main siding —
+      // e.g. a stone-veneer wainscot under the porch columns, a
+      // chimney chase wrap, foundation reveal accents. Default 0
+      // produces no line; converter sets a baseline when the plan's
+      // notable_features mention stone. Architect spec on Maddox: 69 SF.
+      { name: "Stone Veneer Accent Area", uom: "SF", defaultValue: 0 },
     ],
     materials: [
       {
         name: "Siding material (per SF, installed)",
         uom: "SF",
-        quantityFormula: "{Wall Area}",
+        // Subtract the accent area from the main siding count so we
+        // don't double-bill the wall area when stone veneer is in play.
+        quantityFormula: "{Wall Area} - {Stone Veneer Accent Area}",
         // Vinyl baseline: ~$3.50 mat + ~$3.00 labor per SF. Multiplier
         // shifts both proportionally; tweak per-line if needed.
         unitCostUsd: 0,
@@ -1166,6 +1197,19 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         laborCostUsd: 0,
         laborCostFormula: "3.00 * {Siding Material}",
         csiDivision: "07",
+      },
+      {
+        name: "Stone veneer accent (per SF, installed)",
+        uom: "SF",
+        // Gated on the accent property — formula evaluates to 0 when
+        // unused, so the line drops out.
+        quantityFormula: "{Stone Veneer Accent Area}",
+        // ~$14/SF material + ~$12/SF labor for cultured stone; real
+        // natural stone runs 1.5-2× this and goes in the bid line.
+        unitCostUsd: 14.0,
+        laborCostUsd: 12.0,
+        csiDivision: "04",
+        catId: "42", // STONE (Barry's section)
       },
       {
         name: "House wrap (Tyvek) + tape",
@@ -1369,6 +1413,97 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         label: "Copper (premium)",
         description: "Long-life, ages to patina",
         propertyOverrides: { "Gutter Material": 5.5 },
+      },
+    ],
+  },
+  {
+    id: "stub-exterior-trim",
+    catId: "44", // EXTERIOR DETAILS — fascia, soffit, drip edge, ridge vent
+    name: "Exterior Trim — fascia, soffit, drip edge, ridge vent",
+    description:
+      "Eave-line and ridge-line finish: 1×8 fascia, vented soffit, " +
+      "drip edge at every eave/rake, and continuous ridge vent at the " +
+      "peak. Eave LF runs ~1.3-2.6× the building perimeter depending " +
+      "on roof complexity (single gable on the low end, hip-with-" +
+      "dormers on the high end). Ridge LF is ~0.5-0.75× perimeter.",
+    trade: "exterior",
+    properties: [
+      // Total fascia run — sum of every eave and rake on the roof.
+      // For a complex roof, this is dramatically more than the wall
+      // perimeter; converter sets a baseline and builder edits.
+      { name: "Eave Length", uom: "LF", defaultValue: 250 },
+      // Soffit width as seen from below — the horizontal dimension
+      // from wall to fascia. Typical residential is 18-24" (1.5-2 ft).
+      { name: "Soffit Width", uom: "FT", defaultValue: 1.5 },
+      // Continuous ridge vent runs along every roof peak. Hip roofs
+      // have minimal ridge; gable roofs have a single long ridge;
+      // complex roofs have multiple shorter ridges.
+      { name: "Ridge Length", uom: "LF", defaultValue: 100 },
+      {
+        name: "Trim Style",
+        uom: "",
+        defaultValue: 1.0,
+        kind: "option",
+        options: [
+          { label: "Painted pine 1×8 (standard)", value: 1.0 },
+          { label: "PVC composite (rot-resistant)", value: 1.6 },
+          { label: "Cedar / Hardie (premium)", value: 1.9 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name: "1×8 fascia board (per LF)",
+        uom: "LF",
+        quantityFormula: "{Eave Length}",
+        unitCostUsd: 0,
+        unitCostFormula: "2.80 * {Trim Style}",
+        laborCostUsd: 1.40,
+        csiDivision: "06",
+      },
+      {
+        name: "Vented soffit panel (per SF)",
+        uom: "SF",
+        quantityFormula: "{Eave Length} * {Soffit Width}",
+        unitCostUsd: 0,
+        unitCostFormula: "2.20 * {Trim Style}",
+        laborCostUsd: 1.20,
+        csiDivision: "07",
+      },
+      {
+        name: "Drip edge (per LF, aluminum)",
+        uom: "LF",
+        // Drip edge runs at every eave AND every rake — usually ~1.0×
+        // the fascia LF since rakes already factor into Eave Length
+        // when builders enter the total roof edge.
+        quantityFormula: "{Eave Length}",
+        unitCostUsd: 1.10,
+        laborCostUsd: 0.45,
+        csiDivision: "07",
+      },
+      {
+        name: "Continuous ridge vent (per LF)",
+        uom: "LF",
+        quantityFormula: "{Ridge Length}",
+        unitCostUsd: 4.20,
+        laborCostUsd: 2.10,
+        csiDivision: "07",
+      },
+    ],
+    variantPresets: [
+      {
+        label: "Painted pine 1×8 (standard)",
+        propertyOverrides: { "Trim Style": 1.0 },
+      },
+      {
+        label: "PVC composite (rot-resistant)",
+        description: "Cellular PVC trim — no rot, paintable",
+        propertyOverrides: { "Trim Style": 1.6 },
+      },
+      {
+        label: "Cedar / Hardie (premium)",
+        description: "Rough-sawn cedar or fiber-cement",
+        propertyOverrides: { "Trim Style": 1.9 },
       },
     ],
   },
