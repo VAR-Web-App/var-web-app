@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listDeals, listAllMilestonesForOrg, listRFQs, listChangeOrders } from "@/lib/store";
+import { listDeals, listMilestones, listRFQs, listChangeOrders } from "@/lib/store";
 
 /**
  * Fetches the count of items needing the GC's attention across all
@@ -30,15 +30,26 @@ export function useInboxCount(orgRef: string | undefined): number {
         const deals = await listDeals(orgRef!);
         const dealIds = deals.map((d) => d.id);
 
-        const [milestones, rfqLists, coLists] = await Promise.all([
-          listAllMilestonesForOrg(orgRef!),
-          Promise.all(dealIds.map((id) => listRFQs(id))),
-          Promise.all(dealIds.map((id) => listChangeOrders(id))),
+        // Per-deal milestone queries — see /inbox page for why
+        // (orphan milestones can fail org-wide queries via Firestore
+        // rules). Each per-deal call is wrapped to degrade to []
+        // on failure.
+        const safeList = async <T,>(fn: () => Promise<T[]>): Promise<T[]> => {
+          try {
+            return await fn();
+          } catch {
+            return [];
+          }
+        };
+        const [milestoneLists, rfqLists, coLists] = await Promise.all([
+          Promise.all(dealIds.map((id) => safeList(() => listMilestones(id)))),
+          Promise.all(dealIds.map((id) => safeList(() => listRFQs(id)))),
+          Promise.all(dealIds.map((id) => safeList(() => listChangeOrders(id)))),
         ]);
 
-        const drawsPending = milestones.filter(
-          (m) => m.status === "awaiting_approval",
-        ).length;
+        const drawsPending = milestoneLists
+          .flat()
+          .filter((m) => m.status === "awaiting_approval").length;
 
         const bidsToAward = rfqLists
           .flat()

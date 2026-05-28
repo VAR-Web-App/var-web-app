@@ -24,7 +24,7 @@ import AppShell from "@/components/app-shell";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
-  listAllMilestonesForOrg,
+  listMilestones,
   listRFQs,
   listChangeOrders,
 } from "@/lib/store";
@@ -82,10 +82,18 @@ export default function InboxPage() {
           }
         };
 
-        const [milestones, rfqLists, coLists] = await Promise.all([
-          safeList(
-            () => listAllMilestonesForOrg(profile!.org_ref),
-            "listAllMilestonesForOrg",
+        // Per-deal milestone queries instead of one big org-wide
+        // listAllMilestonesForOrg() — the org-wide path goes through
+        // a Firestore rule that does a get() on the parent deal per
+        // milestone, so ONE orphan milestone (deal deleted, milestone
+        // not cleaned up) fails the whole query. Per-deal queries
+        // scope to known-existing deals and degrade per-deal on
+        // failure instead of killing every draw row.
+        const [milestoneLists, rfqLists, coLists] = await Promise.all([
+          Promise.all(
+            dealIds.map((id) =>
+              safeList(() => listMilestones(id), `listMilestones(${id})`),
+            ),
           ),
           Promise.all(
             dealIds.map((id) => safeList(() => listRFQs(id), `listRFQs(${id})`)),
@@ -96,6 +104,7 @@ export default function InboxPage() {
             ),
           ),
         ]);
+        const milestones = milestoneLists.flat();
 
       const all: InboxItem[] = [];
 
