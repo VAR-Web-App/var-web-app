@@ -848,10 +848,6 @@ function ExtractionResults({
   const confColor =
     conf === "high" ? "bg-emerald-100 text-emerald-800" : conf === "medium" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-800";
 
-  const linesPreview = generateEstimateLines(extraction);
-  const totalEstimateCost = linesPreview.reduce((s, l) => s + l.cost_extended, 0);
-  const totalEstimatePrice = linesPreview.reduce((s, l) => s + l.customer_extended, 0);
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -964,20 +960,6 @@ function ExtractionResults({
           </ul>
         </div>
       )}
-
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-semibold text-emerald-900">
-          Generates {linesPreview.length} line items
-        </p>
-        <p className="mt-1 text-xs text-emerald-800">
-          Cost basis: ~${totalEstimateCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-          {" · "}
-          Estimate to client: ~${totalEstimatePrice.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-        </p>
-        <p className="mt-2 text-[11px] italic text-emerald-700">
-          Mid-grade defaults using $/sqft rules-of-thumb. Edit on the next screen before sending.
-        </p>
-      </div>
 
       {applying ? (
         // Match the AI extraction's progress UX so the apply step feels
