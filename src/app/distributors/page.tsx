@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import {
   ArrowTopRightOnSquareIcon,
+  ClipboardDocumentListIcon,
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import AppShell from "@/components/app-shell";
 import Tooltip from "@/components/tooltip";
-import { Distributor } from "@/types";
+import { Distributor, Deal } from "@/types";
+import { ProjectRFQ, RFQ_STATUS_LABELS, RFQ_STATUS_STYLES } from "@/types/builder";
 import {
   listDistributors,
   saveDistributor,
@@ -16,6 +19,8 @@ import {
   newId,
   refreshSubScheduleLink,
   getSettings,
+  listDeals,
+  listRFQs,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
@@ -25,10 +30,51 @@ export default function DistributorsPage() {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  // Org-wide RFQs for the aggregator panel at the top of the page.
+  // We fetch all deals, then all RFQs per deal, then filter to the
+  // open / in-flight ones (status !== "awarded" && !== "closed").
+  // Each row links into the project's Finances tab where the full
+  // RFQ panel lives.
+  const [openRfqs, setOpenRfqs] = useState<
+    Array<{ rfq: ProjectRFQ; deal: Deal }>
+  >([]);
 
   useEffect(() => {
     if (!profile) return;
-    listDistributors(profile.org_ref).then(setDistributors);
+    let active = true;
+    void (async () => {
+      const [subs, deals] = await Promise.all([
+        listDistributors(profile.org_ref),
+        listDeals(profile.org_ref),
+      ]);
+      if (!active) return;
+      setDistributors(subs);
+
+      // Fan out RFQ queries per deal — same approach as Inbox. Per-deal
+      // failures degrade to empty so one broken project can't strand
+      // the whole list.
+      const rfqLists = await Promise.all(
+        deals.map(async (d) => {
+          try {
+            const rs = await listRFQs(d.id);
+            return rs.map((rfq) => ({ rfq, deal: d }));
+          } catch {
+            return [];
+          }
+        }),
+      );
+      if (!active) return;
+      const open = rfqLists
+        .flat()
+        .filter(({ rfq }) => rfq.status !== "awarded" && rfq.status !== "closed");
+      open.sort((a, b) =>
+        (b.rfq.updated_at || "").localeCompare(a.rfq.updated_at || ""),
+      );
+      setOpenRfqs(open);
+    })();
+    return () => {
+      active = false;
+    };
   }, [profile]);
 
   /** Open the sub's portal in a new tab. Refreshes (or generates) the
@@ -104,6 +150,74 @@ export default function DistributorsPage() {
           </button>
         </Tooltip>
       </div>
+
+      {/* Org-wide open RFQs. Aggregated across every project so the
+       *  builder can manage active bid requests without drilling into
+       *  each deal's Finances tab one at a time. Awarded + closed RFQs
+       *  are filtered out — those don't need attention. */}
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <ClipboardDocumentListIcon className="h-4 w-4 text-slate-500" />
+              Open RFQs
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Active bid requests across every project. Click through to
+              the project to review bids or award.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+            {openRfqs.length}
+          </span>
+        </header>
+        {openRfqs.length === 0 ? (
+          <div className="px-6 py-8 text-center text-sm text-slate-500">
+            No open RFQs across your projects. Create one from a
+            project&apos;s Finances tab.
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {openRfqs.map(({ rfq, deal }) => {
+              const bids = rfq.invitees.filter(
+                (i) => typeof i.bid_amount === "number" && i.bid_amount > 0,
+              );
+              const sent = rfq.invitees.length;
+              const responded = bids.length;
+              return (
+                <li key={rfq.id}>
+                  <Link
+                    href={`/deals/${deal.id}/finances`}
+                    className="block px-4 py-3 transition hover:bg-slate-50 sm:px-6"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {rfq.scope_title}
+                      </p>
+                      <span className="shrink-0 text-xs text-slate-500">
+                        {deal.name}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${RFQ_STATUS_STYLES[rfq.status]}`}
+                      >
+                        {RFQ_STATUS_LABELS[rfq.status]}
+                      </span>
+                      <span>
+                        {responded} of {sent} bid{sent === 1 ? "" : "s"} in
+                      </span>
+                      {rfq.phase && (
+                        <span className="text-slate-500">{rfq.phase}</span>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* Desktop table — hidden on mobile in favor of the card list below. */}
       <section className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
