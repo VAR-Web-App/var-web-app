@@ -50,6 +50,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json(jsonResponse);
   } catch (error) {
+    // Surface the real error to Vercel logs — the client-side SDK
+    // collapses any non-200 response into a generic "Failed to retrieve
+    // the client token" message, so without an explicit console.error
+    // there's no way to diagnose token / config issues from the outside.
+    console.error("[api/upload] handleUpload failed", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      hasBlobToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      hasBlobStoreId: Boolean(process.env.BLOB_STORE_ID),
+      blobTokenPrefix: process.env.BLOB_READ_WRITE_TOKEN?.slice(0, 16),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },
       { status: 400 },
