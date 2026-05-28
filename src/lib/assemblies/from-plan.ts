@@ -281,6 +281,17 @@ export function instancesFromPlan(
     );
   }
 
+  // Floor framing dimensions need to track the framed-floor AREA, not
+  // the overall building envelope. Claude returns `footprint_dimensions`
+  // as the outermost building width/length (including porches, garage,
+  // and roof overhangs), which over-counts subfloor sheets by 30-80%
+  // on plans with substantial porches. Use first_floor_sqft + porch
+  // (covered porches typically have framed floors over crawl) and
+  // synthesize a 1.4:1 rectangle from that area instead.
+  const firstFloorFramedSqft = firstFloorSqft + (extraction.porch_sqft ?? 0);
+  const framingWidth = Math.sqrt(firstFloorFramedSqft / 1.4);
+  const framingLength = framingWidth * 1.4;
+
   // ── First-floor framing (over any non-slab foundation) ──────────
   // Slab-on-grade IS the first floor, so no joists needed. Crawl spaces
   // and basements need full floor framing sitting on the foundation
@@ -289,19 +300,24 @@ export function instancesFromPlan(
   if (fdnId !== "stub-slab-on-grade") {
     out.push(
       makeInstance("stub-floor-2x10-16oc", "Floor system — first floor", {
-        "Floor Length": footprint.length,
-        "Floor Width": footprint.width,
+        "Floor Length": framingLength,
+        "Floor Width": framingWidth,
         "Joist Spacing": 16,
       })!,
     );
   }
 
   // ── Second-floor framing (still gated on stories > 1) ─────────
+  // Use second_floor_sqft if Claude provided it; otherwise assume the
+  // second floor is the same shape as the first.
   if (stories > 1) {
+    const secondFloorSqft = extraction.second_floor_sqft ?? firstFloorSqft;
+    const w2 = Math.sqrt(secondFloorSqft / 1.4);
+    const l2 = w2 * 1.4;
     out.push(
       makeInstance("stub-floor-2x10-16oc", "Floor system — second floor", {
-        "Floor Length": footprint.length,
-        "Floor Width": footprint.width,
+        "Floor Length": l2,
+        "Floor Width": w2,
         "Joist Spacing": 16,
       })!,
     );
@@ -330,12 +346,15 @@ export function instancesFromPlan(
   });
 
   // ── Interior walls (one bundled instance) ────────────────────
-  // Rough heuristic: total interior wall LF ≈ 0.7 × heated sqft / wall height
-  // (gives a working baseline; user adjusts).
+  // Rough heuristic: total interior wall LF ≈ 0.9 × heated sqft / wall
+  // height. Custom homes typically have more interior partition LF per
+  // SF than tract builds (more closets, en-suites, jogs); architect
+  // counts on the Maddox cross-check ran ~0.9 SF/LF. Builder still
+  // adjusts per project from the assembly card.
   const totalSqft = extraction.total_sqft ?? firstFloorSqft * stories;
   const avgWallHeight =
     wallHeights.reduce((s, h) => s + h, 0) / Math.max(1, wallHeights.length);
-  const interiorWallLF = Math.round((totalSqft * 0.7) / avgWallHeight);
+  const interiorWallLF = Math.round((totalSqft * 0.9) / avgWallHeight);
   out.push(
     makeInstance("stub-int-wall-2x4-16oc", "Interior walls (estimated)", {
       "Wall Length": interiorWallLF,

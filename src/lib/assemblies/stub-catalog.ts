@@ -135,7 +135,10 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "2×4 stud, 9' (SPF)",
         uom: "EA",
-        quantityFormula: "{Wall Length} * (12 / {Stud Spacing}) + 2",
+        // 1.20 buffer: corner studs + jacks/cripples at openings.
+        // Slightly less than the exterior wall's 1.25 because interior
+        // partitions have fewer openings per LF on average.
+        quantityFormula: "{Wall Length} * (12 / {Stud Spacing}) * 1.20",
         unitCostUsd: 6.5,
         laborCostUsd: 3.5,
         csiDivision: "06",
@@ -255,9 +258,13 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         csiDivision: "03",
       },
       {
-        name: "#5 rebar (two continuous runs)",
+        name: "#5 rebar (three continuous runs)",
         uom: "LF",
-        quantityFormula: "{Footing Length} * 2",
+        // Three continuous bars in the footing is the residential
+        // standard (one top, two bottom) per IRC R403.1.3 for footings
+        // wider than 16". Architect specs on Maddox-class plans
+        // typically call out 3 runs explicitly.
+        quantityFormula: "{Footing Length} * 3",
         unitCostUsd: 1.4,
         laborCostUsd: 0.5,
         csiDivision: "03",
@@ -498,12 +505,14 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         name: '5/8" OSB roof sheathing, 4×8 sheet',
         uom: "SHEET",
         // Plan area / 32 SF per sheet × 1.15 pitch overage.
-        // 1.30 multiplier covers: ~1.15 pitch slope factor (6/12 roof),
-        // ~10% eave overhangs (2' soffits), and small porch roof area.
-        // Was 1.15 — undersold area by ~40% on plans with substantial
-        // porches.
+        // 1.20 multiplier — 1.15 pitch slope factor (6/12 roof) plus
+        // ~5% buffer for eave overhangs. Claude often returns
+        // footprint_dimensions as the OVERALL building envelope
+        // (including porches), so we don't need a 30%+ porch-roof
+        // bump on top — the porch area is usually already in the
+        // footprint. Higher multipliers double-count.
         quantityFormula:
-          "{Roof Run} * {Roof Width} / 32 * 1.30",
+          "{Roof Run} * {Roof Width} / 32 * 1.20",
         unitCostUsd: 32.0,
         laborCostUsd: 9.5,
         csiDivision: "06",
@@ -511,7 +520,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "30-lb roofing felt",
         uom: "SF",
-        quantityFormula: "{Roof Run} * {Roof Width} * 1.30",
+        quantityFormula: "{Roof Run} * {Roof Width} * 1.20",
         unitCostUsd: 0.14,
         laborCostUsd: 0.18,
         csiDivision: "07",
@@ -519,7 +528,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "Roof finish (per SQ = 100 SF)",
         uom: "SQ",
-        quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.30",
+        quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.20",
         // Asphalt 3-tab baseline: ~$95 mat + ~$55 labor per SQ.
         // The Roof Finish multiplier scales both proportionally.
         unitCostUsd: 0,
