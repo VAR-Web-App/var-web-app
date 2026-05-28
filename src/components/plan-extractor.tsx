@@ -259,7 +259,7 @@ export default function PlanExtractor({
       // function body limit; Blob accepts up to 4.5GB.
       const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_");
       const blob = await upload(`plan-uploads/${Date.now()}-${safeName}`, file, {
-        access: "public",
+        access: "private",
         handleUploadUrl: "/api/upload",
         contentType: file.type || "application/pdf",
         onUploadProgress: ({ percentage }) => {

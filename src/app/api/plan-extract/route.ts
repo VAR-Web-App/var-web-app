@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { get as getBlob, del as deleteBlob } from "@vercel/blob";
 
 // Vision calls on multi-page PDFs can take 15–30s. Vercel's default 10s
 // timeout would kill this. 60s ceiling is plenty for residential plans.
@@ -124,20 +125,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Fetch the file from Blob storage. We trust the URL because it
-  // came from our own /api/upload handshake; there's no XSS path
-  // where a third party could plant a malicious URL here (the route
-  // is auth-gated by Vercel's blob token issuance).
+  // Fetch the file from private Blob storage. Uses the SDK's get()
+  // which authenticates with BLOB_READ_WRITE_TOKEN; a plain fetch()
+  // against a private blob URL would 401.
   let buffer: Buffer;
   try {
-    const blobRes = await fetch(body.blob_url);
-    if (!blobRes.ok) {
+    const result = await getBlob(body.blob_url, { access: "private" });
+    if (!result) {
       return NextResponse.json(
-        { error: `Could not fetch uploaded PDF (${blobRes.status})` },
-        { status: 502 }
+        { error: "Uploaded PDF not found in blob storage" },
+        { status: 404 }
       );
     }
-    buffer = Buffer.from(await blobRes.arrayBuffer());
+    buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
   } catch (e) {
     return NextResponse.json(
       {
@@ -226,6 +226,14 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     );
   }
+
+  // Clean up the uploaded PDF — extraction is persisted on the deal,
+  // the blob has no further use. Fire-and-forget; a delete failure
+  // shouldn't break the user-visible response (the blob's lifecycle
+  // policy will eventually catch it anyway).
+  deleteBlob(body.blob_url).catch((e) => {
+    console.warn("[plan-extract] post-extraction blob cleanup failed", e);
+  });
 
   return NextResponse.json({
     ok: true,
