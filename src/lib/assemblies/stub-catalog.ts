@@ -35,7 +35,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "2×6 stud, 9' (SPF)",
         uom: "EA",
-        quantityFormula: "{Wall Length} * (12 / {Stud Spacing}) + 4",
+        // Base stud count from spacing × 1.25 buffer for corners (3-stud
+        // corners × 4), headers + cripples at every opening (~4 studs
+        // per door/window), and gable wall studs on the top story of a
+        // 2-story home. Architect-spec counts run ~25% above the bare
+        // LF/spacing math, which the previous "+4" undershoot.
+        quantityFormula: "{Wall Length} * (12 / {Stud Spacing}) * 1.25",
         unitCostUsd: 9.5,
         laborCostUsd: 4.0,
         csiDivision: "06",
@@ -59,7 +64,10 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: '7/16" OSB sheathing, 4×8 sheet',
         uom: "SHEET",
-        quantityFormula: "{Wall Length} * {Wall Height} / 32",
+        // Bumped 1.15x to cover gable wall sheathing on top-story walls
+        // (which the LF×Height calc doesn't capture — gables are
+        // triangles above the rectangular wall plane).
+        quantityFormula: "{Wall Length} * {Wall Height} / 32 * 1.15",
         unitCostUsd: 28.0,
         laborCostUsd: 8.0,
         csiDivision: "06",
@@ -342,13 +350,22 @@ export const STUB_ASSEMBLIES: Assembly[] = [
     name: "CMU Foundation Wall — 8×8×16 block",
     description:
       "Concrete masonry unit (8×8×16 block) foundation wall with mortar, " +
-      "#4 vertical rebar at 32\" OC, and bond beam at the top course. " +
-      "Block count assumes standard 8\" tall × 16\" wide units = 1.125 " +
-      "blocks per SF of wall.",
+      "#4 vertical rebar at 32\" OC, bond beam at the top course, and " +
+      "pad footings under interior piers. Block count assumes standard " +
+      "8\" tall × 16\" wide units = 1.125 blocks per SF of wall.",
     trade: "foundation",
     properties: [
       { name: "Wall Length", uom: "LF", defaultValue: 100 },
       { name: "Wall Height", uom: "FT", defaultValue: 8 },
+      {
+        // Interior CMU piers that support floor beams and ridge loads.
+        // Each pier needs a 24×24×12 pad footing under it. Default 8
+        // covers a typical 2,500-3,000 SF house; large houses can run
+        // 20+ piers. Builder adjusts per project.
+        name: "Pier Count",
+        uom: "EA",
+        defaultValue: 8,
+      },
     ],
     materials: [
       {
@@ -385,6 +402,28 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         unitCostUsd: 3.8,
         laborCostUsd: 2.1,
         csiDivision: "04",
+      },
+      {
+        // CMU piers — each sits on a pad footing handled separately
+        // below. Block count = 4 standard blocks per pier (2 wide × 2
+        // tall, average), bumped for typical taller mid-span piers.
+        name: "CMU pier blocks (interior)",
+        uom: "EA",
+        quantityFormula: "{Pier Count} * 5",
+        unitCostUsd: 2.4,
+        laborCostUsd: 4.2,
+        csiDivision: "04",
+      },
+      {
+        // Pad footing under each pier: 24×24×12 = 4 SF × 12" = 0.15 CY.
+        // The 24×24 dimensions are residential standard for a single
+        // interior pier on undisturbed soil.
+        name: "Pier pad footings (24×24×12 concrete)",
+        uom: "CY",
+        quantityFormula: "{Pier Count} * 0.15",
+        unitCostUsd: 195.0,
+        laborCostUsd: 75.0,
+        csiDivision: "03",
       },
     ],
     variantPresets: [
@@ -459,8 +498,12 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         name: '5/8" OSB roof sheathing, 4×8 sheet',
         uom: "SHEET",
         // Plan area / 32 SF per sheet × 1.15 pitch overage.
+        // 1.30 multiplier covers: ~1.15 pitch slope factor (6/12 roof),
+        // ~10% eave overhangs (2' soffits), and small porch roof area.
+        // Was 1.15 — undersold area by ~40% on plans with substantial
+        // porches.
         quantityFormula:
-          "{Roof Run} * {Roof Width} / 32 * 1.15",
+          "{Roof Run} * {Roof Width} / 32 * 1.30",
         unitCostUsd: 32.0,
         laborCostUsd: 9.5,
         csiDivision: "06",
@@ -468,7 +511,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "30-lb roofing felt",
         uom: "SF",
-        quantityFormula: "{Roof Run} * {Roof Width} * 1.15",
+        quantityFormula: "{Roof Run} * {Roof Width} * 1.30",
         unitCostUsd: 0.14,
         laborCostUsd: 0.18,
         csiDivision: "07",
@@ -476,7 +519,7 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "Roof finish (per SQ = 100 SF)",
         uom: "SQ",
-        quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.15",
+        quantityFormula: "{Roof Run} * {Roof Width} / 100 * 1.30",
         // Asphalt 3-tab baseline: ~$95 mat + ~$55 labor per SQ.
         // The Roof Finish multiplier scales both proportionally.
         unitCostUsd: 0,

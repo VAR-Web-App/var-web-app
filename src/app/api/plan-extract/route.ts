@@ -53,7 +53,7 @@ Output JSON ONLY (no prose, no markdown fences). Schema:
     "level": "main" | "second" | "basement" | "bonus" | null
   }>,
   "doors_windows": {
-    "exterior_doors_estimated": number | null,
+    "exterior_doors_estimated": number | null,   // SEE COUNTING RULES BELOW
     "windows_estimated": number | null
   },
   "notable_features": string[],                  // load-bearing walls, vaulted ceilings, etc.
@@ -67,7 +67,28 @@ Rules:
 - If you cannot read a value with confidence, return null and add a note in ambiguity_notes.
 - Do not estimate dimensions beyond what's printed/labeled. Custom architect drawings often have only a few labeled dimensions; surface that limitation in ambiguity_notes.
 - If multiple floors exist, list rooms across all floors with the appropriate "level" field.
-- Confidence: "high" only if all major values came directly from printed labels. "low" if you had to estimate most values from drawing geometry.`;
+- Confidence: "high" only if all major values came directly from printed labels. "low" if you had to estimate most values from drawing geometry.
+
+COUNTING RULES — doors_windows (this is where extractors most often go wrong, please be careful):
+
+exterior_doors_estimated counts ONLY doors that lead from inside the home to the outside world. This is typically 3–8 for a residential home. Specifically include:
+- Front entry door
+- Back / rear entry door
+- Side entry door
+- Garage-to-exterior service door (NOT the overhead garage door — that's a separate "garage_cars" field)
+- Patio / deck / porch doors (including French doors and sliding glass doors that lead outside)
+- Mud room / utility room exterior door
+
+DO NOT include in exterior_doors_estimated:
+- Interior doors (bedroom, bathroom, closet, pantry, mechanical room) — these belong in a separate interior count, not here
+- Pocket doors, barn doors, or any other interior partition doors
+- The vehicle-bay garage door itself (counted via garage_cars)
+- Door schedule labels on framing or structural details — those are descriptive labels, not doors to count
+- Door openings or rough-opening callouts (these refer to wall openings, not finished doors)
+
+If you find yourself returning a number larger than 10 for exterior_doors_estimated, you almost certainly miscounted — re-check by listing each exterior door's location before counting. A 5,000 SF custom home rarely has more than 6–8 exterior doors. If you can't tell from the plan, return null and note it in ambiguity_notes.
+
+windows_estimated counts individual window units (including each window in a "ganged" pair if they're separate sashes). Typical residential homes have 15–40 windows; if you see significantly more, double-check that you're counting units and not panes within mullioned windows.`;
 
 interface ExtractionResult {
   plan_name: string | null;

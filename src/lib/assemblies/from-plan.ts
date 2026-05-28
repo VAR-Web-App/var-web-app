@@ -235,6 +235,7 @@ export function instancesFromPlan(
 
   // ── Foundation ────────────────────────────────────────────────
   const fdnId = detectFoundationAssemblyId(extraction.foundation_type);
+  const cmuWall = hasCmuFoundationWall(extraction.foundation_type);
   if (fdnId === "stub-slab-on-grade") {
     out.push(
       makeInstance(fdnId, "Foundation — slab on grade", {
@@ -244,11 +245,16 @@ export function instancesFromPlan(
       })!,
     );
   } else {
+    // Heavier footing dims when a CMU wall (and pier loads) sit on top.
+    // Default 16×8 is sized for stick-frame on slab; CMU + 2-story stick
+    // framing needs 24×12 to hit typical residential bearing capacity.
+    const footingWidth = cmuWall ? 24 : catalogDefault(fdnId, "Footing Width");
+    const footingDepth = cmuWall ? 12 : catalogDefault(fdnId, "Footing Depth");
     out.push(
       makeInstance(fdnId, "Foundation — strip footing", {
         "Footing Length": perimeter,
-        "Footing Width": catalogDefault(fdnId, "Footing Width"),
-        "Footing Depth": catalogDefault(fdnId, "Footing Depth"),
+        "Footing Width": footingWidth,
+        "Footing Depth": footingDepth,
       })!,
     );
   }
@@ -256,11 +262,21 @@ export function instancesFromPlan(
   // CMU foundation wall on top of the strip footing — crawl spaces and
   // basements both have this and it's a large material line (1,000+
   // blocks on a typical 2,500 SF house). Slab-on-grade doesn't.
-  if (hasCmuFoundationWall(extraction.foundation_type)) {
+  if (cmuWall) {
+    // Pier count scales with footprint area — roughly one pier per
+    // 250 SF of first-floor footprint, covering the perimeter spacing
+    // (≤8 LF between piers per IRC) and the center beam line. Floors
+    // > 1 typically need ~30% more piers to support the second story
+    // beam pickup.
+    const piers = Math.max(
+      4,
+      Math.round((firstFloorSqft / 250) * (stories > 1 ? 1.3 : 1)),
+    );
     out.push(
       makeInstance("stub-cmu-foundation-wall", "Foundation wall — CMU block", {
         "Wall Length": perimeter,
         "Wall Height": inferFoundationWallHeight(extraction.foundation_type),
+        "Pier Count": piers,
       })!,
     );
   }
