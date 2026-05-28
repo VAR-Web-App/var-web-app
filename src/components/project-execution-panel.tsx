@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   CheckCircleIcon,
+  ChevronDownIcon,
   PlayCircleIcon,
   ClockIcon,
   CurrencyDollarIcon,
@@ -1122,12 +1123,15 @@ function Stat({
   );
 }
 
-// ── Weekly view ──────────────────────────────────────────────────
-// Groups milestones into Mon–Sun weeks and shows what's active that
-// week. Works on phone widths (Gantt does not) and gives desktop a
-// readable "this week" lens that doesn't require scanning a bar
-// chart. Past weeks collapse by default; current + future weeks are
-// expanded.
+// ── Schedule view (phase-grouped weeks) ─────────────────────────
+// Each phase renders as a collapsible card showing its summary
+// (date range, status, subs, $ amount). Tap to expand → reveals the
+// weeks within that phase. Default state: phases that overlap today
+// are open; everything else collapsed. Collapses a 30-week project
+// from 30 visible rows down to 9-ish, with detail on demand.
+//
+// Was: flat weekly list (every Mon-Sun row from project start to
+// end). Worked but was too long to scan on big projects.
 
 function WeeklyScheduleView({
   milestones,
@@ -1140,7 +1144,6 @@ function WeeklyScheduleView({
   useEffect(() => {
     setTodayMs(Date.now());
   }, []);
-  const [showPast, setShowPast] = useState(false);
 
   const subById = useMemo(() => {
     const m = new Map<string, Distributor>();
@@ -1150,96 +1153,97 @@ function WeeklyScheduleView({
 
   const dated = useMemo(
     () =>
-      milestones.filter(
-        (m) => m.planned_start_date && m.planned_end_date,
-      ),
+      milestones
+        .filter((m) => m.planned_start_date && m.planned_end_date)
+        .sort((a, b) => a.order - b.order),
     [milestones],
   );
 
-  const weeks = useMemo(() => {
-    if (dated.length === 0) return [];
-    const starts = dated.map((m) => Date.parse(m.planned_start_date!));
-    const ends = dated.map((m) => Date.parse(m.planned_end_date!));
-    const startMs = Math.min(...starts);
-    const endMs = Math.max(...ends);
-    const firstMon = mondayOfMs(startMs);
-    const lastMon = mondayOfMs(endMs);
-    const out: Array<{
-      mondayMs: number;
-      sundayMs: number;
-      active: ProjectMilestone[];
-    }> = [];
-    for (let cur = firstMon; cur <= lastMon; cur += 7 * 86400000) {
-      const sundayMs = cur + 6 * 86400000 + (86400000 - 1); // end of Sunday
-      const active = dated.filter((m) => {
-        const ms = Date.parse(m.planned_start_date!);
-        const me = Date.parse(m.planned_end_date!);
-        return me >= cur && ms <= sundayMs;
-      });
-      out.push({ mondayMs: cur, sundayMs, active });
-    }
-    return out;
+  // Each phase becomes a card whose weeks are pre-computed so the
+  // expand body can render without re-scanning every milestone.
+  const phases = useMemo(() => {
+    return dated.map((m) => {
+      const startMs = Date.parse(m.planned_start_date!);
+      const endMs = Date.parse(m.planned_end_date!);
+      const firstMon = mondayOfMs(startMs);
+      const lastMon = mondayOfMs(endMs);
+      const weeks: Array<{ mondayMs: number; sundayMs: number }> = [];
+      for (let cur = firstMon; cur <= lastMon; cur += 7 * 86400000) {
+        const sundayMs = cur + 6 * 86400000 + (86400000 - 1);
+        weeks.push({ mondayMs: cur, sundayMs });
+      }
+      return { milestone: m, startMs, endMs, weeks };
+    });
   }, [dated]);
+
+  // Default: any phase that contains today is open. After mount, the
+  // user toggles freely.
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const initializedOpen = useRef(false);
+  useEffect(() => {
+    if (initializedOpen.current || todayMs === null || phases.length === 0) {
+      return;
+    }
+    const open = new Set<string>();
+    for (const p of phases) {
+      if (todayMs >= p.startMs && todayMs <= p.endMs) {
+        open.add(p.milestone.id);
+      }
+    }
+    setOpenIds(open);
+    initializedOpen.current = true;
+  }, [todayMs, phases]);
 
   if (dated.length === 0) {
     return (
       <div className="border-b border-slate-200 px-4 py-4 text-xs text-slate-500 sm:px-6">
         Phase dates not set yet — regenerate the schedule or edit dates
-        on a milestone below to populate the weekly view.
+        on a milestone below to populate the schedule view.
       </div>
     );
   }
-
-  const currentWeekIdx = todayMs
-    ? weeks.findIndex(
-        (w) => todayMs >= w.mondayMs && todayMs <= w.sundayMs,
-      )
-    : -1;
-  // Cut-point: hide past weeks (those that ended before today) unless
-  // user clicks "Show past". If we're before the project starts, show
-  // everything.
-  const firstVisibleIdx =
-    showPast || currentWeekIdx < 0 ? 0 : currentWeekIdx;
-  const hiddenPastCount = firstVisibleIdx;
-  const visibleWeeks = weeks.slice(firstVisibleIdx);
 
   return (
     <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-6 sm:py-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Weekly view
+          Schedule by phase
         </h3>
-        {hiddenPastCount > 0 && !showPast ? (
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowPast(true)}
+            onClick={() =>
+              setOpenIds(new Set(phases.map((p) => p.milestone.id)))
+            }
             className="text-[11px] font-medium text-sky-700 hover:text-sky-900"
           >
-            Show {hiddenPastCount} past week{hiddenPastCount === 1 ? "" : "s"}
+            Expand all
           </button>
-        ) : null}
-        {showPast && hiddenPastCount > 0 ? (
           <button
             type="button"
-            onClick={() => setShowPast(false)}
+            onClick={() => setOpenIds(new Set())}
             className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
           >
-            Hide past
+            Collapse all
           </button>
-        ) : null}
+        </div>
       </div>
       <ul className="space-y-2">
-        {visibleWeeks.map((w) => (
-          <WeekCard
-            key={w.mondayMs}
-            mondayMs={w.mondayMs}
-            sundayMs={w.sundayMs}
-            active={w.active}
-            isCurrent={
-              todayMs !== null &&
-              todayMs >= w.mondayMs &&
-              todayMs <= w.sundayMs
+        {phases.map((p) => (
+          <PhaseCard
+            key={p.milestone.id}
+            milestone={p.milestone}
+            weeks={p.weeks}
+            isOpen={openIds.has(p.milestone.id)}
+            onToggle={() =>
+              setOpenIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(p.milestone.id)) next.delete(p.milestone.id);
+                else next.add(p.milestone.id);
+                return next;
+              })
             }
+            todayMs={todayMs}
             subById={subById}
           />
         ))}
@@ -1248,89 +1252,126 @@ function WeeklyScheduleView({
   );
 }
 
-function WeekCard({
-  mondayMs,
-  sundayMs,
-  active,
-  isCurrent,
+function PhaseCard({
+  milestone,
+  weeks,
+  isOpen,
+  onToggle,
+  todayMs,
   subById,
 }: {
-  mondayMs: number;
-  sundayMs: number;
-  active: ProjectMilestone[];
-  isCurrent: boolean;
+  milestone: ProjectMilestone;
+  weeks: Array<{ mondayMs: number; sundayMs: number }>;
+  isOpen: boolean;
+  onToggle: () => void;
+  todayMs: number | null;
   subById: Map<string, Distributor>;
 }) {
-  const mondayLabel = new Date(mondayMs).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-  const sundayLabel = new Date(sundayMs).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  const startMs = Date.parse(milestone.planned_start_date!);
+  const endMs = Date.parse(milestone.planned_end_date!);
+  const isCurrent =
+    todayMs !== null && todayMs >= startMs && todayMs <= endMs;
+  const fmtDate = (ms: number) =>
+    new Date(ms).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  const subNames = (milestone.assigned_subs ?? [])
+    .map((id) => subById.get(id)?.name)
+    .filter(Boolean) as string[];
   return (
     <li
       className={
-        "rounded-lg border bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3 " +
+        "overflow-hidden rounded-lg border bg-white shadow-sm " +
         (isCurrent
           ? "border-sky-300 ring-1 ring-sky-200"
           : "border-slate-200")
       }
     >
-      <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900">
-          Week of {mondayLabel}
-          <span className="ml-1 text-xs font-normal text-slate-500">
-            – {sundayLabel}
-          </span>
-        </p>
-        {isCurrent ? (
-          <span className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
-            This week
-          </span>
-        ) : null}
-      </div>
-      {active.length === 0 ? (
-        <p className="text-xs italic text-slate-400">Nothing scheduled.</p>
-      ) : (
-        <ul className="space-y-1">
-          {active.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-start gap-2 text-sm text-slate-700"
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50 sm:px-4 sm:py-3"
+        aria-expanded={isOpen}
+      >
+        <span
+          className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${timelineSegmentColor(
+            milestone.status,
+          )}`}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {milestone.name}
+            </p>
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${MILESTONE_STATUS_STYLES[milestone.status]}`}
             >
-              <span
-                className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${timelineSegmentColor(
-                  m.status,
-                )}`}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-slate-900">
-                  {m.name}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {weekStatusLabel(m, mondayMs, sundayMs)}
-                  {(m.assigned_subs?.length ?? 0) > 0 && (
-                    <>
-                      {" · "}
-                      {(m.assigned_subs ?? [])
-                        .map((id) => subById.get(id)?.name)
-                        .filter(Boolean)
-                        .join(", ")}
-                    </>
-                  )}
-                </p>
-              </div>
-              <span
-                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${MILESTONE_STATUS_STYLES[m.status]}`}
-              >
-                {MILESTONE_STATUS_LABELS[m.status]}
+              {MILESTONE_STATUS_LABELS[milestone.status]}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {fmtDate(startMs)} – {fmtDate(endMs)}
+            {" · "}
+            {weeks.length} week{weeks.length === 1 ? "" : "s"}
+            {milestone.amount > 0 && (
+              <>
+                {" · "}$
+                {milestone.amount.toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })}
+              </>
+            )}
+            {isCurrent && (
+              <span className="ml-1.5 rounded-full bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                Now
               </span>
-            </li>
-          ))}
-        </ul>
+            )}
+          </p>
+          {subNames.length > 0 && (
+            <p className="mt-0.5 truncate text-[11px] text-slate-500">
+              {subNames.join(", ")}
+            </p>
+          )}
+        </div>
+        <ChevronDownIcon
+          className={`mt-1 h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {isOpen && (
+        <div className="border-t border-slate-100 bg-slate-50/40 px-3 py-2 sm:px-4 sm:py-3">
+          <ul className="space-y-1.5">
+            {weeks.map((w) => {
+              const isThisWeek =
+                todayMs !== null &&
+                todayMs >= w.mondayMs &&
+                todayMs <= w.sundayMs;
+              return (
+                <li
+                  key={w.mondayMs}
+                  className={`flex items-baseline justify-between gap-2 rounded-md px-2 py-1 text-xs ${
+                    isThisWeek
+                      ? "bg-sky-100 font-semibold text-sky-900"
+                      : "text-slate-700"
+                  }`}
+                >
+                  <span>
+                    Week of {fmtDate(w.mondayMs)}
+                    <span className="text-slate-400"> – {fmtDate(w.sundayMs)}</span>
+                  </span>
+                  {isThisWeek && (
+                    <span className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                      This week
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </li>
   );
@@ -1343,27 +1384,6 @@ function mondayOfMs(ms: number): number {
   const diff = (dow + 6) % 7; // 0 if Mon, 1 if Tue, .. 6 if Sun
   d.setDate(d.getDate() - diff);
   return d.getTime();
-}
-
-function weekStatusLabel(
-  m: ProjectMilestone,
-  mondayMs: number,
-  sundayMs: number,
-): string {
-  const ms = Date.parse(m.planned_start_date!);
-  const me = Date.parse(m.planned_end_date!);
-  const startsThisWeek = ms >= mondayMs && ms <= sundayMs;
-  const endsThisWeek = me >= mondayMs && me <= sundayMs;
-  if (startsThisWeek && endsThisWeek) {
-    return `${new Date(ms).toLocaleDateString(undefined, { weekday: "short" })} – ${new Date(me).toLocaleDateString(undefined, { weekday: "short" })}`;
-  }
-  if (startsThisWeek) {
-    return `Starts ${new Date(ms).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`;
-  }
-  if (endsThisWeek) {
-    return `Ends ${new Date(me).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`;
-  }
-  return "Active all week";
 }
 
 // ── Gantt chart ──────────────────────────────────────────────────
