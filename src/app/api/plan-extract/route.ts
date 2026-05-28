@@ -147,9 +147,21 @@ windows_estimated counts individual window units. Typical residential homes have
 - DO read the window schedule (every plan set has one) — the total at the bottom or right side of the schedule is your most reliable number. If totals are printed there, prefer them over your own count.
 - If you find yourself returning fewer than 15 on a 3+ bedroom custom plan, double-check the schedule for grouped callouts you may have read as 1.
 
-GARAGE RULES — separate "how many cars fit" from "how many doors there are."
+GARAGE RULES — separate "how many cars fit" from "how many doors there are" from "how big is it."
 
 garage_cars is a bay-capacity number (1, 2, 3, 4). Read it from the architect's label ("2-CAR GARAGE", "3-CAR GARAGE") on the floor plan or the elevation drawing.
+
+garage_sqft is the floor area of the garage in square feet. Read it from the architect's printed area summary when available (typical residential plan sets list garage SF in a sqft schedule on the cover sheet). When no schedule is printed:
+- Measure the labeled garage dimensions from the floor plan (e.g. "24' × 22'" = 528 SF)
+- DO NOT estimate from car count alone — architects often size garages much larger than the minimum (a "2-car" garage can run 400-700 SF; a "3-car" garage can run 700-1,400 SF depending on shop space, workbench, storage alcove)
+- Typical ranges to sanity-check against:
+  - 1-car: 200-300 SF
+  - 2-car: 400-700 SF
+  - 3-car: 700-1,100 SF
+  - 4-car or oversized: 1,000-1,500 SF
+- If your number falls outside the typical range for the car count, double-check the floor plan dimensions before returning — the architect's listed SF is authoritative
+
+If you cannot read the garage dimensions, return null and note in ambiguity_notes that you couldn't measure.
 
 garage_doors_estimated is the count of OVERHEAD garage doors (not service doors — those are exterior doors). Read each door opening on the front (and any side) elevation:
 - A typical 2-car garage with one wide opening = 1 overhead door (a 16' double)

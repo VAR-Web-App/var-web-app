@@ -305,22 +305,40 @@ export function instancesFromPlan(
   // Foundation perimeter is DIFFERENT from building envelope perimeter
   // on most custom plans — the foundation wall wraps just the heated /
   // cooled space, while the building envelope adds porch slab + garage
-  // pad that sit on their own footings (not the main foundation wall).
-  // Cnadd cross-check vs Maddox spec: full envelope perimeter = 368 LF,
-  // architect foundation perimeter ≈ 256 LF — the 44-47% overshoot on
-  // sill plate / termite shield / gutter LF traced back to using the
-  // full envelope here. Prefer the conditioned-footprint dimensions
-  // when Claude surfaced them; fall back to a 1.4:1 rectangle around
-  // first_floor_sqft. (parseFootprint is called again later for floor
-  // framing — keeping it duplicated is cleaner than threading a tuple
-  // through the foundation/framing seam.)
-  const conditionedFootprint =
-    parseFootprint(extraction.conditioned_footprint_dimensions ?? null) ??
-    (() => {
-      const ratio = 1.4;
-      const width = Math.sqrt(firstFloorSqft / ratio);
-      return { length: width * ratio, width };
-    })();
+  // pad that sit on their own footings.
+  //
+  // first_floor_sqft is the AUTHORITATIVE area number — Claude reads
+  // it off the architect's printed sqft summary and gets it right ~95%
+  // of the time. conditioned_footprint_dimensions is trickier because
+  // Claude sometimes returns the OVERALL building dimensions when no
+  // dedicated conditioned-area callout exists. Cnadd round 3 cross-
+  // check: Claude returned "67' × 77'" (5159 SF) when the actual
+  // conditioned first floor is ~3000 SF, blowing first-floor subfloor
+  // 70% over.
+  //
+  // Fix: always anchor to first_floor_sqft for the AREA. Use the parsed
+  // dimensions only for the length:width RATIO. When the parsed area
+  // is within 20% of first_floor_sqft, trust the dimensions as-is.
+  const conditionedParsed = parseFootprint(
+    extraction.conditioned_footprint_dimensions ?? null,
+  );
+  const parsedArea = conditionedParsed
+    ? conditionedParsed.length * conditionedParsed.width
+    : null;
+  const dimsAgreeWithSqft =
+    parsedArea != null &&
+    Math.abs(parsedArea - firstFloorSqft) / firstFloorSqft < 0.2;
+  const conditionedFootprint = dimsAgreeWithSqft
+    ? conditionedParsed!
+    : (() => {
+        // Use parsed ratio if available (rectangle shape hint), else
+        // default to 1.4:1 — typical residential aspect ratio.
+        const ratio = conditionedParsed
+          ? conditionedParsed.length / conditionedParsed.width
+          : 1.4;
+        const width = Math.sqrt(firstFloorSqft / ratio);
+        return { length: width * ratio, width };
+      })();
   const foundationPerimeter =
     2 * (conditionedFootprint.length + conditionedFootprint.width);
 
@@ -381,14 +399,15 @@ export function instancesFromPlan(
   // basements both have this and it's a large material line (1,000+
   // blocks on a typical 2,500 SF house). Slab-on-grade doesn't.
   if (cmuWall) {
-    // Pier count scales with footprint area — roughly one pier per
-    // 250 SF of first-floor footprint, covering the perimeter spacing
-    // (≤8 LF between piers per IRC) and the center beam line. Floors
-    // > 1 typically need ~30% more piers to support the second story
-    // beam pickup.
+    // Pier count scales with footprint area. The IRC ceiling is 8 LF
+    // between piers on perimeter walls + similar spacing on center
+    // beams, which works out to about 1 pier per 180 SF on a typical
+    // crawl-space layout (was 1/250, which the Cnadd cross-check
+    // showed was halving the architect count). 2-story plans get
+    // +30% for second-story beam pickup.
     const piers = Math.max(
       4,
-      Math.round((firstFloorSqft / 250) * (stories > 1 ? 1.3 : 1)),
+      Math.round((firstFloorSqft / 180) * (stories > 1 ? 1.3 : 1)),
     );
     // Sand fill applies only to crawl-space foundations — basements have
     // a slab floor instead. The assembly's sand fill line is gated on
@@ -620,8 +639,23 @@ export function instancesFromPlan(
   // the floor-framing assembly's subfloor and the floor-below's wall
   // drywall). Single instance with Wall Area = 0 so only ceiling area
   // gets billed.
+  //
+  // Apply the same sanity check we use for second-floor framing:
+  // Claude undershot second_floor_sqft on the Cnadd run, which would
+  // short ceiling insulation by 40%+. Take the max of the surfaced
+  // value, the value implied by total/first/bonus totals, and 85% of
+  // first-floor area (most 2-story setbacks are at most 15%).
   const topCeilingSqft = stories > 1
-    ? (extraction.second_floor_sqft ?? firstFloorSqft)
+    ? Math.max(
+        extraction.second_floor_sqft ?? 0,
+        Math.max(
+          0,
+          (extraction.total_sqft ?? 0) -
+            (extraction.first_floor_sqft ?? 0) -
+            (extraction.bonus_sqft ?? 0),
+        ),
+        firstFloorSqft * 0.85,
+      )
     : firstFloorSqft;
   out.push(
     makeInstance("stub-drywall", "Ceiling drywall (top floor)", {
@@ -945,7 +979,11 @@ export function instancesFromPlan(
       makeInstance("stub-stair-package", label, {
         Risers: risers * totalStairRuns,
         "Stair Width": 40,
-        "Stringer Count": 3 * totalStairRuns,
+        // 4 stringers per run is the median for custom 36-42" wide
+        // stairs (3 typical stringers + 1 mid-span / outside-string
+        // landing block). Was 3, which Maddox cross-check showed
+        // shorted the stair package by 25-40%.
+        "Stringer Count": 4 * totalStairRuns,
         "Guardrail Length": 18 * totalStairRuns,
         "Tread Material": 1.0,
       })!,
