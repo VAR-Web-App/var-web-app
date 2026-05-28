@@ -50,6 +50,10 @@ export default function DrawRequestPage({
   const [subs, setSubs] = useState<Distributor[]>([]);
   const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // Template picker. "aia" = full AIA G702/G703 (lender-grade, default).
+  // "simple" = minimal invoice for banks/clients who don't need the full
+  // ceremony — single Phase row, totals, one signature line.
+  const [template, setTemplate] = useState<"aia" | "simple">("aia");
 
   useEffect(() => {
     if (!profile) return;
@@ -199,7 +203,37 @@ export default function DrawRequestPage({
             <ArrowLeftIcon className="h-4 w-4" />
             Back to project
           </Link>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className="inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-xs font-medium"
+              role="group"
+              aria-label="Invoice template"
+            >
+              <button
+                type="button"
+                onClick={() => setTemplate("aia")}
+                className={`rounded px-3 py-1.5 transition ${
+                  template === "aia"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="AIA G702 — lender-grade with full Schedule of Values and dual signatures"
+              >
+                AIA G702
+              </button>
+              <button
+                type="button"
+                onClick={() => setTemplate("simple")}
+                className={`rounded px-3 py-1.5 transition ${
+                  template === "simple"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Simple invoice — single phase, totals, one signature"
+              >
+                Simple Invoice
+              </button>
+            </div>
             {thisMs.qb_invoice_number ? (
               <button
                 onClick={pushToQuickBooks}
@@ -251,10 +285,12 @@ export default function DrawRequestPage({
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Application for Payment / Invoice
+                  {template === "aia" ? "Application for Payment" : "Invoice"}
                 </h1>
                 <p className="mt-1 text-sm text-slate-600">
-                  Draw Request #{drawNumber} · Invoice #{drawNumber}
+                  {template === "aia"
+                    ? `Draw Request #${drawNumber} · Invoice #${drawNumber}`
+                    : `Invoice #${drawNumber}`}
                 </p>
               </div>
               <div className="text-right text-xs text-slate-600">
@@ -334,8 +370,9 @@ export default function DrawRequestPage({
             <SummaryStat label="Status" value={MILESTONE_STATUS_LABELS[thisMs.status]} />
           </section>
 
-          {/* Approved Change Orders summary — included if any. */}
-          {changeOrders.filter((c) => c.status === "approved").length > 0 && (
+          {/* Approved Change Orders summary — included if any. AIA only;
+             simple invoice rolls COs into the contract total instead. */}
+          {template === "aia" && changeOrders.filter((c) => c.status === "approved").length > 0 && (
             <section className="mt-6">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
                 Approved Change Orders
@@ -376,7 +413,9 @@ export default function DrawRequestPage({
             </section>
           )}
 
-          {/* Schedule of Values */}
+          {/* Schedule of Values — AIA mode only. The simple template
+             renders a single-row table after this. */}
+          {template === "aia" && (
           <section className="mt-8">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
               Schedule of Values
@@ -442,47 +481,133 @@ export default function DrawRequestPage({
               </tfoot>
             </table>
           </section>
+          )}
 
-          {/* Certifications */}
-          <section className="mt-10 grid grid-cols-2 gap-8 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
-            <div>
-              <p className="font-semibold uppercase tracking-wider text-slate-900">
-                Contractor&apos;s Certification
+          {/* Simple invoice body — one line per draw with the amount due. */}
+          {template === "simple" && (
+            <section className="mt-8">
+              <table className="min-w-full text-sm">
+                <thead className="border-y-2 border-slate-900 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Description</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="px-3 py-3">
+                      <div className="font-semibold text-slate-900">
+                        {thisMs.name}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-600">
+                        Draw #{drawNumber} · {thisMs.percentage}% of contract
+                        {previouslyPaid > 0 && ` · Project ${completionPercent.toFixed(0)}% complete`}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm font-semibold tabular-nums text-slate-900">
+                      {fmtMoney(thisRequest)}
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-slate-300 text-xs text-slate-600">
+                    <td className="px-3 py-1.5 text-right">Contract total</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(contractValue)}</td>
+                  </tr>
+                  {previouslyPaid > 0 && (
+                    <tr className="text-xs text-slate-600">
+                      <td className="px-3 py-1.5 text-right">Previously paid</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">
+                        −{fmtMoney(previouslyPaid)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-t-2 border-slate-900 text-sm font-bold uppercase tracking-wider">
+                    <td className="px-3 py-2 text-right">Amount due</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-sky-700">
+                      {fmtMoney(thisRequest)}
+                    </td>
+                  </tr>
+                  <tr className="text-xs text-slate-500">
+                    <td className="px-3 py-1 text-right">Balance after this draw</td>
+                    <td className="px-3 py-1 text-right tabular-nums">{fmtMoney(remaining)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {(settings?.company_name || settings?.prepared_by_name) && (
+                <div className="mt-6 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Make checks payable to
+                  </div>
+                  <div className="font-semibold text-slate-900">
+                    {settings.company_name || settings.prepared_by_name}
+                  </div>
+                  {settings.company_address && (
+                    <div className="mt-0.5 whitespace-pre-line">{settings.company_address}</div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Certifications — full dual block for AIA, single approval
+             line for the simple template. */}
+          {template === "aia" ? (
+            <section className="mt-10 grid grid-cols-2 gap-8 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
+              <div>
+                <p className="font-semibold uppercase tracking-wider text-slate-900">
+                  Contractor&apos;s Certification
+                </p>
+                <p className="mt-1.5">
+                  The undersigned Contractor certifies that to the best of the Contractor&apos;s
+                  knowledge, information, and belief, the Work covered by this Application for
+                  Payment has been completed in accordance with the Contract Documents, that all
+                  amounts have been paid by the Contractor for Work for which previous Certificates
+                  for Payment were issued, and that current payment shown herein is now due.
+                </p>
+                <SignatureBlock label="Contractor" name={settings?.prepared_by_name || settings?.company_name} />
+              </div>
+              <div>
+                <p className="font-semibold uppercase tracking-wider text-slate-900">
+                  Owner&apos;s Approval
+                </p>
+                <p className="mt-1.5">
+                  The undersigned Owner has reviewed the Work covered by this Application for
+                  Payment and certifies that the Work has been performed in accordance with the
+                  Contract Documents and authorizes the lender to release funds in the amount
+                  certified above.
+                </p>
+                <SignatureBlock
+                  label="Owner"
+                  name={deal.account_name}
+                  signature={thisMs.approval_signature}
+                  signedAt={thisMs.approved_at}
+                />
+              </div>
+            </section>
+          ) : (
+            <section className="mt-10 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
+              <p>
+                Payment due on receipt. Thank you for your business.
               </p>
-              <p className="mt-1.5">
-                The undersigned Contractor certifies that to the best of the Contractor&apos;s
-                knowledge, information, and belief, the Work covered by this Application for
-                Payment has been completed in accordance with the Contract Documents, that all
-                amounts have been paid by the Contractor for Work for which previous Certificates
-                for Payment were issued, and that current payment shown herein is now due.
-              </p>
-              <SignatureBlock label="Contractor" name={settings?.prepared_by_name || settings?.company_name} />
-            </div>
-            <div>
-              <p className="font-semibold uppercase tracking-wider text-slate-900">
-                Owner&apos;s Approval
-              </p>
-              <p className="mt-1.5">
-                The undersigned Owner has reviewed the Work covered by this Application for
-                Payment and certifies that the Work has been performed in accordance with the
-                Contract Documents and authorizes the lender to release funds in the amount
-                certified above.
-              </p>
-              <SignatureBlock
-                label="Owner"
-                name={deal.account_name}
-                signature={thisMs.approval_signature}
-                signedAt={thisMs.approved_at}
-              />
-            </div>
-          </section>
+              <div className="mt-4 grid grid-cols-2 gap-8">
+                <SignatureBlock
+                  label="Owner Approval"
+                  name={deal.account_name}
+                  signature={thisMs.approval_signature}
+                  signedAt={thisMs.approved_at}
+                />
+              </div>
+            </section>
+          )}
 
           {/* Footer */}
           <footer className="mt-8 border-t border-slate-100 pt-3 text-center text-[10px] text-slate-400">
             Generated {date}
             {settings?.company_name && ` · ${settings.company_name}`}
             {" · "}
-            Application for Payment, Draw #{drawNumber}
+            {template === "aia" ? `Application for Payment, Draw #${drawNumber}` : `Invoice #${drawNumber}`}
           </footer>
         </article>
       </div>
