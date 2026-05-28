@@ -51,6 +51,11 @@ interface PlanInput {
     exterior_doors_estimated: number | null;
     windows_estimated: number | null;
   };
+  /** Plain-English flags Claude surfaces (e.g. "metal roof", "vaulted
+   *  living room ceiling"). The converter scans these to set roof
+   *  finish defaults — the only programmatic use today, but more
+   *  feature-detection can hang off this without schema changes. */
+  notable_features?: string[];
 }
 
 function newId(): string {
@@ -427,11 +432,22 @@ export function instancesFromPlan(
     roofRun = Math.max(footprint.length, footprint.width);
     roofWidth = Math.min(footprint.length, footprint.width);
   }
+  // Detect metal-roof or tile spec from notable_features so the
+  // unit cost matches the architect-spec'd finish rather than the
+  // architectural-shingles default.
+  const featuresJoined = (extraction.notable_features ?? []).join(" ").toLowerCase();
+  let roofFinish = 1.4; // architectural shingles default
+  if (featuresJoined.includes("standing seam") || featuresJoined.includes("metal roof") || featuresJoined.includes("metal panel")) {
+    roofFinish = 3.2;
+  } else if (featuresJoined.includes("concrete tile") || featuresJoined.includes("clay tile") || featuresJoined.includes("spanish tile")) {
+    roofFinish = 4.5;
+  }
   out.push(
     makeInstance("stub-roof-2x8-16oc", "Roof system", {
       "Roof Run": roofRun,
       "Roof Width": roofWidth,
       "Rafter Spacing": 16,
+      "Roof Finish": roofFinish,
     })!,
   );
 
@@ -471,13 +487,17 @@ export function instancesFromPlan(
   );
 
   // ── Gutters & downspouts ─────────────────────────────────────
-  // Eave LF ≈ 2× the longer footprint side (two long eaves on a typical
-  // gable roof). Downspouts every ~25 LF.
-  const eaveLf = 2 * Math.max(footprint.length, footprint.width);
+  // Eave LF ≈ full footprint perimeter × 1.2 buffer for porch eaves,
+  // dormers, and offsets. The old 2×long-side calc only worked for
+  // pure gable roofs with no porch — on hip roofs and any plan with
+  // a covered porch (most custom homes), it ran ~50% short. Downspouts
+  // every ~20 LF (one per 20 LF is closer to architect spec than the
+  // older 25 LF heuristic, which was halving the count).
+  const eaveLf = Math.round(2 * (footprint.length + footprint.width) * 1.2);
   out.push(
     makeInstance("stub-drainage", "Gutters & downspouts", {
       "Eave Length": eaveLf,
-      Downspouts: Math.max(4, Math.round(eaveLf / 25)),
+      Downspouts: Math.max(4, Math.round(eaveLf / 20)),
       "Gutter Material": 1.0,
     })!,
   );

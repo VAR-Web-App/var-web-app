@@ -220,7 +220,13 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "Floor joist (per joist type)",
         uom: "EA",
-        quantityFormula: "{Floor Length} * (12 / {Joist Spacing}) + 1",
+        // 1.50 buffer covers: doubled joists under interior bearing
+        // walls, doubled-up framing at floor-opening edges (stair
+        // chases, chimneys, fireplaces), and cantilever extensions.
+        // Architect counts on Maddox-class custom plans run ~50%
+        // above the bare length-divided-by-spacing math, which the
+        // old "+1" undershoot.
+        quantityFormula: "{Floor Length} * (12 / {Joist Spacing}) * 1.5",
         unitCostUsd: 0,
         // 24 = dimensional 2×10 baseline; multiplier scales to I-joists.
         unitCostFormula: "24 * {Joist Type}",
@@ -734,7 +740,11 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         name: "Roof Finish",
         uom: "",
-        defaultValue: 1.0,
+        // 1.4 = architectural shingles. Custom plans rarely spec
+        // 3-tab asphalt (the old 1.0 default); architectural is the
+        // safe middle baseline. Builder switches to metal (3.2) or
+        // tile (4.5) per plan — visible right in the assembly card.
+        defaultValue: 1.4,
         kind: "option",
         options: [
           { label: "Asphalt 3-tab", value: 1.0 },
