@@ -49,6 +49,16 @@ interface PlanInput {
   ceiling_heights: string | null;
   doors_windows: {
     exterior_doors_estimated: number | null;
+    /** All interior doors including pocket doors. When present, the
+     *  converter uses it directly instead of the rooms heuristic
+     *  (which has historically undercounted by 50-70% on custom
+     *  plans because architects spec closet, mech, and utility
+     *  doors that don't fall out of bedroom/bath math). */
+    interior_doors_estimated?: number | null;
+    /** Subset of interior_doors_estimated representing pocket /
+     *  sliding-into-wall doors. Triggers the pocket-door variant on
+     *  the interior door assembly so the cost surcharge applies. */
+    pocket_doors_estimated?: number | null;
     windows_estimated: number | null;
   };
   /** Plain-English flags Claude surfaces (e.g. "metal roof", "vaulted
@@ -570,20 +580,46 @@ export function instancesFromPlan(
     );
   }
 
-  // ── Interior doors (heuristic) ────────────────────────────────
+  // ── Interior doors ────────────────────────────────────────────
+  // Prefer the architect-counted value from extraction when Claude
+  // surfaced it; that's the most reliable number we can get for
+  // custom plans where bedroom/bath math undercounts closet, mech,
+  // and utility doors. Heuristic kicks in only when extraction
+  // didn't provide a count.
   const bedrooms = extraction.bedrooms ?? 0;
   const baths = (extraction.full_baths ?? 0) + (extraction.half_baths ?? 0);
-  const intDoorCount = bedrooms * 2 + baths + 3; // bedroom + closet × bedrooms, plus baths, plus mech/laundry/coat
-  if (intDoorCount > 0) {
+  const extractedIntDoors = extraction.doors_windows.interior_doors_estimated;
+  const heuristicIntDoors = bedrooms * 2 + baths + 3;
+  const totalIntDoors = extractedIntDoors ?? heuristicIntDoors;
+  const pocketDoors = extraction.doors_windows.pocket_doors_estimated ?? 0;
+  // Pocket doors are a subset of the total interior count — split
+  // them out so each gets its own instance with the pocket-door
+  // cost variant (frame + soft-close hardware ≈ +50%).
+  const standardIntDoors = Math.max(0, totalIntDoors - pocketDoors);
+  if (standardIntDoors > 0) {
     out.push(
       makeInstance(
         "stub-door-interior",
-        `Interior doors (${intDoorCount})`,
+        `Interior doors (${standardIntDoors})`,
         {
           Width: 30,
           Height: 80,
           "Door Type": 1.0,
-          Quantity: intDoorCount,
+          Quantity: standardIntDoors,
+        },
+      )!,
+    );
+  }
+  if (pocketDoors > 0) {
+    out.push(
+      makeInstance(
+        "stub-door-interior",
+        `Pocket doors (${pocketDoors})`,
+        {
+          Width: 30,
+          Height: 80,
+          "Door Type": 1.5, // pocket-door variant — frame + soft-close hardware
+          Quantity: pocketDoors,
         },
       )!,
     );
@@ -658,7 +694,9 @@ export function instancesFromPlan(
     extraction.doors_windows.windows_estimated ??
     Math.round(totalSqft / 150);
   const extDoorsForHeaders = extraction.doors_windows.exterior_doors_estimated ?? 3;
-  const intDoorsForHeaders = bedrooms * 2 + baths + 3;
+  // Header count tracks the architect-counted total interior doors
+  // when available; same fallback as the interior-doors instance.
+  const intDoorsForHeaders = totalIntDoors;
   const standardOpenings = windowCountForHeaders + extDoorsForHeaders + intDoorsForHeaders;
   const lvlHeaderCount = Math.max(2, cars) + 4;
   out.push(
