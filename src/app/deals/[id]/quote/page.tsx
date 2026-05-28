@@ -50,6 +50,7 @@ import {
 } from "@/lib/store";
 import { Deal, QuoteLine, OrgSettings, QuoteScenario, SoftCosts, PriceSource } from "@/types";
 import ScenariosBar from "@/components/scenarios-bar";
+import PlanExtractor, { type PlanExtraction } from "@/components/plan-extractor";
 
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -790,6 +791,20 @@ export default function DealQuotePage({
             {deal.name}
           </Link>
         </div>
+
+        {/* Plan extractor — also lives on the project Overview. Shown
+         *  here so a builder can stay in the quote editor and re-apply
+         *  / swap the AI extraction without navigating back. Defaults
+         *  collapsed to a compact summary when an extraction already
+         *  exists, full-width dropzone when starting fresh. */}
+        <PlanExtractor
+          dealId={id}
+          orgRef={deal.org_ref}
+          initialExtraction={
+            deal.floor_plan_extraction as unknown as PlanExtraction | undefined
+          }
+          initialResolvedFlags={deal.resolved_ambiguity_indices}
+        />
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div className="min-w-0">
