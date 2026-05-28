@@ -1704,7 +1704,8 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         options: [
           { label: "R-13 fiberglass batt (2×4 wall)", value: 1.0 },
           { label: "R-21 fiberglass batt (2×6 wall)", value: 1.35 },
-          { label: "R-30 fiberglass batt (ceiling)", value: 1.7 },
+          { label: "R-30 fiberglass batt (ceiling, code-min)", value: 1.7 },
+          { label: "R-38 fiberglass batt (ceiling, custom-spec)", value: 2.0 },
           { label: "R-15 mineral wool (acoustic)", value: 2.0 },
           { label: "Open-cell spray foam (R-3.5/in)", value: 2.6 },
           { label: "Closed-cell spray foam (R-6.5/in)", value: 4.2 },
@@ -1742,9 +1743,14 @@ export const STUB_ASSEMBLIES: Assembly[] = [
         propertyOverrides: { "Insulation Type": 1.35 },
       },
       {
-        label: "R-30 ceiling batt",
-        description: "Attic floor / cathedral ceiling",
+        label: "R-30 ceiling batt (code-min)",
+        description: "Attic floor / cathedral ceiling — IRC minimum",
         propertyOverrides: { "Insulation Type": 1.7 },
+      },
+      {
+        label: "R-38 ceiling batt (custom-spec)",
+        description: "Above code — standard on most custom plans",
+        propertyOverrides: { "Insulation Type": 2.0 },
       },
       {
         label: "Mineral wool (acoustic / fire)",

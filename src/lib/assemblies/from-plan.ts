@@ -302,14 +302,36 @@ export function instancesFromPlan(
 
   const perimeter = 2 * (footprint.length + footprint.width);
 
+  // Foundation perimeter is DIFFERENT from building envelope perimeter
+  // on most custom plans — the foundation wall wraps just the heated /
+  // cooled space, while the building envelope adds porch slab + garage
+  // pad that sit on their own footings (not the main foundation wall).
+  // Cnadd cross-check vs Maddox spec: full envelope perimeter = 368 LF,
+  // architect foundation perimeter ≈ 256 LF — the 44-47% overshoot on
+  // sill plate / termite shield / gutter LF traced back to using the
+  // full envelope here. Prefer the conditioned-footprint dimensions
+  // when Claude surfaced them; fall back to a 1.4:1 rectangle around
+  // first_floor_sqft. (parseFootprint is called again later for floor
+  // framing — keeping it duplicated is cleaner than threading a tuple
+  // through the foundation/framing seam.)
+  const conditionedFootprint =
+    parseFootprint(extraction.conditioned_footprint_dimensions ?? null) ??
+    (() => {
+      const ratio = 1.4;
+      const width = Math.sqrt(firstFloorSqft / ratio);
+      return { length: width * ratio, width };
+    })();
+  const foundationPerimeter =
+    2 * (conditionedFootprint.length + conditionedFootprint.width);
+
   // ── Foundation ────────────────────────────────────────────────
   const fdnId = detectFoundationAssemblyId(extraction.foundation_type);
   const cmuWall = hasCmuFoundationWall(extraction.foundation_type);
   if (fdnId === "stub-slab-on-grade") {
     out.push(
       makeInstance(fdnId, "Foundation — slab on grade", {
-        "Slab Length": footprint.length,
-        "Slab Width": footprint.width,
+        "Slab Length": conditionedFootprint.length,
+        "Slab Width": conditionedFootprint.width,
         "Slab Thickness": catalogDefault(fdnId, "Slab Thickness"),
       })!,
     );
@@ -321,7 +343,7 @@ export function instancesFromPlan(
     const footingDepth = cmuWall ? 12 : catalogDefault(fdnId, "Footing Depth");
     out.push(
       makeInstance(fdnId, "Foundation — strip footing", {
-        "Footing Length": perimeter,
+        "Footing Length": foundationPerimeter,
         "Footing Width": footingWidth,
         "Footing Depth": footingDepth,
       })!,
@@ -370,7 +392,10 @@ export function instancesFromPlan(
     const crawlFloorArea = isCrawl ? Math.round(firstFloorSqft) : 0;
     out.push(
       makeInstance("stub-cmu-foundation-wall", "Foundation wall — CMU block", {
-        "Wall Length": perimeter,
+        // Use the foundation perimeter (heated area only), not the
+        // overall envelope. CMU wall doesn't wrap the garage slab or
+        // porch piers.
+        "Wall Length": foundationPerimeter,
         "Wall Height": inferFoundationWallHeight(extraction.foundation_type),
         "Pier Count": piers,
         "Crawl Floor Area": crawlFloorArea,
@@ -378,28 +403,11 @@ export function instancesFromPlan(
     );
   }
 
-  // Floor framing dimensions: prefer the conditioned-footprint string
-  // when Claude surfaced it, fall back to synthesizing a 1.4:1 rectangle
-  // from first_floor_sqft + porch. Why two paths:
-  //   - conditioned_footprint_dimensions is the architect-printed value
-  //     for just the heated/cooled area; using it directly is the most
-  //     accurate input we can have for floor scope.
-  //   - When Claude can't read that label, falling back to area-derived
-  //     dims still beats using the overall envelope (which causes
-  //     2-3× overcount on plans with substantial porches).
-  const conditionedFootprint = parseFootprint(
-    extraction.conditioned_footprint_dimensions ?? null,
-  );
-  let framingLength: number;
-  let framingWidth: number;
-  if (conditionedFootprint) {
-    framingLength = conditionedFootprint.length;
-    framingWidth = conditionedFootprint.width;
-  } else {
-    const firstFloorFramedSqft = firstFloorSqft + (extraction.porch_sqft ?? 0);
-    framingWidth = Math.sqrt(firstFloorFramedSqft / 1.4);
-    framingLength = framingWidth * 1.4;
-  }
+  // Floor framing dimensions: reuse the conditioned footprint we parsed
+  // above for the foundation. Same rationale — first-floor framing
+  // covers the heated/cooled space, not the porch slab or garage pad.
+  const framingLength = conditionedFootprint.length;
+  const framingWidth = conditionedFootprint.width;
 
   // Back-solve the Joist Buffer property from the architect joist
   // count when one is surfaced. The assembly formula is
@@ -483,11 +491,16 @@ export function instancesFromPlan(
   const pitchRise = extraction.roof_pitch_in_12 ?? 6;
   const pitchFactor = pitchRise / 12; // 0.5 for 6/12, 0.67 for 8/12, 1.0 for 12/12
   const gableHeightPerEnd = (shortSide / 2) * pitchFactor;
-  const roofType = extraction.roof_type ?? "complex";
+  // When Claude doesn't surface roof_type, default to "gable+hip"
+  // — that's the most common shape on custom residential plans
+  // (a hip main mass with one or two gable accents over the great
+  // room or porch). "complex" was too aggressive a default and
+  // was overshooting eave/ridge LF by 30-50% on simpler plans.
+  const roofType = extraction.roof_type ?? "gable+hip";
   const gableEndCount =
     roofType === "hip" ? 0
     : roofType === "gable+hip" ? 1
-    : 2; // "gable" or "complex" (safe default)
+    : 2; // "gable" or "complex"
   const gableLfTotal = Math.round(shortSide * gableHeightPerEnd * gableEndCount);
   wallHeights.forEach((h, idx) => {
     const isTopStory = idx === wallHeights.length - 1;
@@ -510,15 +523,17 @@ export function instancesFromPlan(
   });
 
   // ── Interior walls (one bundled instance) ────────────────────
-  // Rough heuristic: total interior wall LF ≈ 0.9 × heated sqft / wall
-  // height. Custom homes typically have more interior partition LF per
-  // SF than tract builds (more closets, en-suites, jogs); architect
-  // counts on the Maddox cross-check ran ~0.9 SF/LF. Builder still
-  // adjusts per project from the assembly card.
+  // Rough heuristic: total interior wall LF × wall_height ≈ heated
+  // sqft × interior_wall_density. Cnadd cross-check vs Maddox spec:
+  // 0.9 density was undercounting interior 2×4 studs by 28% (401 vs
+  // architect 560). 1.25 lands in the architect-tolerance band on
+  // custom plans with more closets, en-suites, walk-ins, and powder
+  // baths than tract builds. Builder still adjusts per project from
+  // the assembly card.
   const totalSqft = extraction.total_sqft ?? firstFloorSqft * stories;
   const avgWallHeight =
     wallHeights.reduce((s, h) => s + h, 0) / Math.max(1, wallHeights.length);
-  const interiorWallLF = Math.round((totalSqft * 0.9) / avgWallHeight);
+  const interiorWallLF = Math.round((totalSqft * 1.25) / avgWallHeight);
   out.push(
     makeInstance("stub-int-wall-2x4-16oc", "Interior walls (estimated)", {
       "Wall Length": interiorWallLF,
@@ -589,13 +604,16 @@ export function instancesFromPlan(
     })!,
   );
 
-  // ── Ceiling insulation (R-30 batt over the top ceiling). Separate
+  // ── Ceiling insulation (R-38 batt over the top ceiling). Separate
   // from wall insulation, which the exterior-wall assembly already
-  // includes.
+  // includes. R-38 is the de facto custom-home standard (R-30 is the
+  // IRC minimum but architects on Maddox-class plans consistently
+  // spec R-38). Builder switches via the assembly card if a plan
+  // genuinely calls for code-minimum.
   out.push(
-    makeInstance("stub-insulation", "Ceiling insulation (R-30)", {
+    makeInstance("stub-insulation", "Ceiling insulation (R-38)", {
       "Insulated Area": Math.round(topCeilingSqft),
-      "Insulation Type": 1.7, // R-30 ceiling preset
+      "Insulation Type": 2.0, // R-38 ceiling preset
     })!,
   );
 
@@ -859,7 +877,12 @@ export function instancesFromPlan(
   const porchSqft = extraction.porch_sqft ?? 0;
   if (porchSqft > 50) {
     const porchPerim = 2 * (Math.sqrt(porchSqft * 1.4) + Math.sqrt(porchSqft / 1.4));
-    const columnCount = Math.max(4, Math.round(porchPerim / 8));
+    // 1 column per 12 LF of porch perimeter. Cnadd cross-check vs
+    // Maddox spec: 8 LF spacing produced 17 columns vs architect's
+    // 11 (a 55% overshoot). 12 LF lands at ~11-12 columns — closer
+    // to typical custom-porch spacing (8'-12' between posts is the
+    // common range).
+    const columnCount = Math.max(4, Math.round(porchPerim / 12));
     out.push(
       makeInstance("stub-porch-system", "Porch & deck system", {
         "Porch Area": Math.round(porchSqft),
