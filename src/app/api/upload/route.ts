@@ -31,6 +31,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         return {
           allowedContentTypes: ["application/pdf"],
           maximumSizeInBytes: 32 * 1024 * 1024,
+          // Vercel Blob requires the server to opt the client into
+          // either a random-suffix path OR overwrite-on-conflict for
+          // client uploads (otherwise the PUT returns a bare 400 with
+          // no body — a known Vercel Blob behavior). Our client paths
+          // already include Date.now() so collisions are vanishingly
+          // unlikely, but we set allowOverwrite to satisfy the policy.
+          allowOverwrite: true,
           // 1-hour validity is plenty for a single upload+extract round
           // trip. The token is signed and self-expiring; no server-side
           // session state needed.
