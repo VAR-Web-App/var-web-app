@@ -15,9 +15,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { del as deleteBlob } from "@vercel/blob";
 
-// Vision calls on multi-page PDFs can take 15–30s. Vercel's default 10s
-// timeout would kill this. 60s ceiling is plenty for residential plans.
-export const maxDuration = 60;
+// Vision calls on multi-page PDFs can take 15–30s on simple floor
+// plans and 60–180s on full custom build sets with the expanded
+// rules in this system prompt (~21KB of counting rules + schema).
+// Vercel Pro allows up to 300s; we use 240s to leave headroom for
+// the post-processing + blob cleanup that runs after the Claude call.
+export const maxDuration = 240;
 export const runtime = "nodejs";
 
 const MODEL = "claude-sonnet-4-6";
