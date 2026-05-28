@@ -417,7 +417,22 @@ export function instancesFromPlan(
     0,
     stories,
   );
+  // Gable wall framing lives only on the TOP story (the gable triangle
+  // sits above the eave plate at every gable end). Heuristic:
+  //   - 2 gable ends is typical for residential (one at each long side
+  //     of the main roof, plus dormers / wings that wash out in average)
+  //   - Per gable LF ≈ short-side width × average gable height
+  //   - Average gable height = (short_side / 2) × pitch_factor; assume
+  //     6/12 pitch (0.5 slope) → half_width × 0.5
+  // For a 30' short side: gable_height ≈ 7.5'; per-gable triangle ≈
+  // 30 × 7.5 / 2 = 112 SF. Total LF of studs at 16" spacing × 2 gables
+  // works out close to architect Maddox spec when the multiplier lands
+  // around 6. Builder edits per-project from the assembly card.
+  const shortSide = Math.min(footprint.length, footprint.width);
+  const gableHeightPerEnd = shortSide * 0.25; // half-width × 6/12 pitch
+  const gableLfTotal = Math.round(shortSide * gableHeightPerEnd * 2);
   wallHeights.forEach((h, idx) => {
+    const isTopStory = idx === wallHeights.length - 1;
     out.push(
       makeInstance(
         extWallId,
@@ -428,6 +443,9 @@ export function instancesFromPlan(
           "Wall Length": perimeter,
           "Wall Height": h,
           "Stud Spacing": 16,
+          // Only the top story gets gable framing — lower stories
+          // are rectangular under the next floor system.
+          "Gable Wall LF": isTopStory ? gableLfTotal : 0,
         },
       )!,
     );
@@ -525,11 +543,18 @@ export function instancesFromPlan(
 
   // ── Siding ────────────────────────────────────────────────────
   const totalWallArea = perimeter * avgWallHeight * stories;
+  // Detect stone-veneer accent from notable_features so the assembly's
+  // accent line picks up a non-zero area. Architect spec on Maddox-
+  // class plans typically calls out 50-150 SF of accent stone (porch
+  // column wraps, chimney chase, foundation reveal). 80 SF is a
+  // reasonable median when Claude flags it but doesn't quantify.
+  const hasStoneAccent = featuresJoined.includes("stone");
   out.push(
     makeInstance("stub-siding", "Exterior siding", {
       "Wall Area": Math.round(totalWallArea),
       // Default to vinyl (cheapest baseline); builder switches live.
       "Siding Material": 1.0,
+      "Stone Veneer Accent Area": hasStoneAccent ? 80 : 0,
     })!,
   );
 
@@ -546,6 +571,25 @@ export function instancesFromPlan(
       "Eave Length": eaveLf,
       Downspouts: Math.max(4, Math.round(eaveLf / 20)),
       "Gutter Material": 1.0,
+    })!,
+  );
+
+  // ── Exterior trim (fascia + soffit + drip edge + ridge vent) ──
+  // Trim runs longer than gutters because fascia/drip edge land at
+  // every eave AND every rake, while gutters only follow eaves.
+  // 1.5× perimeter is the median custom-home factor — Maddox-class
+  // hip-and-dormer roofs run 2.5×+; simple gable boxes run 1.0×.
+  // Builder edits the chip per project. Ridge LF defaults to ~0.5×
+  // perimeter — a single primary ridge plus a couple short auxiliary
+  // ridges from dormers / hip changes.
+  const trimEaveLf = Math.round(2 * (footprint.length + footprint.width) * 1.5);
+  const ridgeLf = Math.round(2 * (footprint.length + footprint.width) * 0.5);
+  out.push(
+    makeInstance("stub-exterior-trim", "Exterior trim (fascia + soffit + drip + ridge)", {
+      "Eave Length": trimEaveLf,
+      "Soffit Width": 1.5,
+      "Ridge Length": ridgeLf,
+      "Trim Style": 1.0,
     })!,
   );
 
