@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
@@ -133,6 +135,13 @@ export default function SettingsPage() {
           </Card>
 
           <Card
+            title="Estimate template"
+            subtitle="Your Good Faith Estimate categories and line items — your standard pricing for everything from prints &amp; permits to lighting fixtures. Edited in a dedicated page so the 70-section list stays scannable."
+          >
+            <EstimateTemplateLink />
+          </Card>
+
+          <Card
             title="Invoice template"
             subtitle="Brand and customize the draw-request / invoice document. Add your logo, your lender's loan number, payment terms, and pick which sections show on each draw."
           >
@@ -166,6 +175,18 @@ export default function SettingsPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function EstimateTemplateLink() {
+  return (
+    <Link
+      href="/settings/estimate-template"
+      className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+    >
+      Open template editor
+      <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+    </Link>
   );
 }
 
