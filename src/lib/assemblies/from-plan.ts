@@ -170,6 +170,26 @@ function catalogDefault(assemblyId: string, propName: string): number {
   return p?.defaultValue ?? 0;
 }
 
+/** Round a property value to the precision a builder actually reads.
+ *  Dimensional / count properties round to whole units; cubic / time /
+ *  liquid UoMs keep 1 decimal; option-multiplier properties (unitless)
+ *  pass through unchanged. Mirrors the rounding rules computeMaterials
+ *  applies to formula output — the synthesizer was leaving long
+ *  decimals like "60.84738095..." in property bags it generated. */
+function roundPropertyValue(uom: string, value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const upper = (uom || "").toUpperCase();
+  if (upper === "" || upper === "%") {
+    // Multiplier / unitless property — likely a 1.0 / 1.4 / 2.2 option
+    // value. Don't touch.
+    return value;
+  }
+  if (upper === "CY" || upper === "GAL" || upper === "TON" || upper === "HR") {
+    return Math.round(value * 10) / 10;
+  }
+  return Math.round(value);
+}
+
 /** Build a property bag with overrides on top of the assembly defaults. */
 function propValues(
   assemblyId: string,
@@ -177,11 +197,14 @@ function propValues(
 ): { name: string; value: number }[] {
   const a = findStubAssembly(assemblyId);
   if (!a) return [];
-  return a.properties.map((p) => ({
-    name: p.name,
-    value:
-      overrides[p.name] != null ? overrides[p.name] : (p.defaultValue ?? 0),
-  }));
+  return a.properties.map((p) => {
+    const raw =
+      overrides[p.name] != null ? overrides[p.name] : (p.defaultValue ?? 0);
+    return {
+      name: p.name,
+      value: roundPropertyValue(p.uom, raw),
+    };
+  });
 }
 
 function makeInstance(
