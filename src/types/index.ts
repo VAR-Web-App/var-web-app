@@ -79,6 +79,21 @@ export interface Deal {
    *  extraction so resolution survives navigation. Reset to []
    *  whenever a new extraction lands. */
   resolved_ambiguity_indices?: number[];
+  /**
+   * Demo-only weather override. When set, the WeatherBanner renders
+   * this alert as-is and skips the live Open-Meteo fetch — gives the
+   * demo a deterministic "rain / wind / freeze" callout instead of
+   * depending on the actual forecast for the project address. Seed
+   * data sets this on the anchor project; real projects leave it
+   * undefined and use the live API.
+   */
+  demo_weather_alert?: {
+    /** YYYY-MM-DD. Should fall inside a non-completed milestone's
+     *  planned window so the banner finds phases to flag. */
+    date: string;
+    /** Free-text reason — e.g. "Rain likely (85%)", "High wind (32 mph)". */
+    reason: string;
+  };
   /** Editable parametric assemblies the builder has dropped onto the
    *  estimate. Each instance owns a contiguous block of QuoteLines
    *  (matched via QuoteLine.instance_id) that regenerate live as the

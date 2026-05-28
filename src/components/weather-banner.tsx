@@ -62,8 +62,12 @@ export default function WeatherBanner({
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [locationName, setLocationName] = useState("");
 
-  // Fetch the forecast once per address.
+  // Fetch the forecast once per address. Skipped entirely when the
+  // deal carries a demo_weather_alert override — those projects need
+  // a deterministic banner for live demos, not whatever the real
+  // forecast happens to be that afternoon.
   useEffect(() => {
+    if (deal.demo_weather_alert) return;
     let active = true;
     const city = cityQuery(deal.ship_to_address || "");
     if (!city) return;
@@ -122,6 +126,29 @@ export default function WeatherBanner({
       reason: string;
       phases: string[];
     }[] = [];
+
+    // Demo override: synthesize an alert from the deal's preset and
+    // skip the forecast match logic. Still resolves affected phases
+    // from the milestone list so the banner reads naturally.
+    if (deal.demo_weather_alert) {
+      const { date, reason } = deal.demo_weather_alert;
+      const phases = milestones
+        .filter(
+          (m) =>
+            !!m.planned_start_date &&
+            !!m.planned_end_date &&
+            date >= m.planned_start_date &&
+            date <= m.planned_end_date &&
+            m.status !== "released" &&
+            m.status !== "approved",
+        )
+        .map((m) => m.name);
+      if (phases.length > 0) {
+        out.push({ date, label: fmtDay(date), reason, phases });
+      }
+      return out;
+    }
+
     for (const day of forecast) {
       const reasons: string[] = [];
       if (day.precipInches >= RAIN_INCHES) {

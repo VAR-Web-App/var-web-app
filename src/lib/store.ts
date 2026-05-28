@@ -1232,6 +1232,13 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       org_ref: orgRef,
       created_at: isoDaysAgo(90),
       updated_at: isoDaysAgo(2),
+      // Deterministic weather banner for live demos. Tomorrow's date
+      // falls inside the Dried-In (awaiting_approval) and MEP
+      // (in_progress) phase windows, so the banner flags both.
+      demo_weather_alert: {
+        date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        reason: 'Rain (1.4")',
+      },
     },
     {
       id: newId("deal"),
@@ -1369,16 +1376,18 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   const today = new Date();
   const phaseStarts = [-120, -90, -75, -45, -30, -15, 5, 60, 75]; // days from today
   const phaseDurations = [7, 21, 42, 14, 21, 21, 56, 14, 30];
-  const phaseStatuses: Array<"released" | "approved" | "in_progress" | "pending"> = [
-    "released",     // Deposit
-    "released",     // Foundation
-    "released",     // Framing
-    "in_progress",  // Dried-In (current)
-    "pending",      // MEP
-    "pending",      // Drywall
-    "pending",      // Finishes
-    "pending",      // Punch
-    "pending",      // Warranty
+  const phaseStatuses: Array<
+    "released" | "approved" | "awaiting_approval" | "in_progress" | "pending"
+  > = [
+    "released",            // Deposit
+    "released",            // Foundation
+    "released",            // Framing
+    "awaiting_approval",   // Dried-In — work complete, draw in the inbox
+    "in_progress",         // MEP (current, started in parallel)
+    "pending",             // Drywall
+    "pending",             // Finishes
+    "pending",             // Punch
+    "pending",             // Warranty
   ];
 
   const milestonePhases = [
@@ -1450,6 +1459,13 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
         started_at: isoDaysAgo(-phaseStarts[i] + 3),
         marked_complete_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i] + 2),
         approved_at: isoDaysAgo(-phaseStarts[i] - phaseDurations[i]),
+      }),
+      ...(status === "awaiting_approval" && {
+        // GC marked the phase complete a few days ago — homeowner's
+        // signature is still pending. Drives the Inbox "draws pending
+        // owner approval" row.
+        started_at: isoDaysAgo(-phaseStarts[i] + 3),
+        marked_complete_at: isoDaysAgo(2),
       }),
       ...(status === "in_progress" && {
         started_at: isoDaysAgo(-phaseStarts[i]),
@@ -1642,6 +1658,48 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     updated_at: isoDaysAgo(2),
   };
   await saveRFQ(flooringRfq);
+
+  // ── Maddox change orders ────────────────────────────────────
+  // One approved CO (gives the AIA G702 draw request something to
+  // show under the "Approved Change Orders" table) plus one out
+  // for signature so the Inbox has a CO row to action.
+  const maddoxCOs: ProjectChangeOrder[] = [
+    {
+      id: newId("co"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      number: "CO-001",
+      title: "Add bonus room above garage",
+      description:
+        "Frame, insulate, drywall, and finish a 14'×24' bonus room above the garage (336 SF). Includes egress window, mini-split connection, and basic trim. Excludes furniture and a/v.",
+      amount_delta: 38400,
+      schedule_impact_days: 14,
+      reason: "client_request",
+      status: "approved",
+      approved_at: isoDaysAgo(20),
+      approval_signature: "Brennan Maddox",
+      notes: "Brennan confirmed scope on the kitchen-table walkthrough.",
+      created_at: isoDaysAgo(25),
+      updated_at: isoDaysAgo(20),
+    },
+    {
+      id: newId("co"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      number: "CO-002",
+      title: "Upgrade kitchen island countertop to quartzite",
+      description:
+        "Substitute Calacatta quartzite for the spec'd granite on the kitchen island (~32 SF). Includes template + install + sealing. Lead time +3 weeks from selection.",
+      amount_delta: 4850,
+      schedule_impact_days: 3,
+      reason: "client_request",
+      status: "sent", // pending client approval — surfaces in Inbox
+      notes: "Sent for signature 2 days ago.",
+      created_at: isoDaysAgo(2),
+      updated_at: isoDaysAgo(2),
+    },
+  ];
+  for (const co of maddoxCOs) await saveChangeOrder(co);
 
   return { parsedCacheByDeal: {} };
 }
