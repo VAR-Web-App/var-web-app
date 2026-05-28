@@ -49,55 +49,44 @@ costs).
   heuristics, or (b) accept the gap and document it as "estimator
   must reconcile second-floor framing per plan."
 
-- [ ] **Interior door count + pocket door handling.** Maddox spec
-  has 41 interior doors including 8 pocket doors. Claude returns
-  14-17 on most extractions. The extraction prompt currently asks
-  for `interior_doors_estimated` but pocket-door schedules on
-  framing plans are easy to misread. Options:
-  1. Add explicit `pocket_doors_estimated` field to extraction.
-  2. Tighten the prompt with explicit door-schedule reading rules
-     (similar to the `exterior_doors_estimated` rules we already
-     have).
-  3. Catalog: add a "Pocket door rough opening + hardware" option
-     to stub-door-interior that scales unit cost +50%.
+- [x] **Interior door count + pocket door handling.** ✅ 2026-05-28
+  — added `interior_doors_estimated` + `pocket_doors_estimated`
+  to the extraction prompt with explicit count rules and
+  anti-rules; converter now uses the architect count when
+  surfaced and falls back to the bedrooms+baths heuristic only
+  when extraction is silent. Pocket doors split into their own
+  instance via the new pocket-door variant on stub-door-interior
+  (+50% on unit cost for in-wall frame + soft-close hardware).
 
-- [ ] **Garage door count when ≥ 2 doors.** Plans with one 16'×7'
-  AND one 8'×7' garage door (two separate openings) get counted
-  as 1 garage door by the converter. Logic in from-plan.ts uses
-  `garage_cars` to drive count, which Claude returns as a vehicle
-  capacity, not a door count. Fix: add `garage_doors_estimated`
-  field separate from `garage_cars`, OR derive door count from
-  garage_sqft (16+ wide → 1 large, ≥ 600 SF garage → likely 2
-  doors).
+- [x] **Garage door count when ≥ 2 doors.** ✅ 2026-05-28 — door
+  count now derives from `garage_sqft` + `garage_cars`: 2-car
+  plans with ≥ 600 SF garage produce 2 single openings (the
+  common attached-garage layout), tight 2-car garages stay as
+  one 16' double, 3+ cars get a double + single.
 
-- [ ] **CMU foundation block overcount.** AI consistently runs
-  1,500-1,700 blocks vs. architect's 1,191 + 73 piers = 1,264.
-  The 5-blocks-per-pier formula may double up. Recalibrate against
-  Maddox: 73 piers × ? blocks = 73 (1 each? 2 each?). Probably
-  reduce pier block multiplier from 5 → 2-3.
+- [x] **CMU foundation block overcount.** ✅ 2026-05-28 — pier
+  block multiplier dropped 5 → 2 to match residential
+  crawl-space pier heights. Maddox cross-check: 73 piers × 5 =
+  365 blocks vs architect 73; new 2× lands at 146 (splits the
+  difference for taller mid-span piers).
 
 ## Medium priority
 
-- [ ] **Roof sheathing geometric overshoot.** AI runs ~25-30% over
-  on roof sheet count even with the 1.20 pitch multiplier. Likely
-  cause: when Claude returns the OVERALL building envelope as
-  footprint AND the roof multiplier covers porch eaves, we're
-  double-counting porch area. Fix idea: when `porch_sqft > 0`,
-  reduce the roof multiplier back to 1.15 (pure pitch) since porch
-  is already in the envelope.
+- [x] **Roof sheathing geometric overshoot.** ✅ 2026-05-28 —
+  when `porch_sqft > 0`, run dimension trims 4.2% so the
+  assembly's 1.20 multiplier lands at pure pitch (1.15). The
+  eave-overhang portion of 1.20 was double-counting porch area.
 
-- [ ] **Garage slab as separate concrete pour.** Architect spec
-  for Maddox: 16 CY garage slab + 4 CY pad footings = 20 CY
-  separate from continuous footing. Our converter only generates
-  strip footing. Add a generator step: when `garage_sqft > 100`,
-  emit a `stub-slab-on-grade` instance sized for the garage.
+- [x] **Garage slab as separate concrete pour.** ✅ 2026-05-28
+  — converter emits a separate `stub-slab-on-grade` instance
+  sized for the garage (1.2:1 from `garage_sqft`) on crawl /
+  basement plans when `garage_sqft > 100`.
 
-- [ ] **Sill plate + termite shield + sand fill** are line items
-  in any crawl-space foundation. Architect spec: 16 ea PT 2×8×16'
-  sill plate, 250 LF termite shield, 4,079 SF compacted sand fill.
-  These are small dollars individually but show up as "missing"
-  on every comparison. Add to the strip footing / CMU foundation
-  generator step.
+- [x] **Sill plate + termite shield + sand fill.** ✅ 2026-05-28
+  — added as perimeter-scaled (sill + shield) and floor-area-
+  scaled (sand) materials on `stub-cmu-foundation-wall`. Sand
+  fill gated on a new Crawl Floor Area property; the converter
+  sets it only when foundation type is crawl.
 
 - [ ] **Fascia / soffit / drip edge / ridge vent** — exterior
   trim items missing entirely from converter output. Architect

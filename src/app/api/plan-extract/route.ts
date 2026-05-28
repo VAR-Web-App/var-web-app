@@ -56,6 +56,8 @@ Output JSON ONLY (no prose, no markdown fences). Schema:
   }>,
   "doors_windows": {
     "exterior_doors_estimated": number | null,   // SEE COUNTING RULES BELOW
+    "interior_doors_estimated": number | null,   // SEE COUNTING RULES BELOW
+    "pocket_doors_estimated": number | null,     // count of pocket / sliding-into-wall doors, included in interior count above
     "windows_estimated": number | null
   },
   "notable_features": string[],                  // load-bearing walls, vaulted ceilings, etc.
@@ -89,6 +91,28 @@ DO NOT include in exterior_doors_estimated:
 - Door openings or rough-opening callouts (these refer to wall openings, not finished doors)
 
 If you find yourself returning a number larger than 10 for exterior_doors_estimated, you almost certainly miscounted — re-check by listing each exterior door's location before counting. A 5,000 SF custom home rarely has more than 6–8 exterior doors. If you can't tell from the plan, return null and note it in ambiguity_notes.
+
+interior_doors_estimated counts every door INSIDE the home — finished doors AND pocket / sliding-into-wall doors. Custom homes typically run 25-50 interior doors; a tiny ranch might be 12-15. Include each of:
+- Bedroom door (one per bedroom)
+- Bathroom door (one per full + half bath)
+- Walk-in closet door (one per closet)
+- Reach-in closet door (count bifold and bypass closet doors as ONE per opening, not per panel)
+- Pantry door
+- Mechanical / utility / laundry room door
+- Office, den, mud room, sitting room, library, bonus room doors
+- Pocket doors (count them here AND in pocket_doors_estimated; pocket count is a subset of interior count, not separate)
+- Barn doors / sliding doors used inside the home
+- Cased openings WITHOUT a door (NOT a door — exclude from this count)
+
+DO NOT include in interior_doors_estimated:
+- Exterior doors (already counted in exterior_doors_estimated)
+- Garage overhead doors (counted via garage_cars)
+- Cased openings with no door installed (these are openings, not doors)
+- Cabinet doors, vanity doors, appliance doors
+
+If the plan has a door schedule, READ IT — schedules are the most reliable count. If you find yourself returning fewer than 12 doors on a custom plan with 3+ bedrooms, double-check; you've probably missed closet, bath, and utility doors. If you can't read a count from the plan, estimate from rooms: bedrooms + bedrooms (closet) + full_baths + half_baths + 5 baseline (pantry, laundry, mech, mud room, bonus). Note your method in ambiguity_notes.
+
+pocket_doors_estimated counts ONLY pocket / sliding-into-wall doors. Subset of interior_doors_estimated. Pocket doors are common in custom homes (8-15 each) — usually pantry, master bath, walk-in closet, ensuite entry. If the door schedule annotates them ("P" or "POCKET"), count those. If no schedule callout is visible, return null and note in ambiguity_notes rather than estimating.
 
 windows_estimated counts individual window units (including each window in a "ganged" pair if they're separate sashes). Typical residential homes have 15–40 windows; if you see significantly more, double-check that you're counting units and not panes within mullioned windows.
 
@@ -131,6 +155,8 @@ interface ExtractionResult {
   }>;
   doors_windows: {
     exterior_doors_estimated: number | null;
+    interior_doors_estimated: number | null;
+    pocket_doors_estimated: number | null;
     windows_estimated: number | null;
   };
   notable_features: string[];

@@ -986,6 +986,11 @@ export const STUB_ASSEMBLIES: Assembly[] = [
           { label: "Hollow-core 6-panel", value: 1.2 },
           { label: "Solid-core", value: 1.6 },
           { label: "Glass panel", value: 2.1 },
+          // Pocket door: in-wall frame + soft-close hardware runs
+          // ~50% above a standard pre-hung. Architect specs on
+          // Maddox-class custom plans typically call out 6-15 pocket
+          // doors (pantry, master bath, walk-in closet entries).
+          { label: "Pocket door (frame + hardware)", value: 1.5 },
         ],
       },
       { name: "Quantity", uom: "EA", defaultValue: 1 },
@@ -1014,6 +1019,11 @@ export const STUB_ASSEMBLIES: Assembly[] = [
       {
         label: "Glass panel (French)",
         propertyOverrides: { "Door Type": 2.1 },
+      },
+      {
+        label: "Pocket door",
+        description: "In-wall frame + soft-close hardware",
+        propertyOverrides: { "Door Type": 1.5 },
       },
     ],
   },

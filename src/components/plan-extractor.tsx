@@ -55,6 +55,8 @@ const SAMPLE_EXTRACTION: PlanExtraction = {
   ],
   doors_windows: {
     exterior_doors_estimated: 5,
+    interior_doors_estimated: 32,
+    pocket_doors_estimated: 4,
     windows_estimated: 28,
   },
   notable_features: [
@@ -103,6 +105,14 @@ export interface PlanExtraction {
   }>;
   doors_windows: {
     exterior_doors_estimated: number | null;
+    /** All interior doors including pocket doors. Custom-home spec
+     *  typically 25-50. Used by the converter when present; falls back
+     *  to bedroom/bath heuristic when absent. */
+    interior_doors_estimated?: number | null;
+    /** Pocket / sliding-into-wall doors. Subset of interior count.
+     *  Triggers a +50% unit-cost surcharge on the interior door
+     *  assembly (pocket frame + soft-close hardware). */
+    pocket_doors_estimated?: number | null;
     windows_estimated: number | null;
   };
   notable_features: string[];
