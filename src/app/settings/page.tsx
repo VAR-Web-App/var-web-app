@@ -133,6 +133,16 @@ export default function SettingsPage() {
           </Card>
 
           <Card
+            title="Invoice template"
+            subtitle="Brand and customize the draw-request / invoice document. Add your logo, your lender's loan number, payment terms, and pick which sections show on each draw."
+          >
+            <InvoiceTemplateEditor
+              value={settings.invoice_template}
+              onChange={(next) => setSettings({ ...settings, invoice_template: next })}
+            />
+          </Card>
+
+          <Card
             title="Assembly cost overrides"
             subtitle="Tune the stock catalog's pricing to your local market. Multipliers apply to every estimate you build — material × scales the unit cost, labor × scales install time. Set 1.00 = unchanged."
           >
@@ -168,6 +178,121 @@ function Card({ title, subtitle, children }: { title: string; subtitle: string; 
       </div>
       <div className="p-6">{children}</div>
     </section>
+  );
+}
+
+function InvoiceTemplateEditor({
+  value,
+  onChange,
+}: {
+  value: OrgSettings["invoice_template"];
+  onChange: (next: OrgSettings["invoice_template"]) => void;
+}) {
+  const v = value ?? {};
+  const patch = (p: Partial<NonNullable<OrgSettings["invoice_template"]>>) =>
+    onChange({ ...v, ...p });
+
+  // Section toggles default ON; an explicit `false` opts out. The
+  // `?? true` keeps existing draws looking identical for orgs that
+  // never touch this card.
+  const showCO = v.show_change_orders ?? true;
+  const showSOV = v.show_schedule_of_values ?? true;
+  const showOwner = v.show_owner_signature ?? true;
+  const showSubs = v.show_subs_on_phase ?? true;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="text-xs font-medium text-slate-700">Default template</div>
+        <div className="mt-1.5 inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => patch({ default_template: "aia" })}
+            className={`rounded px-3 py-1.5 transition ${
+              (v.default_template ?? "aia") === "aia"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            AIA G702 (detailed)
+          </button>
+          <button
+            type="button"
+            onClick={() => patch({ default_template: "simple" })}
+            className={`rounded px-3 py-1.5 transition ${
+              v.default_template === "simple"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Simple invoice
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Per-draw override still available from the draw page toolbar.
+        </p>
+      </div>
+
+      <Input
+        label="Logo URL"
+        placeholder="https://example.com/logo.png"
+        value={v.logo_url ?? ""}
+        onChange={(val) => patch({ logo_url: val })}
+      />
+
+      <TextArea
+        label="Lender / loan info (shown in invoice header)"
+        rows={2}
+        value={v.loan_info ?? ""}
+        onChange={(val) => patch({ loan_info: val })}
+      />
+
+      <TextArea
+        label="Payment terms"
+        rows={3}
+        value={v.payment_terms ?? ""}
+        onChange={(val) => patch({ payment_terms: val })}
+      />
+
+      <TextArea
+        label="Custom certification text (AIA template — blank = use standard)"
+        rows={4}
+        value={v.certification_text ?? ""}
+        onChange={(val) => patch({ certification_text: val })}
+      />
+
+      <div>
+        <div className="text-xs font-medium text-slate-700">Sections to include</div>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Toggle label="Subs on phase" checked={showSubs} onChange={(c) => patch({ show_subs_on_phase: c })} />
+          <Toggle label="Approved change orders" checked={showCO} onChange={(c) => patch({ show_change_orders: c })} />
+          <Toggle label="Schedule of values (AIA)" checked={showSOV} onChange={(c) => patch({ show_schedule_of_values: c })} />
+          <Toggle label="Owner's approval signature" checked={showOwner} onChange={(c) => patch({ show_owner_signature: c })} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (c: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-600"
+      />
+      {label}
+    </label>
   );
 }
 

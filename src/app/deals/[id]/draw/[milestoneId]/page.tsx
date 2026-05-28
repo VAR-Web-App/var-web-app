@@ -50,10 +50,22 @@ export default function DrawRequestPage({
   const [subs, setSubs] = useState<Distributor[]>([]);
   const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [loaded, setLoaded] = useState(false);
-  // Template picker. "aia" = full AIA G702/G703 (lender-grade, default).
+  // Template picker. "aia" = full AIA G702/G703 (lender-grade).
   // "simple" = minimal invoice for banks/clients who don't need the full
-  // ceremony — single Phase row, totals, one signature line.
+  // ceremony — single Phase row, totals, one signature line. Default is
+  // pulled from OrgSettings.invoice_template.default_template once
+  // settings load (initial render shows aia until then).
   const [template, setTemplate] = useState<"aia" | "simple">("aia");
+  const [templateInited, setTemplateInited] = useState(false);
+
+  // Sync the picker to the org's preferred default the first time
+  // settings arrive. After that, user toggles are sticky for the session.
+  useEffect(() => {
+    if (!settings || templateInited) return;
+    const def = settings.invoice_template?.default_template;
+    if (def) setTemplate(def);
+    setTemplateInited(true);
+  }, [settings, templateInited]);
 
   useEffect(() => {
     if (!profile) return;
@@ -134,6 +146,14 @@ export default function DrawRequestPage({
     month: "long",
     day: "numeric",
   });
+
+  // Resolve template config with sensible defaults so a fresh org with no
+  // customization still gets the full document.
+  const tpl = settings?.invoice_template ?? {};
+  const showSubs = tpl.show_subs_on_phase ?? true;
+  const showCO = tpl.show_change_orders ?? true;
+  const showSOV = tpl.show_schedule_of_values ?? true;
+  const showOwnerSig = tpl.show_owner_signature ?? true;
 
   async function pushToQuickBooks() {
     if (!deal || !thisMs) return;
@@ -283,21 +303,43 @@ export default function DrawRequestPage({
           {/* Header */}
           <header className="border-b-2 border-slate-900 pb-6">
             <div className="flex flex-wrap items-start justify-between gap-6">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  {template === "aia" ? "Application for Payment" : "Invoice"}
-                </h1>
-                <p className="mt-1 text-sm text-slate-600">
-                  {template === "aia"
-                    ? `Draw Request #${drawNumber} · Invoice #${drawNumber}`
-                    : `Invoice #${drawNumber}`}
-                </p>
+              <div className="flex items-start gap-4">
+                {tpl.logo_url && (
+                  // Branded header. The logo URL is whatever the GC pasted
+                  // in Settings — public URL or data URI both work. Capped
+                  // at 64px so a giant PNG doesn't blow up the layout.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tpl.logo_url}
+                    alt=""
+                    className="h-16 max-w-[180px] object-contain"
+                  />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                    {template === "aia" ? "Application for Payment" : "Invoice"}
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {template === "aia"
+                      ? `Draw Request #${drawNumber} · Invoice #${drawNumber}`
+                      : `Invoice #${drawNumber}`}
+                  </p>
+                </div>
               </div>
               <div className="text-right text-xs text-slate-600">
                 <div>Date: <span className="font-medium text-slate-900">{date}</span></div>
                 <div className="mt-0.5">Project: <span className="font-medium text-slate-900">{deal.name}</span></div>
                 {deal.solicitation_number && (
                   <div className="mt-0.5">Job #: <span className="font-mono font-medium text-slate-900">{deal.solicitation_number}</span></div>
+                )}
+                {tpl.loan_info && (
+                  // Lender-specified fields — loan #, borrower, draw # in
+                  // the bank's format. Free-form so each org can match
+                  // their lender's exact wording. Universal ask across
+                  // every construction draw form we surveyed.
+                  <div className="mt-1.5 whitespace-pre-line border-t border-slate-200 pt-1.5 text-slate-700">
+                    {tpl.loan_info}
+                  </div>
                 )}
               </div>
             </div>
@@ -330,7 +372,7 @@ export default function DrawRequestPage({
           )}
 
           {/* Subs on this phase */}
-          {thisMs.assigned_subs && thisMs.assigned_subs.length > 0 && (
+          {showSubs && thisMs.assigned_subs && thisMs.assigned_subs.length > 0 && (
             <section className="mt-3 text-sm">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Subs on this phase:{" "}
@@ -371,8 +413,9 @@ export default function DrawRequestPage({
           </section>
 
           {/* Approved Change Orders summary — included if any. AIA only;
-             simple invoice rolls COs into the contract total instead. */}
-          {template === "aia" && changeOrders.filter((c) => c.status === "approved").length > 0 && (
+             simple invoice rolls COs into the contract total instead.
+             Org-level toggle can suppress this even on AIA. */}
+          {template === "aia" && showCO && changeOrders.filter((c) => c.status === "approved").length > 0 && (
             <section className="mt-6">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
                 Approved Change Orders
@@ -413,9 +456,9 @@ export default function DrawRequestPage({
             </section>
           )}
 
-          {/* Schedule of Values — AIA mode only. The simple template
-             renders a single-row table after this. */}
-          {template === "aia" && (
+          {/* Schedule of Values — AIA mode only, plus org toggle.
+             The simple template renders a single-row table after this. */}
+          {template === "aia" && showSOV && (
           <section className="mt-8">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
               Schedule of Values
@@ -552,53 +595,56 @@ export default function DrawRequestPage({
           )}
 
           {/* Certifications — full dual block for AIA, single approval
-             line for the simple template. */}
+             line for the simple template. Custom certification text from
+             OrgSettings overrides the boilerplate when present.
+             Owner signature block can be suppressed org-wide via toggle. */}
           {template === "aia" ? (
-            <section className="mt-10 grid grid-cols-2 gap-8 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
+            <section className={`mt-10 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700 ${showOwnerSig ? "grid grid-cols-2 gap-8" : ""}`}>
               <div>
                 <p className="font-semibold uppercase tracking-wider text-slate-900">
                   Contractor&apos;s Certification
                 </p>
-                <p className="mt-1.5">
-                  The undersigned Contractor certifies that to the best of the Contractor&apos;s
-                  knowledge, information, and belief, the Work covered by this Application for
-                  Payment has been completed in accordance with the Contract Documents, that all
-                  amounts have been paid by the Contractor for Work for which previous Certificates
-                  for Payment were issued, and that current payment shown herein is now due.
+                <p className="mt-1.5 whitespace-pre-line">
+                  {tpl.certification_text ||
+                    `The undersigned Contractor certifies that to the best of the Contractor's knowledge, information, and belief, the Work covered by this Application for Payment has been completed in accordance with the Contract Documents, that all amounts have been paid by the Contractor for Work for which previous Certificates for Payment were issued, and that current payment shown herein is now due.`}
                 </p>
                 <SignatureBlock label="Contractor" name={settings?.prepared_by_name || settings?.company_name} />
               </div>
-              <div>
-                <p className="font-semibold uppercase tracking-wider text-slate-900">
-                  Owner&apos;s Approval
-                </p>
-                <p className="mt-1.5">
-                  The undersigned Owner has reviewed the Work covered by this Application for
-                  Payment and certifies that the Work has been performed in accordance with the
-                  Contract Documents and authorizes the lender to release funds in the amount
-                  certified above.
-                </p>
-                <SignatureBlock
-                  label="Owner"
-                  name={deal.account_name}
-                  signature={thisMs.approval_signature}
-                  signedAt={thisMs.approved_at}
-                />
-              </div>
+              {showOwnerSig && (
+                <div>
+                  <p className="font-semibold uppercase tracking-wider text-slate-900">
+                    Owner&apos;s Approval
+                  </p>
+                  <p className="mt-1.5">
+                    The undersigned Owner has reviewed the Work covered by this Application for
+                    Payment and certifies that the Work has been performed in accordance with the
+                    Contract Documents and authorizes the lender to release funds in the amount
+                    certified above.
+                  </p>
+                  <SignatureBlock
+                    label="Owner"
+                    name={deal.account_name}
+                    signature={thisMs.approval_signature}
+                    signedAt={thisMs.approved_at}
+                  />
+                </div>
+              )}
             </section>
           ) : (
             <section className="mt-10 border-t border-slate-200 pt-6 text-xs leading-relaxed text-slate-700">
-              <p>
-                Payment due on receipt. Thank you for your business.
+              <p className="whitespace-pre-line">
+                {tpl.payment_terms || "Payment due on receipt. Thank you for your business."}
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-8">
-                <SignatureBlock
-                  label="Owner Approval"
-                  name={deal.account_name}
-                  signature={thisMs.approval_signature}
-                  signedAt={thisMs.approved_at}
-                />
-              </div>
+              {showOwnerSig && (
+                <div className="mt-4 grid grid-cols-2 gap-8">
+                  <SignatureBlock
+                    label="Owner Approval"
+                    name={deal.account_name}
+                    signature={thisMs.approval_signature}
+                    signedAt={thisMs.approved_at}
+                  />
+                </div>
+              )}
             </section>
           )}
 

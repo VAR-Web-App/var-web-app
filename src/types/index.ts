@@ -388,6 +388,36 @@ export interface OrgSettings {
       }
     >;
   };
+  /**
+   * Per-org overrides for the draw-request / invoice template. The
+   * draw page ships with two layouts (AIA G702 and Simple Invoice) and
+   * a default field set; this lets builders flip the default template,
+   * brand it with their logo, add lender-specific fields (loan #,
+   * borrower name), edit boilerplate, and opt out of sections they
+   * don't need. Missing fields = use the template's built-in default.
+   */
+  invoice_template?: {
+    /** Default template used when a draw page first opens. */
+    default_template?: "aia" | "simple";
+    /** Logo rendered top-left on the invoice header. Public URL or data URI. */
+    logo_url?: string;
+    /** Free-text lender block — e.g. "Loan #: 1234567 / Borrower: J. Doe".
+     *  Shown in the header next to the date. Lenders frequently want
+     *  their loan number on every draw. */
+    loan_info?: string;
+    /** Free-text payment terms shown at the bottom of the invoice body
+     *  (Simple template) or above signatures (AIA template). */
+    payment_terms?: string;
+    /** Custom contractor's-certification text override. Falls back to
+     *  the built-in AIA G702 boilerplate when blank. */
+    certification_text?: string;
+    /** Section toggles — default ON when absent. Lets a builder hide
+     *  pieces their lender doesn't care about. */
+    show_change_orders?: boolean;
+    show_schedule_of_values?: boolean;
+    show_owner_signature?: boolean;
+    show_subs_on_phase?: boolean;
+  };
 }
 
 /** Builder-authored material line appended to a stock assembly via
