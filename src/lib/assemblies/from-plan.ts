@@ -456,10 +456,30 @@ export function instancesFromPlan(
   }
 
   // ── Second-floor framing (still gated on stories > 1) ─────────
-  // Use second_floor_sqft if Claude provided it; otherwise assume the
-  // second floor is the same shape as the first.
+  // Sanity check second_floor_sqft against the other extraction
+  // numbers. Claude sometimes returns a too-small value when the
+  // plan only labels first-floor sqft prominently — but if it got
+  // total_sqft and first_floor_sqft right, we can back-derive a
+  // floor that the architect's totals must imply:
+  //   derived = total - first_floor - bonus
+  // Take the max so we never UNDERSHOOT the architect's totals
+  // (the formulas all scale linearly with area; overshoot is the
+  // builder's friend, undershoot blows the build budget).
+  // Cnadd cross-check: extraction returned ~1500 SF when totals
+  // implied ~2400 SF, shorting the second-floor subfloor by 40%.
   if (stories > 1) {
-    const secondFloorSqft = extraction.second_floor_sqft ?? firstFloorSqft;
+    const totalSqftSurfaced = extraction.total_sqft ?? 0;
+    const firstFloorSurfaced = extraction.first_floor_sqft ?? 0;
+    const bonusSurfaced = extraction.bonus_sqft ?? 0;
+    const derivedSecond = Math.max(
+      0,
+      totalSqftSurfaced - firstFloorSurfaced - bonusSurfaced,
+    );
+    const secondFloorSqft = Math.max(
+      extraction.second_floor_sqft ?? 0,
+      derivedSecond,
+      firstFloorSqft * 0.6, // ultimate fallback — 60% of first for setbacks
+    );
     const w2 = Math.sqrt(secondFloorSqft / 1.4);
     const l2 = w2 * 1.4;
     out.push(
