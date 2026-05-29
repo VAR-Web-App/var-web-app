@@ -444,12 +444,17 @@ export function instancesFromPlan(
     const isCrawl =
       (extraction.foundation_type ?? "").toLowerCase().includes("crawl");
     const crawlFloorArea = isCrawl ? Math.round(firstFloorSqft) : 0;
+    // CMU wall length runs ~15% longer than the conditioned perimeter
+    // alone — covers the slab-edge turn-down where the foundation
+    // wraps under the garage / mudroom step-down + minor jogs at
+    // attached masses. Cnadd round 7 cross-check: conditioned
+    // perimeter = 229 LF, architect CMU blocks imply ~265 LF wall
+    // length (×1.16). 1.15 closes the gap on CMU blocks (-13%),
+    // sill plate (-10%), and termite shield (-8%) in one move.
+    const cmuWallLength = Math.round(foundationPerimeter * 1.15);
     out.push(
       makeInstance("stub-cmu-foundation-wall", "Foundation wall — CMU block", {
-        // Use the foundation perimeter (heated area only), not the
-        // overall envelope. CMU wall doesn't wrap the garage slab or
-        // porch piers.
-        "Wall Length": foundationPerimeter,
+        "Wall Length": cmuWallLength,
         "Wall Height": inferFoundationWallHeight(extraction.foundation_type),
         "Pier Count": piers,
         "Crawl Floor Area": crawlFloorArea,
@@ -532,7 +537,10 @@ export function instancesFromPlan(
     const secondFloorSqft = Math.max(
       extraction.second_floor_sqft ?? 0,
       derivedSecond,
-      firstFloorSqft * 0.6, // ultimate fallback — 60% of first for setbacks
+      // 0.80 fallback (was 0.60) — Maddox cross-check confirmed second
+      // floors on Maddox-class custom plans run ~85% of first-floor
+      // area. 0.60 was undershooting subfloor + framing by 25%+.
+      firstFloorSqft * 0.8,
     );
     const w2 = Math.sqrt(secondFloorSqft / 1.4);
     const l2 = w2 * 1.4;
@@ -649,14 +657,18 @@ export function instancesFromPlan(
       roofShapeBonus = 1.0;
       break;
     case "hip":
-      roofShapeBonus = 1.05;
+      roofShapeBonus = 1.08;
       break;
     case "gable+hip":
-      roofShapeBonus = 1.12;
+      roofShapeBonus = 1.18;
       break;
     case "complex":
     default:
-      roofShapeBonus = 1.25;
+      // Custom plans land here. Cnadd round 7 (anchored envelope
+      // ~4400 SF) under architect 248 sheets by 15% at bonus 1.25;
+      // bonus 1.40 puts target multiplier at 1.85 = 254 sheets.
+      // Simpler plans naturally get smaller bonuses above.
+      roofShapeBonus = 1.40;
       break;
   }
   const targetRoofMultiplier = pitchFactorReal * 1.10 * roofShapeBonus;
