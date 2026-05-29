@@ -220,7 +220,16 @@ function roundPropertyValue(uom: string, value: number): number {
     // value. Don't touch.
     return value;
   }
-  if (upper === "CY" || upper === "GAL" || upper === "TON" || upper === "HR") {
+  if (
+    upper === "CY" ||
+    upper === "GAL" ||
+    upper === "TON" ||
+    upper === "HR" ||
+    // FT preserves fractional feet for properties like Soffit Width
+    // (typical residential is 1.5 ft = 18" overhang). Rounding 1.5 to
+    // 2 was overshooting soffit by 33% on the Cnadd cross-check.
+    upper === "FT"
+  ) {
     return Math.round(value * 10) / 10;
   }
   return Math.round(value);
@@ -664,11 +673,14 @@ export function instancesFromPlan(
       break;
     case "complex":
     default:
-      // Custom plans land here. Cnadd round 7 (anchored envelope
-      // ~4400 SF) under architect 248 sheets by 15% at bonus 1.25;
-      // bonus 1.40 puts target multiplier at 1.85 = 254 sheets.
-      // Simpler plans naturally get smaller bonuses above.
-      roofShapeBonus = 1.40;
+      // Custom plans land here. Cnadd round 9 (proper overall
+      // envelope anchor in place + Soffit Width rounding fix)
+      // showed 1.40 bonus overshooting architect 248 by +20%.
+      // 1.20 brings target multiplier to 1.20 × 1.10 × 1.20 = 1.58,
+      // which lands near architect within ±5% on the anchored
+      // envelope. Was 1.40, which was tuned against an under-
+      // anchored envelope in round 7.
+      roofShapeBonus = 1.20;
       break;
   }
   const targetRoofMultiplier = pitchFactorReal * 1.10 * roofShapeBonus;
