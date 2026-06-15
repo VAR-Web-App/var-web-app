@@ -1374,6 +1374,11 @@ function PriceSourcePill({ source }: { source: PriceSource }) {
     PriceSource,
     { label: string; full: string; cls: string }
   > = {
+    actuals: {
+      label: "act",
+      full: "Actual cost from paid invoice — highest confidence",
+      cls: "bg-emerald-600 text-white ring-emerald-700",
+    },
     bid: {
       label: "bid",
       full: "Awarded sub bid — real local pricing",

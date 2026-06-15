@@ -165,7 +165,7 @@ export interface QuoteScenario {
  *  - "manual":  Builder typed the number directly. Treat as
  *               intentional; never auto-overwrite.
  */
-export type PriceSource = "bid" | "market" | "catalog" | "manual";
+export type PriceSource = "actuals" | "bid" | "market" | "catalog" | "manual";
 
 export interface QuoteLine {
   id: string;
@@ -331,6 +331,60 @@ export interface PushSubscriptionRecord {
   last_test_at?: string;
 }
 
+// ── Subscription tiers (Track 5: Packaging) ────────────────────
+export type SubscriptionTier = "free" | "pro" | "premium";
+
+export const SUBSCRIPTION_TIERS: Array<{
+  tier: SubscriptionTier;
+  name: string;
+  price_monthly: number;
+  seats_included: number;
+  features: string[];
+}> = [
+  {
+    tier: "free",
+    name: "Free Trial",
+    price_monthly: 0,
+    seats_included: 1,
+    features: [
+      "1 active project",
+      "Photo timeline + milestones",
+      "Basic estimate engine",
+      "Client portal (read-only)",
+    ],
+  },
+  {
+    tier: "pro",
+    name: "Pro",
+    price_monthly: 129,
+    seats_included: 4,
+    features: [
+      "Unlimited projects",
+      "AI floor plan → estimate",
+      "Client portal with approvals",
+      "Sub schedule + SMS notifications",
+      "RFQ bid management",
+      "Invoice parser + draw automation",
+      "Selections + change orders",
+      "4 users included",
+    ],
+  },
+  {
+    tier: "premium",
+    name: "Premium",
+    price_monthly: 249,
+    seats_included: 10,
+    features: [
+      "Everything in Pro",
+      "10 users included",
+      "White-label client portal",
+      "Custom assembly authoring",
+      "Priority support",
+      "API access",
+    ],
+  },
+];
+
 export interface OrgSettings {
   org_ref: string;
   company_name: string;
@@ -471,6 +525,19 @@ export interface OrgSettings {
    * when present; missing fields fall back to the seed.
    */
   estimate_template?: import("@/lib/estimate-template-default").EstimateTemplate;
+  /** Subscription tier for the org. Controls feature gating. */
+  subscription?: {
+    tier: SubscriptionTier;
+    status: "active" | "trialing" | "past_due" | "cancelled";
+    /** Stripe subscription ID. */
+    stripe_subscription_id?: string;
+    /** Current billing period end (ISO). */
+    current_period_end?: string;
+    /** Included user seats. */
+    seats_included: number;
+    /** Additional paid seats beyond included. */
+    seats_extra?: number;
+  };
 }
 
 /** Builder-authored material line appended to a stock assembly via
@@ -585,6 +652,78 @@ export const ATTACHMENT_CATEGORIES: Array<{
   { key: "email", label: "Emails" },
   { key: "other", label: "Other" },
 ];
+
+// ── Invoices (Track 2: Financial Flywheel) ─────────────────────
+// Parsed from forwarded emails or uploaded PDFs. Line items link
+// back to GFE category IDs so costs feed the actuals→estimating loop.
+
+export type InvoiceStatus =
+  | "pending"       // parsed but not yet matched to a project
+  | "matched"       // matched to a project + (optionally) a milestone
+  | "draw_ready"    // included in a draw packet
+  | "paid";         // payment recorded
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  pending: "Pending",
+  matched: "Matched",
+  draw_ready: "In Draw",
+  paid: "Paid",
+};
+
+export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
+  pending: "bg-amber-100 text-amber-800 ring-amber-200",
+  matched: "bg-sky-100 text-sky-800 ring-sky-200",
+  draw_ready: "bg-violet-100 text-violet-800 ring-violet-200",
+  paid: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+};
+
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity?: number;
+  unit?: string;
+  unit_price?: number;
+  extended: number;
+  /** GFE category ID (e.g. "40" = Framing) for the actuals loop. */
+  cat_id?: string;
+}
+
+export interface Invoice {
+  id: string;
+  org_ref: string;
+  /** Linked project. Null until matched. */
+  deal_ref?: string;
+  /** Linked milestone/draw. Null until matched. */
+  milestone_ref?: string;
+  /** Sub or supplier who issued the invoice. */
+  vendor_name: string;
+  /** Vendor's invoice number. */
+  invoice_number?: string;
+  /** Invoice date (ISO yyyy-mm-dd). */
+  invoice_date?: string;
+  /** Due date (ISO yyyy-mm-dd). */
+  due_date?: string;
+  /** Total amount on the invoice. */
+  total: number;
+  /** Parsed line items. */
+  line_items: InvoiceLineItem[];
+  /** PO number if present — helps match to deal/sub. */
+  po_number?: string;
+  status: InvoiceStatus;
+  /** How the invoice was imported. */
+  source: "email" | "upload" | "scan";
+  /** Raw text extracted (for re-parsing or debugging). */
+  raw_text?: string;
+  /** Distributor ref if matched to a known sub. */
+  sub_ref?: string;
+  /** Payment ref once a payment is recorded. */
+  payment_ref?: string;
+  /** Confidence of the parse. */
+  parse_confidence: "high" | "medium" | "low";
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // ── helpers ──────────────────────────────────────────────────────
 

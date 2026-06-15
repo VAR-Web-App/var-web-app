@@ -1098,6 +1098,133 @@ export function instancesFromPlan(
     );
   }
 
+  // ── MEP: Plumbing rough-in ─────────────────────────────────────
+  // Fixture count: full baths × 3 (toilet + sink + tub/shower) +
+  // half baths × 2 (toilet + sink) + kitchen (2: sink + dishwasher) +
+  // laundry (1: washer hookup).
+  const fullBaths = extraction.full_baths ?? 2;
+  const halfBaths = extraction.half_baths ?? 0;
+  const fixtureCount = fullBaths * 3 + halfBaths * 2 + 2 + 1;
+  out.push(
+    makeInstance("stub-plumbing-rough", "Plumbing — rough-in", {
+      "Fixture Count": fixtureCount,
+      "Supply Line": 1.0, // PEX standard
+    })!,
+  );
+
+  // ── MEP: Water heater ──────────────────────────────────────────
+  // 1 unit for ≤4BR, 2 for 5+BR (or tankless for large homes)
+  const waterHeaterCount = bedrooms >= 5 ? 2 : 1;
+  out.push(
+    makeInstance("stub-water-heater", "Water heater", {
+      "Unit Count": waterHeaterCount,
+      "Heater Type": 1.0, // 40 gal gas tank (standard)
+    })!,
+  );
+
+  // ── MEP: Electrical — whole home ───────────────────────────────
+  out.push(
+    makeInstance("stub-electrical-whole-home", "Electrical — whole home", {
+      "Conditioned Area": Math.round(totalSqft),
+      "Service Size": totalSqft > 3500 ? 1.4 : 1.0, // bump to 320A for large homes
+    })!,
+  );
+
+  // ── MEP: HVAC — ducted central system ──────────────────────────
+  // Rule of thumb: 1 ton per 600 SF (warm climate) to 800 SF (mild).
+  // Use 700 SF as a middle-ground default.
+  const hvacTons = Math.max(2, Math.round(totalSqft / 700));
+  out.push(
+    makeInstance("stub-hvac-ducted", "HVAC — ducted system", {
+      "System Size": hvacTons,
+      "System Type": 1.0, // gas furnace + AC split
+    })!,
+  );
+
+  // ── MEP: Lighting fixture allowance ────────────────────────────
+  out.push(
+    makeInstance("stub-lighting-allowance", "Lighting fixtures", {
+      "Allowance Tier": 1,
+      "Allowance Level": totalSqft > 3000 ? 2.0 : 1.0,
+    })!,
+  );
+
+  // ── Site work ──────────────────────────────────────────────────
+  // Default to 0.5 acre disturbance, moderate terrain.
+  out.push(
+    makeInstance("stub-site-work", "Site work — clearing & grading", {
+      "Lot Disturbance": 0.5,
+      "Terrain Difficulty": 1.0,
+    })!,
+  );
+
+  // ── Septic system (conditional) ────────────────────────────────
+  // Only generate for rural / non-municipal sewer. Heuristic: if
+  // foundation_type mentions "crawl" or notable_features includes
+  // "septic" or "well", assume off-sewer. Also include when not
+  // explicitly "slab" in a suburban context.
+  const notableStr = (extraction.notable_features ?? []).join(" ").toLowerCase();
+  const isSeptic =
+    notableStr.includes("septic") ||
+    notableStr.includes("well") ||
+    (extraction.foundation_type ?? "").toLowerCase().includes("crawl");
+  if (isSeptic) {
+    out.push(
+      makeInstance("stub-septic-system", "Septic system", {
+        "Bedroom Count": bedrooms || 3,
+        "System Type": 1.0, // conventional gravity
+      })!,
+    );
+  }
+
+  // ── Kitchen cabinetry ──────────────────────────────────────────
+  // Heuristic: cabinet run LF ≈ kitchen sqft × 0.6, with a minimum
+  // of 15 LF and a max of 40 LF for a single kitchen.
+  // Kitchen sqft rough estimate: ~12% of total conditioned for
+  // homes < 2500 SF, ~10% for larger homes.
+  const kitchenSqft = totalSqft < 2500
+    ? Math.round(totalSqft * 0.12)
+    : Math.round(totalSqft * 0.10);
+  const cabinetRunLF = Math.min(40, Math.max(15, Math.round(kitchenSqft * 0.6)));
+  out.push(
+    makeInstance("stub-kitchen-cabinetry", "Kitchen cabinets", {
+      "Cabinet Run": cabinetRunLF,
+      "Cabinet Grade": 1.0, // stock
+    })!,
+  );
+
+  // ── Countertops ────────────────────────────────────────────────
+  // Kitchen countertop area ≈ cabinet LF × 2.5 (25" depth) as SF.
+  // Add ~15 SF per additional bathroom vanity top.
+  const kitchenCountertopSF = Math.round(cabinetRunLF * 2.1);
+  const bathCountertopSF = (fullBaths + halfBaths) * 8; // small vanity tops
+  const totalCountertopSF = kitchenCountertopSF + bathCountertopSF;
+  out.push(
+    makeInstance("stub-countertops", "Countertops", {
+      "Countertop Area": totalCountertopSF,
+      "Material": 3.0, // granite (standard upgrade)
+    })!,
+  );
+
+  // ── Bath suites ────────────────────────────────────────────────
+  const totalBathCount = fullBaths + halfBaths;
+  if (totalBathCount > 0) {
+    out.push(
+      makeInstance("stub-bath-suite", "Bathroom suites", {
+        "Bathroom Count": totalBathCount,
+        "Bath Grade": 1.0, // builder spec
+      })!,
+    );
+  }
+
+  // ── Kitchen appliance allowance ────────────────────────────────
+  out.push(
+    makeInstance("stub-appliance-allowance", "Kitchen appliances", {
+      "Kitchen Count": 1,
+      "Appliance Tier": 1.0, // builder spec
+    })!,
+  );
+
   return out.filter((x) => x !== null);
 }
 

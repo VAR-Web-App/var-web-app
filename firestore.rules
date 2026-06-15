@@ -199,6 +199,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Invoices (Track 2: Financial Flywheel): parsed invoice records
+    // from forwarded emails or uploaded documents. Org-scoped directly
+    // (not deal-scoped) since pending invoices may not yet be matched
+    // to a project.
+    match /invoices/{invId} {
+      allow read, update, delete: if ownsByOrg();
+      allow create: if creatingForOwnOrg();
+    }
+
+    // Project selections (Builder vertical): client-facing priced
+    // option picks (countertops, flooring, etc.) with allowance tracking
+    // and auto-CO on over-allowance.
+    match /project_selections/{selId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
+    }
+
     // Project change orders (Builder vertical): scope/cost changes
     // during construction with client approval.
     match /project_change_orders/{coId} {

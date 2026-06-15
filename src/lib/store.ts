@@ -208,6 +208,40 @@ export async function deletePayment(id: string): Promise<void> {
   await removeFromCollection("payments", id);
 }
 
+// ── invoices (Track 2: Financial Flywheel) ─────────────────────
+
+import type { Invoice } from "@/types";
+
+/** List invoices for a specific project. */
+export async function listInvoices(dealRef: string): Promise<Invoice[]> {
+  const q = query(collection(db, "invoices"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Invoice, "id">) }))
+    .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""));
+}
+
+/** List all unmatched (pending) invoices for the org. */
+export async function listPendingInvoices(orgRef: string): Promise<Invoice[]> {
+  const q = query(
+    collection(db, "invoices"),
+    where("org_ref", "==", orgRef),
+    where("status", "==", "pending"),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Invoice, "id">) }))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+}
+
+export async function saveInvoice(inv: Invoice): Promise<void> {
+  await setDoc(doc(db, "invoices", inv.id), inv, { merge: false });
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  await removeFromCollection("invoices", id);
+}
+
 // ── attachments ──────────────────────────────────────────────────
 
 export async function listAttachments(dealRef: string): Promise<Attachment[]> {
@@ -333,7 +367,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -350,6 +384,23 @@ export async function saveChangeOrder(co: ProjectChangeOrder): Promise<void> {
 
 export async function deleteChangeOrder(id: string): Promise<void> {
   await removeFromCollection("project_change_orders", id);
+}
+
+// ── project selections (Builder vertical) ──────────────────────
+
+export async function listSelections(dealRef: string): Promise<ProjectSelection[]> {
+  const q = query(collection(db, "project_selections"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectSelection, "id">) }));
+  return items.sort((a, b) => a.number.localeCompare(b.number));
+}
+
+export async function saveSelection(sel: ProjectSelection): Promise<void> {
+  await setDoc(doc(db, "project_selections", sel.id), sel, { merge: false });
+}
+
+export async function deleteSelection(id: string): Promise<void> {
+  await removeFromCollection("project_selections", id);
 }
 
 /** Effective contract value = base contract + sum of approved COs.
@@ -1014,9 +1065,11 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
       listMilestones(deal.id),
       listPhotos(deal.id),
     ]);
-    const [rfqs, changeOrders] = await Promise.all([
+    const [rfqs, changeOrders, selections, invoices] = await Promise.all([
       listRFQs(deal.id),
       listChangeOrders(deal.id),
+      listSelections(deal.id),
+      listInvoices(deal.id),
     ]);
     for (const l of lines) await removeFromCollection("quote_lines", l.id);
     for (const a of atts) await deleteAttachment(a.id);
@@ -1024,6 +1077,8 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
     for (const p of photos) await deletePhoto(p.id);
     for (const r of rfqs) await deleteRFQ(r.id);
     for (const co of changeOrders) await deleteChangeOrder(co.id);
+    for (const sel of selections) await deleteSelection(sel.id);
+    for (const inv of invoices) await deleteInvoice(inv.id);
     await deleteDeal(deal.id);
   }
 

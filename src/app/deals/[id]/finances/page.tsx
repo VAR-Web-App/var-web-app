@@ -6,6 +6,7 @@ import RFQPanel from "@/components/rfq-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
 import PaymentsSection from "@/components/payments-section";
 import BudgetPanel from "@/components/budget-panel";
+import InvoicesPanel from "@/components/invoices-panel";
 import DealPageShell, {
   DealLoadingShell,
   DealNotFoundShell,
@@ -44,6 +45,7 @@ export default function DealFinancesPage({
         <EstimateSummary dealId={deal.id} lines={lines} />
         <BudgetPanel dealId={deal.id} />
         <ChangeOrdersPanel deal={deal} />
+        <InvoicesPanel deal={deal} />
         <PaymentsSection deal={deal} />
         <RFQPanel deal={deal} />
       </div>

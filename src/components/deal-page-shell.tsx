@@ -11,6 +11,7 @@ import {
   EyeIcon,
   HomeIcon,
   PaperAirplaneIcon,
+  SwatchIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
@@ -19,7 +20,7 @@ import { deleteDeal, saveDeal } from "@/lib/store";
 import type { Deal } from "@/types";
 import { BUILDER_STAGES } from "@/types/builder";
 
-export type DealTabKey = "overview" | "schedule" | "finances" | "files";
+export type DealTabKey = "overview" | "schedule" | "finances" | "selections" | "files";
 
 const TABS: Array<{
   key: DealTabKey;
@@ -30,6 +31,7 @@ const TABS: Array<{
   { key: "overview", label: "Overview", href: (id) => `/deals/${id}`, icon: HomeIcon },
   { key: "schedule", label: "Schedule", href: (id) => `/deals/${id}/schedule`, icon: ChartBarIcon },
   { key: "finances", label: "Finances", href: (id) => `/deals/${id}/finances`, icon: CurrencyDollarIcon },
+  { key: "selections", label: "Selections", href: (id) => `/deals/${id}/selections`, icon: SwatchIcon },
   { key: "files", label: "Files", href: (id) => `/deals/${id}/files`, icon: DocumentIcon },
 ];
 
