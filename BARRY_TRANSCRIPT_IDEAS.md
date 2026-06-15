@@ -32,21 +32,30 @@ Status legend:
   southernlivinghouseplans.com). Search by bedroom count + style →
   filter plans for prospects. Big and external; defer.
 
-## Selections (Barry circled this 5+ times — biggest unbuilt feature)
+## Selections (Barry circled this 5+ times — biggest unbuilt feature) — ✅ SCOPED 2026-06-13
 
-🔵 **Waiting on Barry** for the 6 questions emailed:
-1. Option model (free-form vs builder-curated vs curated-with-cost-deltas)
-2. Pre-built category templates vs blank slate
-3. Wall-move iPad sketch flow (separate from selections or same)
-4. Designer's role (read or write)
-5. After-approval workflow (auto-email confirmation / spec sheet)
-6. Required-by-date / schedule blockers
+**Barry's email answers (2026-06-13) closed the blockers:**
+- **Type:** selections are **non-change-order line items, distinct from change orders** ("yes, different from change order"). A selection = the *choice/spec*; a change order = a *price-changing mod*.
+- **Timing:** **rolling — pre AND during build**, just like change orders. Project-scoped, addable anytime.
+- **Required-by date:** **yes — a date, or at least a reminder** (soft; he did NOT ask for a hard schedule block).
 
-Once answers come back:
-- ⚪ Data model + Firestore rules
-- ⚪ Selections tab on project page
-- ⚪ Send-to-client flow + e-sign
-- ⚪ Designer portal (if Barry wants writable)
+**Resolved model (the 6 questions):**
+1. **Option model** → curated options with **cost deltas via allowance**. Client picks: within allowance = logged selection; over allowance = the delta **spawns a linked change order**. This reconciles "non-change-order" with client cost-comparison.
+2. **Templates** → starter category templates (brick / paint / flooring / fixtures / fireplace…), editable + add-custom.
+3. **Wall-move vs selection** → separate types on one "Selections & Change Orders" tab (type dropdown). Wall-move = change order (annotated photo + client signature); selection = a choice.
+4. **Designer role** → **writable**, scoped to selections; reusable designer across projects ("usually the same designer").
+5. **After-approval** → record + client approves in portal (notification) + auto-generated confirmation / spec record.
+6. **Required-by date** → optional needed-by date + reminder (soft flag, not a hard schedule block).
+
+**Client-facing priced selections (Brennan's idea @ 15:05 + Collin's vision):** expose the existing assembly **variant/cost engine** to the client — they choose options (e.g., 4" vs 6" garage slab, door/flooring tiers) and see the **cost delta vs allowance**, the same way Barry edits assemblies. The mechanism already exists (variant presets carry cost deltas); this is exposing it client-side.
+
+**Build (now unblocked):**
+- ⚪ Data model + Firestore rules (project-scoped, rolling; selection + auto-linked change order on over-allowance)
+- ⚪ "Selections & Change Orders" tab on project page (type dropdown)
+- ⚪ Curated option templates + allowance + cost-delta
+- ⚪ Client-facing priced picks in the client portal (variant engine exposed) + approve / e-sign
+- ⚪ Designer portal (writable, selections-scoped)
+- ⚪ Needed-by date + reminder
 
 ## Invoices & Draws (the second pillar — actuals→estimating loop)
 
@@ -150,31 +159,20 @@ If we had to rank by leverage × confidence:
 6. Quick wins parallel track: location ping, sub accept/decline,
    bulk sub import, photo notifs, Spanish translator.
 
-## Open questions for Barry (10)
+## Open questions for Barry
 
-These came out of the call but weren't answered. Save for the next
-session with him.
+**✅ Answered 2026-06-13 (see Selections section above):** option model (1),
+category templates (2), wall-move vs selection (3), designer role (4),
+after-approval flow (5), required-by-date (6), and designer-per-project
+(9 — reusable, "usually the same designer").
 
-1. **Selections option model** — free-form, curated, or curated +
-   cost deltas? (in his current email)
-2. **Selections category templates** — pre-built brick/paint/flooring
-   categories per project, or blank slate? (in his email)
-3. **Wall-move sketch flow** — same as selections or a separate
-   "field changes" thing? (in his email)
-4. **Designer role** — read-only viewer or writable participant?
-   (in his email)
-5. **After-approval flow** — record only, auto-email confirmation,
-   spec sheet PDF? (in his email)
-6. **Selection required-by-date** — should an unselected item block
-   the schedule? (in his email)
-7. **Draws — who approves first** — universal across his clients, or
-   just Brennan's bank? (Brennan signs first, then bank.)
-8. **Pricing learns from actuals — region-shared or org-only?** —
-   bigger learning DB across all builders is more powerful but
-   raises privacy questions
-9. **Designer portal — same designer across projects, or per-project?**
-10. **3D walkthrough as a paid add-on** — does Barry have customers
-    actually asking, or is it speculative?
+**Still open:**
+- **Draws — who approves first?** Universal across his clients, or just
+  Brennan's bank? (Brennan signs first, then bank.)
+- **Pricing learns from actuals — region-shared or org-only?** A bigger
+  cross-builder learning DB is more powerful but raises privacy questions.
+- **3D walkthrough as a paid add-on** — does Barry have customers actually
+  asking, or is it speculative?
 
 ---
 
