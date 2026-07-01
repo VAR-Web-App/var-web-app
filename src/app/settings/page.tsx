@@ -8,6 +8,7 @@ import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
+import TeamInviteCard from "@/components/team-invite-card";
 import GCPushOptIn from "@/components/gc-push-opt-in";
 import { Input, TextArea } from "../accounts/page";
 
@@ -69,6 +70,7 @@ export default function SettingsPage() {
         </div>
 
         <section className="space-y-6">
+          <TeamInviteCard />
           <Card title="Business info" subtitle="Used on estimate and draw-request headers, the customer portal, and email signatures.">
             <div className="space-y-4">
               <Input label="Business name" value={settings.company_name} onChange={(v) => setSettings({ ...settings, company_name: v })} />

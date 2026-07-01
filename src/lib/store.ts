@@ -22,6 +22,7 @@ import {
   where,
   setDoc,
   deleteDoc,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { deleteUploadedFile } from "./storage";
@@ -138,6 +139,58 @@ export async function getSettings(orgRef: string): Promise<OrgSettings | null> {
 
 export async function saveSettings(s: OrgSettings): Promise<void> {
   await setDoc(doc(db, "settings", s.org_ref), s);
+}
+
+// ── Team invites ─────────────────────────────────────────────────
+// An org owner invites a teammate by email; the invite doc is keyed by the
+// invitee's lowercased email. On their next sign-in the invitee sees a banner
+// and "joins" — which repoints their user profile's org_ref at the invited org,
+// so the org-scoped rules then grant them that org's data.
+export interface OrgInvite {
+  email: string; // lowercased — also the doc id
+  org_ref: string;
+  org_name: string;
+  invited_by: string; // inviter's email
+  created_at?: unknown;
+}
+
+export async function createInvite(
+  email: string,
+  orgRef: string,
+  orgName: string,
+  invitedBy: string,
+): Promise<void> {
+  const key = email.trim().toLowerCase();
+  await setDoc(doc(db, "invites", key), {
+    email: key,
+    org_ref: orgRef,
+    org_name: orgName,
+    invited_by: invitedBy,
+    created_at: serverTimestamp(),
+  });
+}
+
+export async function getInviteForEmail(
+  email: string,
+): Promise<OrgInvite | null> {
+  const snap = await getDoc(doc(db, "invites", email.trim().toLowerCase()));
+  return snap.exists() ? (snap.data() as OrgInvite) : null;
+}
+
+export async function listOrgInvites(orgRef: string): Promise<OrgInvite[]> {
+  const snap = await getDocs(
+    query(collection(db, "invites"), where("org_ref", "==", orgRef)),
+  );
+  return snap.docs.map((d) => d.data() as OrgInvite);
+}
+
+export async function revokeInvite(email: string): Promise<void> {
+  await deleteDoc(doc(db, "invites", email.trim().toLowerCase()));
+}
+
+/** Accept an invite: point this user's profile at the invited org. */
+export async function acceptInvite(uid: string, orgRef: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { org_ref: orgRef });
 }
 
 // ── quote lines ──────────────────────────────────────────────────
