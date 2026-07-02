@@ -197,7 +197,7 @@ function ImportInvoiceModal({
   onClose,
 }: {
   orgRef: string;
-  onImported: (inv: Invoice) => void;
+  onImported: (inv: Invoice) => Promise<void>;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<"email" | "upload">("email");
@@ -207,6 +207,7 @@ function ImportInvoiceModal({
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedInvoice | null>(null);
   const [source, setSource] = useState<"email" | "upload">("email");
+  const [saving, setSaving] = useState(false);
 
   async function handleParse() {
     setParsing(true);
@@ -244,8 +245,8 @@ function ImportInvoiceModal({
     }
   }
 
-  function handleSave() {
-    if (!parsed) return;
+  async function handleSave() {
+    if (!parsed || saving) return;
     const now = new Date().toISOString();
     const inv: Invoice = {
       id: newId("inv"),
@@ -271,7 +272,15 @@ function ImportInvoiceModal({
       created_at: now,
       updated_at: now,
     };
-    onImported(inv);
+    setSaving(true);
+    setError(null);
+    try {
+      await onImported(inv);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save — try again.");
+      setSaving(false);
+    }
   }
 
   return (
@@ -435,10 +444,11 @@ function ImportInvoiceModal({
           {parsed && (
             <button
               onClick={handleSave}
-              className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
+              disabled={saving}
+              className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
             >
               <LinkIcon className="h-4 w-4" />
-              Save &amp; match to project
+              {saving ? "Saving…" : "Save & match to project"}
             </button>
           )}
         </div>
