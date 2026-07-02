@@ -137,8 +137,8 @@ export default function SettingsPage() {
           </Card>
 
           <Card
-            title="Estimate template"
-            subtitle="Your Good Faith Estimate categories and line items — your standard pricing for everything from prints &amp; permits to lighting fixtures. Edited in a dedicated page so the 70-section list stays scannable."
+            title="Pricing — estimate template"
+            subtitle="Your prices. The Good Faith Estimate categories and line items — your standard pricing for everything from prints &amp; permits to lighting fixtures. Edited in a dedicated page so the 70-section list stays scannable."
           >
             <EstimateTemplateLink />
           </Card>
@@ -154,7 +154,7 @@ export default function SettingsPage() {
           </Card>
 
           <Card
-            title="Assembly cost overrides"
+            title="Pricing — market adjustments"
             subtitle="Tune the stock catalog's pricing to your local market. Multipliers apply to every estimate you build — material × scales the unit cost, labor × scales install time. Set 1.00 = unchanged."
           >
             <AssemblyCostOverridesCard
