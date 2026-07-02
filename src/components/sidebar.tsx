@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   RectangleStackIcon,
+  CalculatorIcon,
   HomeIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
@@ -43,6 +44,12 @@ const NAV: NavItem[] = [
     label: "Projects",
     icon: RectangleStackIcon,
     hint: "Your project pipeline — kanban view across stages from new lead through closeout. Click a card to open the project.",
+  },
+  {
+    href: "/quick-estimate",
+    label: "Quick estimate",
+    icon: CalculatorIcon,
+    hint: "No plans yet? Answer a few questions (size, beds/baths, foundation, finish) for a rough ballpark off your standard template — a top-of-funnel number for new prospects.",
   },
   {
     href: "/schedule",

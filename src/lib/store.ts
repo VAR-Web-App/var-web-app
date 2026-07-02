@@ -22,6 +22,7 @@ import {
   where,
   setDoc,
   deleteDoc,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { deleteUploadedFile } from "./storage";
@@ -140,6 +141,58 @@ export async function saveSettings(s: OrgSettings): Promise<void> {
   await setDoc(doc(db, "settings", s.org_ref), s);
 }
 
+// ── Team invites ─────────────────────────────────────────────────
+// An org owner invites a teammate by email; the invite doc is keyed by the
+// invitee's lowercased email. On their next sign-in the invitee sees a banner
+// and "joins" — which repoints their user profile's org_ref at the invited org,
+// so the org-scoped rules then grant them that org's data.
+export interface OrgInvite {
+  email: string; // lowercased — also the doc id
+  org_ref: string;
+  org_name: string;
+  invited_by: string; // inviter's email
+  created_at?: unknown;
+}
+
+export async function createInvite(
+  email: string,
+  orgRef: string,
+  orgName: string,
+  invitedBy: string,
+): Promise<void> {
+  const key = email.trim().toLowerCase();
+  await setDoc(doc(db, "invites", key), {
+    email: key,
+    org_ref: orgRef,
+    org_name: orgName,
+    invited_by: invitedBy,
+    created_at: serverTimestamp(),
+  });
+}
+
+export async function getInviteForEmail(
+  email: string,
+): Promise<OrgInvite | null> {
+  const snap = await getDoc(doc(db, "invites", email.trim().toLowerCase()));
+  return snap.exists() ? (snap.data() as OrgInvite) : null;
+}
+
+export async function listOrgInvites(orgRef: string): Promise<OrgInvite[]> {
+  const snap = await getDocs(
+    query(collection(db, "invites"), where("org_ref", "==", orgRef)),
+  );
+  return snap.docs.map((d) => d.data() as OrgInvite);
+}
+
+export async function revokeInvite(email: string): Promise<void> {
+  await deleteDoc(doc(db, "invites", email.trim().toLowerCase()));
+}
+
+/** Accept an invite: point this user's profile at the invited org. */
+export async function acceptInvite(uid: string, orgRef: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { org_ref: orgRef });
+}
+
 // ── quote lines ──────────────────────────────────────────────────
 
 interface StoredQuoteLine extends QuoteLine {
@@ -206,6 +259,40 @@ export async function savePayment(p: Payment): Promise<void> {
 
 export async function deletePayment(id: string): Promise<void> {
   await removeFromCollection("payments", id);
+}
+
+// ── invoices (Track 2: Financial Flywheel) ─────────────────────
+
+import type { Invoice } from "@/types";
+
+/** List invoices for a specific project. */
+export async function listInvoices(dealRef: string): Promise<Invoice[]> {
+  const q = query(collection(db, "invoices"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Invoice, "id">) }))
+    .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""));
+}
+
+/** List all unmatched (pending) invoices for the org. */
+export async function listPendingInvoices(orgRef: string): Promise<Invoice[]> {
+  const q = query(
+    collection(db, "invoices"),
+    where("org_ref", "==", orgRef),
+    where("status", "==", "pending"),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Invoice, "id">) }))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+}
+
+export async function saveInvoice(inv: Invoice): Promise<void> {
+  await setDoc(doc(db, "invoices", inv.id), inv, { merge: false });
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  await removeFromCollection("invoices", id);
 }
 
 // ── attachments ──────────────────────────────────────────────────
@@ -333,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -350,6 +437,23 @@ export async function saveChangeOrder(co: ProjectChangeOrder): Promise<void> {
 
 export async function deleteChangeOrder(id: string): Promise<void> {
   await removeFromCollection("project_change_orders", id);
+}
+
+// ── project selections (Builder vertical) ──────────────────────
+
+export async function listSelections(dealRef: string): Promise<ProjectSelection[]> {
+  const q = query(collection(db, "project_selections"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectSelection, "id">) }));
+  return items.sort((a, b) => a.number.localeCompare(b.number));
+}
+
+export async function saveSelection(sel: ProjectSelection): Promise<void> {
+  await setDoc(doc(db, "project_selections", sel.id), sel, { merge: false });
+}
+
+export async function deleteSelection(id: string): Promise<void> {
+  await removeFromCollection("project_selections", id);
 }
 
 /** Effective contract value = base contract + sum of approved COs.
@@ -1014,9 +1118,11 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
       listMilestones(deal.id),
       listPhotos(deal.id),
     ]);
-    const [rfqs, changeOrders] = await Promise.all([
+    const [rfqs, changeOrders, selections, invoices] = await Promise.all([
       listRFQs(deal.id),
       listChangeOrders(deal.id),
+      listSelections(deal.id),
+      listInvoices(deal.id),
     ]);
     for (const l of lines) await removeFromCollection("quote_lines", l.id);
     for (const a of atts) await deleteAttachment(a.id);
@@ -1024,6 +1130,8 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
     for (const p of photos) await deletePhoto(p.id);
     for (const r of rfqs) await deleteRFQ(r.id);
     for (const co of changeOrders) await deleteChangeOrder(co.id);
+    for (const sel of selections) await deleteSelection(sel.id);
+    for (const inv of invoices) await deleteInvoice(inv.id);
     await deleteDeal(deal.id);
   }
 

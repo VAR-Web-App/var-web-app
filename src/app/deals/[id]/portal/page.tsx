@@ -20,6 +20,7 @@ import {
   CurrencyDollarIcon,
   HomeIcon,
   PhotoIcon,
+  SwatchIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Deal } from "@/types";
@@ -27,10 +28,12 @@ import {
   ProjectMilestone,
   ProjectPhoto,
   ProjectChangeOrder,
+  ProjectSelection,
   PROJECT_PHASES,
   ProjectPhase,
   BUILDER_STAGE_LABELS,
   CHANGE_ORDER_REASON_LABELS,
+  SELECTION_CATEGORY_LABELS,
 } from "@/types/builder";
 import {
   getDeal,
@@ -39,8 +42,10 @@ import {
   saveMilestone,
   listChangeOrders,
   saveChangeOrder,
+  listSelections,
   effectiveContractValue,
 } from "@/lib/store";
+import { approveSelectionPick } from "@/lib/selections/auto-co";
 import { useAuth } from "@/lib/auth-context";
 import SignatureModal from "@/components/signature-modal";
 
@@ -66,6 +71,11 @@ export default function ClientPortalPage({
   const [changeOrders, setChangeOrders] = useState<ProjectChangeOrder[]>([]);
   const [signingCo, setSigningCo] = useState<ProjectChangeOrder | null>(null);
   const [coBusy, setCoBusy] = useState<string | null>(null);
+  const [selections, setSelections] = useState<ProjectSelection[]>([]);
+  const [pickingSel, setPickingSel] = useState<ProjectSelection | null>(null);
+  const [pickedOptionId, setPickedOptionId] = useState<string | null>(null);
+  const [signingSel, setSigningSel] = useState<ProjectSelection | null>(null);
+  const [selBusy, setSelBusy] = useState<string | null>(null);
 
   async function approveDraw(m: ProjectMilestone, signature: string) {
     setApproving(m.id);
@@ -124,6 +134,27 @@ export default function ClientPortalPage({
     }
   }
 
+  async function approveSelection(sel: ProjectSelection, optId: string, signature: string) {
+    setSelBusy(sel.id);
+    try {
+      const { selection: updated, changeOrder } = await approveSelectionPick(
+        sel,
+        optId,
+        signature,
+        changeOrders,
+      );
+      setSelections((prev) => prev.map((s) => (s.id === sel.id ? updated : s)));
+      if (changeOrder) {
+        setChangeOrders((prev) => [...prev, changeOrder]);
+      }
+    } finally {
+      setSelBusy(null);
+      setSigningSel(null);
+      setPickingSel(null);
+      setPickedOptionId(null);
+    }
+  }
+
   useEffect(() => {
     if (!profile) return;
     let active = true;
@@ -134,16 +165,18 @@ export default function ClientPortalPage({
         router.replace("/deals");
         return;
       }
-      const [m, p, co] = await Promise.all([
+      const [m, p, co, sels] = await Promise.all([
         listMilestones(id),
         listPhotos(id),
         listChangeOrders(id),
+        listSelections(id),
       ]);
       if (!active) return;
       setDeal(d);
       setMilestones(m);
       setPhotos(p);
       setChangeOrders(co);
+      setSelections(sels);
       setLoaded(true);
     }
     void load();
@@ -185,6 +218,7 @@ export default function ClientPortalPage({
   const approvedCoTotal = changeOrders
     .filter((c) => c.status === "approved")
     .reduce((s, c) => s + c.amount_delta, 0);
+  const pendingSels = selections.filter((s) => s.status === "sent");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
@@ -322,6 +356,138 @@ export default function ClientPortalPage({
                   </div>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {/* Selections pending client pick */}
+        {pendingSels.length > 0 && (
+          <section className="mt-8 rounded-2xl border-2 border-sky-300 bg-sky-50 p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-800">
+              <SwatchIcon className="h-4 w-4" />
+              Selections — pick your finishes
+            </div>
+            <div className="space-y-4">
+              {pendingSels.map((sel) => {
+                const isExpanded = pickingSel?.id === sel.id;
+                return (
+                  <div key={sel.id} className="rounded-lg bg-white p-4 ring-1 ring-sky-200">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                        {SELECTION_CATEGORY_LABELS[sel.category]}
+                      </span>
+                      <p className="text-sm font-semibold text-slate-900">{sel.title}</p>
+                      <span className="ml-auto text-xs tabular-nums text-slate-600">
+                        {fmtMoney(sel.allowance)} allowance
+                      </span>
+                    </div>
+                    {sel.description && (
+                      <p className="mt-1 text-sm text-slate-700">{sel.description}</p>
+                    )}
+                    {sel.needed_by && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Decision needed by {new Date(sel.needed_by + "T00:00:00").toLocaleDateString()}
+                      </p>
+                    )}
+
+                    {!isExpanded ? (
+                      <button
+                        onClick={() => { setPickingSel(sel); setPickedOptionId(null); }}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+                      >
+                        <SwatchIcon className="h-3.5 w-3.5" />
+                        View options &amp; pick
+                      </button>
+                    ) : (
+                      <div className="mt-4 space-y-2">
+                        {sel.options.map((opt) => {
+                          const delta = opt.cost - sel.allowance;
+                          const selected = pickedOptionId === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => setPickedOptionId(opt.id)}
+                              className={`w-full rounded-lg border-2 p-3 text-left transition-colors ${
+                                selected
+                                  ? "border-sky-500 bg-sky-50 ring-1 ring-sky-300"
+                                  : "border-slate-200 bg-white hover:border-slate-300"
+                              }`}
+                            >
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-sm font-medium text-slate-900">{opt.label}</span>
+                                <span className="text-sm font-semibold tabular-nums text-slate-700">
+                                  {fmtMoney(opt.cost)}
+                                </span>
+                              </div>
+                              {opt.description && (
+                                <p className="mt-0.5 text-xs text-slate-500">{opt.description}</p>
+                              )}
+                              {delta > 0 && (
+                                <p className="mt-1 text-[11px] font-semibold text-orange-600">
+                                  +{fmtMoney(delta)} over allowance — a change order will be created
+                                </p>
+                              )}
+                              {delta <= 0 && (
+                                <p className="mt-1 text-[11px] font-semibold text-emerald-600">
+                                  {delta === 0 ? "At allowance" : `${fmtMoney(Math.abs(delta))} under allowance`}
+                                </p>
+                              )}
+                            </button>
+                          );
+                        })}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (!pickedOptionId) return;
+                              setSigningSel(sel);
+                            }}
+                            disabled={!pickedOptionId || selBusy === sel.id}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+                          >
+                            <CheckCircleIcon className="h-3.5 w-3.5" />
+                            Confirm &amp; sign
+                          </button>
+                          <button
+                            onClick={() => { setPickingSel(null); setPickedOptionId(null); }}
+                            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Approved selections summary */}
+        {selections.filter((s) => s.status === "approved" || s.status === "over_allowance").length > 0 && (
+          <section className="mt-8 rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <h2 className="text-base font-semibold text-slate-900">Your selections</h2>
+            <div className="mt-3 space-y-2">
+              {selections
+                .filter((s) => s.status === "approved" || s.status === "over_allowance")
+                .map((sel) => {
+                  const picked = sel.options.find((o) => o.id === sel.selected_option_id);
+                  return (
+                    <div key={sel.id} className="flex items-baseline justify-between rounded-lg border border-slate-100 px-3 py-2">
+                      <div>
+                        <span className="text-xs text-slate-500">{SELECTION_CATEGORY_LABELS[sel.category]}</span>
+                        <p className="text-sm font-medium text-slate-900">{sel.title}</p>
+                        {picked && <p className="text-xs text-slate-600">Selected: {picked.label}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold tabular-nums text-slate-700">{picked ? fmtMoney(picked.cost) : "—"}</p>
+                        {sel.status === "over_allowance" && (
+                          <p className="text-[10px] font-semibold text-orange-600">Over allowance — CO created</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </section>
         )}
@@ -477,6 +643,24 @@ export default function ClientPortalPage({
           onClose={() => setSigningCo(null)}
         />
       )}
+
+      {signingSel && pickedOptionId && (() => {
+        const opt = signingSel.options.find((o) => o.id === pickedOptionId);
+        const delta = opt ? opt.cost - signingSel.allowance : 0;
+        return (
+          <SignatureModal
+            title={`Confirm selection: ${signingSel.title}`}
+            amountLabel="Selected option cost"
+            amountValue={opt ? fmtMoney(opt.cost) : "—"}
+            intentText={`I select "${opt?.label}" for ${signingSel.title} at ${opt ? fmtMoney(opt.cost) : "$0"}.${delta > 0 ? ` This exceeds the ${fmtMoney(signingSel.allowance)} allowance by ${fmtMoney(delta)} — a change order will be added for the difference.` : ""}`}
+            defaultName={deal.account_name}
+            ctaLabel="Sign & confirm selection"
+            busy={selBusy === signingSel.id}
+            onSign={async ({ signature }) => approveSelection(signingSel, pickedOptionId, signature)}
+            onClose={() => setSigningSel(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

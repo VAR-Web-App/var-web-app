@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import {
   ArrowTopRightOnSquareIcon,
+  ArrowUpTrayIcon,
   ClipboardDocumentListIcon,
   PlusIcon,
   TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
@@ -26,6 +28,7 @@ import {
 import { RFQModal } from "@/components/rfq-panel";
 import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
+import { parseSubsFromText, rowsToDistributors, type BulkImportResult } from "@/lib/bulk-import-subs";
 
 export default function DistributorsPage() {
   const { profile } = useAuth();
@@ -49,6 +52,7 @@ export default function DistributorsPage() {
   // A Deal object = picked, modal visible.
   const [newRfqStage, setNewRfqStage] = useState<"picking" | Deal | null>(null);
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -149,20 +153,29 @@ export default function DistributorsPage() {
             Subcontractors and material suppliers — your trade partners and vendor list for RFQs.
           </p>
         </div>
-        <Tooltip
-          variant="directive"
-          label="Add a subcontractor (framer, plumber, electrician, etc.) or material supplier. Used by RFQs to invite bids and by milestones to assign work."
-          placement="left"
-        >
+        <div className="flex gap-2">
           <button
-            onClick={startNew}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800 sm:px-4"
+            onClick={() => setShowBulkImport(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:px-4"
           >
-            <PlusIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">New Sub / Supplier</span>
-            <span className="sm:hidden">New</span>
+            <ArrowUpTrayIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Import</span>
           </button>
-        </Tooltip>
+          <Tooltip
+            variant="directive"
+            label="Add a subcontractor (framer, plumber, electrician, etc.) or material supplier. Used by RFQs to invite bids and by milestones to assign work."
+            placement="left"
+          >
+            <button
+              onClick={startNew}
+              className="flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800 sm:px-4"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">New Sub / Supplier</span>
+              <span className="sm:hidden">New</span>
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Org-wide open RFQs. Aggregated across every project so the
@@ -457,6 +470,140 @@ export default function DistributorsPage() {
           onClose={() => setNewRfqStage(null)}
         />
       )}
+      {showBulkImport && (
+        <BulkImportModal
+          orgRef={profile?.org_ref ?? ""}
+          onImported={(newSubs) => {
+            setDistributors((prev) => [...prev, ...newSubs]);
+            setShowBulkImport(false);
+          }}
+          onClose={() => setShowBulkImport(false)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+function BulkImportModal({
+  orgRef,
+  onImported,
+  onClose,
+}: {
+  orgRef: string;
+  onImported: (subs: Distributor[]) => void;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<BulkImportResult | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function handleParse() {
+    const parsed = parseSubsFromText(text);
+    setResult(parsed);
+  }
+
+  async function handleSave() {
+    if (!result) return;
+    setSaving(true);
+    const subs = rowsToDistributors(result.rows, orgRef);
+    for (const sub of subs) await saveDistributor(sub);
+    onImported(subs);
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4" onClick={onClose}>
+      <div className="my-8 w-full max-w-3xl rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h3 className="text-base font-semibold text-slate-900">Bulk Import Subs & Suppliers</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-6">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Paste from Excel, CSV, or tab-separated data
+            </label>
+            <p className="mb-2 text-[11px] text-slate-500">
+              First row must be headers. Recognized columns: Name, Phone, Email, Trade, Address, Notes
+            </p>
+            <textarea
+              value={text}
+              onChange={(e) => { setText(e.target.value); setResult(null); }}
+              rows={10}
+              placeholder={"Name\tPhone\tEmail\tTrade\nCano Concrete\t(555) 123-4567\tcano@email.com\tConcrete\nTony Plumbing\t(555) 987-6543\ttony@email.com\tPlumbing"}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              autoFocus
+            />
+          </div>
+
+          {!result && (
+            <button
+              onClick={handleParse}
+              disabled={!text.trim()}
+              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+            >
+              Preview import
+            </button>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <div className="flex gap-3 text-sm">
+                <span className="font-semibold text-emerald-700">{result.valid} valid</span>
+                {result.errors > 0 && (
+                  <span className="font-semibold text-red-600">{result.errors} error{result.errors !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+              <div className="max-h-60 overflow-y-auto rounded-md border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-50">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Name</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Phone</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Email</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Trade</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {result.rows.map((row, i) => (
+                      <tr key={i} className={row.error ? "bg-red-50" : ""}>
+                        <td className="px-2 py-1.5 text-slate-900">{row.name || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{row.phone || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{row.email || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{row.trade || "—"}</td>
+                        <td className="px-2 py-1.5">
+                          {row.error
+                            ? <span className="text-red-600">{row.error}</span>
+                            : <span className="text-emerald-600">OK</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-3">
+          <button onClick={onClose} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+          {result && result.valid > 0 && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+            >
+              {saving ? "Importing…" : `Import ${result.valid} sub${result.valid !== 1 ? "s" : ""}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

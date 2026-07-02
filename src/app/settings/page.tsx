@@ -8,6 +8,7 @@ import { OrgSettings } from "@/types";
 import { getSettings, saveSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
+import TeamInviteCard from "@/components/team-invite-card";
 import GCPushOptIn from "@/components/gc-push-opt-in";
 import { Input, TextArea } from "../accounts/page";
 
@@ -69,6 +70,7 @@ export default function SettingsPage() {
         </div>
 
         <section className="space-y-6">
+          <TeamInviteCard />
           <Card title="Business info" subtitle="Used on estimate and draw-request headers, the customer portal, and email signatures.">
             <div className="space-y-4">
               <Input label="Business name" value={settings.company_name} onChange={(v) => setSettings({ ...settings, company_name: v })} />
@@ -135,8 +137,8 @@ export default function SettingsPage() {
           </Card>
 
           <Card
-            title="Estimate template"
-            subtitle="Your Good Faith Estimate categories and line items — your standard pricing for everything from prints &amp; permits to lighting fixtures. Edited in a dedicated page so the 70-section list stays scannable."
+            title="Pricing — estimate template"
+            subtitle="Your prices. The Good Faith Estimate categories and line items — your standard pricing for everything from prints &amp; permits to lighting fixtures. Edited in a dedicated page so the 70-section list stays scannable."
           >
             <EstimateTemplateLink />
           </Card>
@@ -152,7 +154,7 @@ export default function SettingsPage() {
           </Card>
 
           <Card
-            title="Assembly cost overrides"
+            title="Pricing — market adjustments"
             subtitle="Tune the stock catalog's pricing to your local market. Multipliers apply to every estimate you build — material × scales the unit cost, labor × scales install time. Set 1.00 = unchanged."
           >
             <AssemblyCostOverridesCard

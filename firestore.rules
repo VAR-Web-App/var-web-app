@@ -124,6 +124,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && orgRef == callerOrgRef();
     }
 
+    // Team invites: an org owner invites a teammate by email. The doc id is the
+    // invitee's lowercased email. The invitee reads their own invite (matched on
+    // their auth email claim) and accepts by repointing users/{uid}.org_ref at
+    // the invited org. Owners list/create/revoke invites for their own org only.
+    match /invites/{email} {
+      allow read: if request.auth != null
+                  && (request.auth.token.email == email
+                      || (resource != null
+                          && resource.data.org_ref == callerOrgRef()));
+      allow create, update: if request.auth != null
+                  && request.resource.data.org_ref == callerOrgRef();
+      allow delete: if request.auth != null
+                  && resource.data.org_ref == callerOrgRef();
+    }
+
     // Attachments are tied to a deal, not an org directly. We check the
     // caller's org against the parent deal's org.
     match /attachments/{attId} {
@@ -197,6 +212,29 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && resource.data.org_ref == callerOrgRef();
       allow write: if false;
+    }
+
+    // Invoices (Track 2: Financial Flywheel): parsed invoice records
+    // from forwarded emails or uploaded documents. Org-scoped directly
+    // (not deal-scoped) since pending invoices may not yet be matched
+    // to a project.
+    match /invoices/{invId} {
+      allow read, update, delete: if ownsByOrg();
+      allow create: if creatingForOwnOrg();
+    }
+
+    // Project selections (Builder vertical): client-facing priced
+    // option picks (countertops, flooring, etc.) with allowance tracking
+    // and auto-CO on over-allowance.
+    match /project_selections/{selId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
 
     // Project change orders (Builder vertical): scope/cost changes

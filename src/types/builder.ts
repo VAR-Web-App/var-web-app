@@ -467,3 +467,106 @@ export const RFQ_STATUS_STYLES: Record<RFQStatus, string> = {
   awarded: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   closed: "bg-slate-100 text-slate-500 ring-slate-200",
 };
+
+// ── Selections ──────────────────────────────────────────────────
+// A selection = a non-change-order choice/spec. Rolling (pre & during
+// build). Curated options with cost deltas via allowance — over-allowance
+// picks auto-spawn a linked change order.
+
+export const SELECTION_CATEGORIES = [
+  "countertops",
+  "cabinets",
+  "flooring",
+  "paint",
+  "brick",
+  "fixtures",
+  "fireplace",
+  "appliances",
+  "tile",
+  "hardware",
+  "lighting",
+  "roofing",
+  "windows",
+  "doors",
+  "other",
+] as const;
+
+export type SelectionCategory = (typeof SELECTION_CATEGORIES)[number];
+
+export const SELECTION_CATEGORY_LABELS: Record<SelectionCategory, string> = {
+  countertops: "Countertops",
+  cabinets: "Cabinets",
+  flooring: "Flooring",
+  paint: "Paint",
+  brick: "Brick / Stone",
+  fixtures: "Fixtures",
+  fireplace: "Fireplace",
+  appliances: "Appliances",
+  tile: "Tile",
+  hardware: "Hardware",
+  lighting: "Lighting",
+  roofing: "Roofing",
+  windows: "Windows",
+  doors: "Doors",
+  other: "Other",
+};
+
+export type SelectionStatus =
+  | "draft"            // GC is building options
+  | "sent"             // sent to client for picking
+  | "client_picked"    // client chose, awaiting GC confirmation
+  | "approved"         // locked in (within allowance)
+  | "over_allowance";  // approved but spawned a linked CO
+
+export const SELECTION_STATUS_LABELS: Record<SelectionStatus, string> = {
+  draft: "Draft",
+  sent: "Pending Client Pick",
+  client_picked: "Client Picked",
+  approved: "Approved",
+  over_allowance: "Approved (Over Allowance)",
+};
+
+export const SELECTION_STATUS_STYLES: Record<SelectionStatus, string> = {
+  draft: "bg-slate-100 text-slate-700 ring-slate-200",
+  sent: "bg-amber-100 text-amber-800 ring-amber-200",
+  client_picked: "bg-sky-100 text-sky-800 ring-sky-200",
+  approved: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  over_allowance: "bg-orange-100 text-orange-800 ring-orange-200",
+};
+
+export interface SelectionOption {
+  id: string;
+  label: string;
+  description: string;
+  image_url?: string;
+  /** Absolute cost for this option. */
+  cost: number;
+  is_default?: boolean;
+}
+
+export interface ProjectSelection {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  /** Sequential number "SEL-001". */
+  number: string;
+  category: SelectionCategory;
+  title: string;
+  description: string;
+  /** Budget the GC allocated for this selection. */
+  allowance: number;
+  /** Curated options the client can pick from. */
+  options: SelectionOption[];
+  /** ID of the option the client picked. */
+  selected_option_id?: string;
+  status: SelectionStatus;
+  /** Soft deadline for the client to decide (ISO date). */
+  needed_by?: string;
+  /** Auto-spawned CO ref when over-allowance pick is approved. */
+  linked_change_order_id?: string;
+  approval_signature?: string;
+  approved_at?: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -69,6 +69,8 @@ function fmtDate(iso?: string): string {
   });
 }
 
+import { t, type SubPortalLang } from "@/lib/i18n-sub-portal";
+
 export default function SubSchedulePage({
   params,
 }: {
@@ -80,6 +82,7 @@ export default function SubSchedulePage({
   const [loaded, setLoaded] = useState(false);
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>("schedule");
+  const [lang, setLang] = useState<SubPortalLang>("en");
 
   useEffect(() => {
     let active = true;
@@ -175,8 +178,16 @@ export default function SubSchedulePage({
        *  the underlying content as it slides past. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-2xl px-4 pt-4 sm:px-6">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">
-            Your portal
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+              {t("your_portal", lang)}
+            </div>
+            <button
+              onClick={() => setLang(lang === "en" ? "es" : "en")}
+              className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500 ring-1 ring-slate-300 hover:bg-slate-100"
+            >
+              {lang === "en" ? "🇪🇸 ES" : "🇺🇸 EN"}
+            </button>
           </div>
           <div className="mt-0.5 text-base font-semibold text-slate-900 sm:text-sm">
             {link.sub_name}
@@ -188,15 +199,15 @@ export default function SubSchedulePage({
             role="tablist"
             className="mt-3 -mb-px flex gap-1 overflow-x-auto border-b border-slate-200"
           >
-            <TabBtn label="Schedule" active={tab === "schedule"} onClick={() => setTab("schedule")} />
+            <TabBtn label={t("schedule", lang)} active={tab === "schedule"} onClick={() => setTab("schedule")} />
             <TabBtn
-              label="Payments"
+              label={t("payments", lang)}
               badge={portal?.payments.length}
               active={tab === "payments"}
               onClick={() => setTab("payments")}
             />
             <TabBtn
-              label="Documents"
+              label={t("documents", lang)}
               badge={portal?.awarded_rfqs.length}
               active={tab === "documents"}
               onClick={() => setTab("documents")}
@@ -207,6 +218,7 @@ export default function SubSchedulePage({
 
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
         <PushOptIn token={token} />
+        <LocationPing token={token} />
         {tab === "schedule" && (
           <ScheduleTab link={link} token={token} onPatch={patchAssignment} />
         )}
@@ -678,4 +690,40 @@ function humanError(code?: string): string {
     default:
       return "Couldn't save — try again.";
   }
+}
+
+/** Fire-once location ping — requests geolocation permission on first
+ *  portal visit and sends coordinates to the server for jobsite
+ *  proximity detection. Only runs in secure contexts (HTTPS / localhost). */
+function LocationPing({ token }: { token: string }) {
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (sent) return;
+    if (!("geolocation" in navigator)) return;
+    // Only ping once per session
+    if (sessionStorage.getItem(`loc_${token}`)) { setSent(true); return; }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await fetch("/api/sub/location-ping", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            }),
+          });
+        } catch { /* non-critical */ }
+        sessionStorage.setItem(`loc_${token}`, "1");
+        setSent(true);
+      },
+      () => { setSent(true); }, // permission denied — silently skip
+      { timeout: 5000, maximumAge: 60000 },
+    );
+  }, [token, sent]);
+
+  return null; // invisible — no UI
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "./sidebar";
 import MobileBottomNav from "./mobile-bottom-nav";
+import JoinOrgBanner from "./join-org-banner";
 import { useAuth } from "@/lib/auth-context";
 
 // Auth-gated shell. Unauthenticated users get bounced to /login.
@@ -59,6 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *    chrome.
        *  Outer p shrinks on phones for more usable width.  */}
       <main className="pt-[env(safe-area-inset-top)] pb-[calc(env(safe-area-inset-bottom)+4rem)] md:ml-56 md:pb-0 md:pt-0">
+        <JoinOrgBanner />
         <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
