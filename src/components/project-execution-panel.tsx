@@ -347,6 +347,67 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     if (datesChanged && (updated.assigned_subs?.length ?? 0) > 0) {
       void notifyRescheduledSubs(updated);
     }
+    // When a phase slides, everything after it usually slides too. Offer
+    // to cascade the same shift to downstream phases + notify their subs.
+    if (datesChanged) {
+      await maybeCascadeReschedule(m, updated);
+    }
+  }
+
+  // Reschedule cascade. When phase P's dates move, downstream phases
+  // (higher order) normally move by the same delta. We compute the shift
+  // from P's end-date change (falling back to its start), then confirm
+  // with the GC before pushing every later, not-yet-finished phase by
+  // that many days and notifying each phase's subs. Completed phases
+  // (approved / released) are left alone — their dates are history.
+  async function maybeCascadeReschedule(
+    oldM: ProjectMilestone,
+    newM: ProjectMilestone,
+  ) {
+    let delta = 0;
+    if (oldM.planned_end_date && newM.planned_end_date) {
+      delta = dayDiff(oldM.planned_end_date, newM.planned_end_date);
+    } else if (oldM.planned_start_date && newM.planned_start_date) {
+      delta = dayDiff(oldM.planned_start_date, newM.planned_start_date);
+    }
+    if (delta === 0) return;
+
+    const downstream = milestones
+      .filter(
+        (x) =>
+          x.order > newM.order &&
+          x.planned_start_date &&
+          x.planned_end_date &&
+          x.status !== "approved" &&
+          x.status !== "released",
+      )
+      .sort((a, b) => a.order - b.order);
+    if (downstream.length === 0) return;
+
+    const mag = Math.abs(delta);
+    const dir = delta > 0 ? "later" : "earlier";
+    const ok = window.confirm(
+      `"${newM.name}" moved ${mag} day${mag !== 1 ? "s" : ""} ${dir}. ` +
+        `Shift the ${downstream.length} following phase${
+          downstream.length !== 1 ? "s" : ""
+        } by the same amount and notify their subs?`,
+    );
+    if (!ok) return;
+
+    const stamp = new Date().toISOString();
+    const shifted = downstream.map((x) => ({
+      ...x,
+      planned_start_date: addDays(x.planned_start_date!, delta),
+      planned_end_date: addDays(x.planned_end_date!, delta),
+      updated_at: stamp,
+    }));
+    await saveMilestones(shifted);
+    setMilestones((prev) =>
+      prev.map((x) => shifted.find((s) => s.id === x.id) ?? x),
+    );
+    for (const s of shifted) {
+      if ((s.assigned_subs?.length ?? 0) > 0) void notifyRescheduledSubs(s);
+    }
   }
 
   async function updateAssignedSubs(m: ProjectMilestone, subRefs: string[]) {
@@ -1615,4 +1676,20 @@ function toIsoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** Whole-day difference b − a for two YYYY-MM-DD strings (can be negative).
+ *  Returns 0 if either date is missing/unparseable. */
+function dayDiff(a: string, b: string): number {
+  const ma = Date.parse(`${a}T00:00:00`);
+  const mb = Date.parse(`${b}T00:00:00`);
+  if (Number.isNaN(ma) || Number.isNaN(mb)) return 0;
+  return Math.round((mb - ma) / 86400000);
+}
+
+/** YYYY-MM-DD shifted by n days (n may be negative). */
+function addDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return toIsoDate(d);
 }
