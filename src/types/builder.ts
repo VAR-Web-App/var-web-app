@@ -544,6 +544,29 @@ export interface SelectionOption {
   is_default?: boolean;
 }
 
+// ── Designer link (public, no-login selections editor) ───────────
+// A no-login page a designer/interior-decorator opens from a link the
+// builder shares. Lives at designer_links/{token}, public-read, gated
+// only by the unguessable token (same pattern as SubScheduleLink). One
+// link per project; grants the designer the ability to curate selection
+// OPTIONS (label/description/image/cost) and add draft selections for
+// that project. All reads/writes to the auth-gated project_selections
+// collection are mediated server-side through /api/designer/* (admin
+// SDK) after the token is verified. The designer never signs in and
+// never touches status/approval fields — those stay in the GC + client
+// flow. Reusable: the same designer can hold links for many projects.
+
+export interface DesignerLink {
+  /** Random unguessable token; also the doc ID. */
+  token: string;
+  org_ref: string;
+  deal_ref: string;
+  project_name: string;
+  builder_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectSelection {
   id: string;
   deal_ref: string;

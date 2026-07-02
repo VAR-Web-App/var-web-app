@@ -9,8 +9,11 @@ import {
   PaperAirplaneIcon,
   CheckBadgeIcon,
   ExclamationTriangleIcon,
+  LinkIcon,
+  ClipboardDocumentIcon,
 } from "@heroicons/react/24/outline";
 import { Deal, newId } from "@/types";
+import { useAuth } from "@/lib/auth-context";
 import {
   ProjectSelection,
   SelectionOption,
@@ -25,6 +28,7 @@ import {
   listSelections,
   saveSelection,
   deleteSelection,
+  createOrGetDesignerLink,
 } from "@/lib/store";
 import { SELECTION_TEMPLATES } from "@/lib/selections/templates";
 import Tooltip from "@/components/tooltip";
@@ -40,10 +44,41 @@ function daysUntil(isoDate: string): number {
 }
 
 export default function SelectionsPanel({ deal }: { deal: Deal }) {
+  const { profile } = useAuth();
   const [items, setItems] = useState<ProjectSelection[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<ProjectSelection | null>(null);
+  // Designer share link — a no-login /d/{token} portal where an interior
+  // designer curates the options for this project's selections.
+  const [designerUrl, setDesignerUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function shareWithDesigner() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const builderName = profile?.display_name || "your builder";
+      const token = await createOrGetDesignerLink(deal, builderName);
+      setDesignerUrl(`${window.location.origin}/d/${token}`);
+    } catch {
+      // Surface nothing destructive — the button just re-enables.
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function copyDesignerUrl() {
+    if (!designerUrl) return;
+    try {
+      await navigator.clipboard.writeText(designerUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked — user can select manually */
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -114,20 +149,60 @@ export default function SelectionsPanel({ deal }: { deal: Deal }) {
             {totals.pendingCount > 0 && <> · {totals.pendingCount} pending client pick</>}
           </p>
         </div>
-        <Tooltip
-          variant="directive"
-          label="Create a selection for the client to choose from — countertops, flooring, fixtures, etc. Set an allowance and curate options with costs. Over-allowance picks auto-create a change order."
-          placement="left"
-        >
-          <button
-            onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+        <div className="flex items-center gap-2">
+          <Tooltip
+            label="Share a no-login link with your interior designer. They can curate the options (products, costs, photos) for each selection right from their phone — no account needed. You review, then send to the client."
+            placement="left"
           >
-            <PlusIcon className="h-3.5 w-3.5" />
-            New selection
-          </button>
-        </Tooltip>
+            <button
+              onClick={shareWithDesigner}
+              disabled={sharing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <LinkIcon className="h-3.5 w-3.5" />
+              {sharing ? "Generating…" : "Share with designer"}
+            </button>
+          </Tooltip>
+          <Tooltip
+            variant="directive"
+            label="Create a selection for the client to choose from — countertops, flooring, fixtures, etc. Set an allowance and curate options with costs. Over-allowance picks auto-create a change order."
+            placement="left"
+          >
+            <button
+              onClick={() => setShowNew(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              New selection
+            </button>
+          </Tooltip>
+        </div>
       </div>
+
+      {designerUrl && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-sky-50 px-6 py-3">
+          <span className="text-xs font-medium text-sky-900">
+            Designer link:
+          </span>
+          <input
+            readOnly
+            value={designerUrl}
+            onFocus={(e) => e.currentTarget.select()}
+            className="min-w-[220px] flex-1 rounded-md border border-sky-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+          />
+          <button
+            onClick={copyDesignerUrl}
+            className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          >
+            <ClipboardDocumentIcon className="h-3.5 w-3.5" />
+            {copied ? "Copied!" : "Copy"}
+          </button>
+          <span className="w-full text-[11px] text-sky-800/80">
+            Anyone with this link can edit options for this project&apos;s
+            selections — no login. Approved selections stay locked.
+          </span>
+        </div>
+      )}
 
       {!loaded ? (
         <div className="px-6 py-6 text-sm text-slate-500">Loading selections…</div>

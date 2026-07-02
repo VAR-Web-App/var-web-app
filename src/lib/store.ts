@@ -420,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -454,6 +454,58 @@ export async function saveSelection(sel: ProjectSelection): Promise<void> {
 
 export async function deleteSelection(id: string): Promise<void> {
   await removeFromCollection("project_selections", id);
+}
+
+// ── designer links (public, no-login selections editor) ──────────
+//
+// Top-level designer_links/{token} doc — public read, gated by the
+// unguessable token (see firestore.rules). One stable link per project:
+// createOrGetDesignerLink looks for an existing link for the deal and
+// reuses its token so re-sharing doesn't mint duplicates. The designer
+// portal at /d/{token} reads + writes selections through /api/designer/*
+// (admin SDK), so the token doc itself only needs to carry enough to
+// scope + label the portal.
+
+export async function getDesignerLink(
+  token: string,
+): Promise<DesignerLink | undefined> {
+  const snap = await getDoc(doc(db, "designer_links", token));
+  return snap.exists() ? (snap.data() as DesignerLink) : undefined;
+}
+
+export async function createOrGetDesignerLink(
+  deal: Deal,
+  builderName: string,
+): Promise<string> {
+  // Reuse an existing link for this project if one was already minted.
+  const existing = await getDocs(
+    query(collection(db, "designer_links"), where("deal_ref", "==", deal.id)),
+  );
+  const mine = existing.docs.find(
+    (d) => (d.data() as DesignerLink).org_ref === deal.org_ref,
+  );
+  const now = new Date().toISOString();
+  if (mine) {
+    // Refresh the denormalized labels so a renamed project stays current.
+    await updateDoc(doc(db, "designer_links", mine.id), {
+      project_name: deal.name,
+      builder_name: builderName,
+      updated_at: now,
+    });
+    return mine.id;
+  }
+  const token = crypto.randomUUID();
+  const link: DesignerLink = {
+    token,
+    org_ref: deal.org_ref,
+    deal_ref: deal.id,
+    project_name: deal.name,
+    builder_name: builderName,
+    created_at: now,
+    updated_at: now,
+  };
+  await setDoc(doc(db, "designer_links", token), link, { merge: false });
+  return token;
 }
 
 /** Effective contract value = base contract + sum of approved COs.

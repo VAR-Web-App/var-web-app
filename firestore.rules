@@ -118,6 +118,22 @@ service cloud.firestore {
         && resource.data.org_ref == callerOrgRef();
     }
 
+    // Designer links (Builder vertical): a no-login page at /d/{token}
+    // where an interior designer curates selection options for one
+    // project. Same trust model as sub_schedule_links — the token doc is
+    // public-read, gated only by the unguessable token; only the authed
+    // builder (own org) can mint/update/delete it. The designer's actual
+    // reads + writes to project_selections go through /api/designer/*
+    // (admin SDK) after the server verifies the token.
+    match /designer_links/{token} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.token == token
+        && request.resource.data.org_ref == callerOrgRef();
+      allow update, delete: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
+    }
+
     // Settings: keyed by org_ref directly. Each user can only access their
     // own org's settings doc.
     match /settings/{orgRef} {
