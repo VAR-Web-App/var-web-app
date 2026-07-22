@@ -72,13 +72,20 @@ self.addEventListener("notificationclick", (event) => {
 
 export const dynamic = "force-dynamic";
 
+// Computed ONCE per server process. In local dev VERCEL_GIT_COMMIT_SHA is
+// unset; computing `dev-${Date.now()}` per *request* made every /sw.js fetch
+// byte-different, so the browser saw a "new" SW on every load →
+// install → skipWaiting → clients.claim() → controllerchange → the
+// SwAutoUpdate component reloaded the page → repeat, forever. Stamping once
+// per process keeps /sw.js byte-stable within a dev session (it changes on
+// restart — one intended reload). Prod is unaffected: it uses the commit SHA.
+const DEV_BUILD_ID = `dev-${Date.now()}`;
+
 export function GET(): NextResponse {
-  // VERCEL_GIT_COMMIT_SHA is set automatically on every Vercel build;
-  // falls back to a timestamp for local dev where it's absent. The
-  // sole purpose of this line is to give each deploy a different SW
-  // body so the browser detects an update.
-  const buildId =
-    process.env.VERCEL_GIT_COMMIT_SHA || `dev-${Date.now()}`;
+  // VERCEL_GIT_COMMIT_SHA is set automatically on every Vercel build; falls
+  // back to the per-process dev id above. The sole purpose is to give each
+  // deploy a different SW body so the browser detects an update.
+  const buildId = process.env.VERCEL_GIT_COMMIT_SHA || DEV_BUILD_ID;
   const body = `// build: ${buildId}\n${SW_BODY}`;
   return new NextResponse(body, {
     headers: {

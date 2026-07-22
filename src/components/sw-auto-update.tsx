@@ -25,8 +25,14 @@ export default function SwAutoUpdate() {
     if (!("serviceWorker" in navigator)) return;
 
     let hasReloaded = false;
+    // Only reload when an EXISTING controller is replaced — i.e. a genuine
+    // update to an already-controlled page. On the first-ever install there's
+    // no prior controller and the page already has current code, so reloading
+    // is pointless. Skipping it (together with the per-process-stable /sw.js
+    // stamp in app/sw.js/route.ts) removes the local-dev reload loop.
+    const hadController = !!navigator.serviceWorker.controller;
     function onControllerChange() {
-      if (hasReloaded) return;
+      if (!hadController || hasReloaded) return;
       hasReloaded = true;
       window.location.reload();
     }

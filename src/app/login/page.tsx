@@ -155,6 +155,10 @@ export default function LoginPage() {
               </Field>
             )}
             <Field label="Email" required>
+              {/* suppressHydrationWarning: password managers (1Password,
+                  LastPass, etc.) mutate these inputs before React hydrates —
+                  e.g. injecting style="caret-color: transparent" — which
+                  otherwise trips a benign hydration mismatch warning. */}
               <input
                 type="email"
                 value={email}
@@ -163,6 +167,7 @@ export default function LoginPage() {
                 required
                 autoFocus={mode === "signin"}
                 autoComplete={mode === "signin" ? "email" : "new-email"}
+                suppressHydrationWarning
               />
             </Field>
             <Field label="Password" required>
@@ -174,6 +179,7 @@ export default function LoginPage() {
                 required
                 minLength={6}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                suppressHydrationWarning
               />
               {mode === "signup" && (
                 <p className="mt-1 text-[11px] text-slate-500">At least 6 characters.</p>

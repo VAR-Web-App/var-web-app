@@ -29,6 +29,24 @@ import { getStorage, type Storage } from "firebase-admin/storage";
 
 let _app: App | null = null;
 
+// Parse the service-account JSON from the env var. `vercel env pull` can
+// pretty-print the value with real newlines inside the private_key string
+// literal — which is invalid JSON — so a local `.env.local` pulled from
+// Vercel fails a straight JSON.parse. If the first parse throws, re-escape
+// the newlines that live *inside* the private_key value and retry. Prod
+// (single-line JSON pasted from the Firebase console) parses on the first try.
+function parseServiceAccount(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    const fixed = raw.replace(
+      /("private_key"\s*:\s*")([\s\S]*?)("\s*[,}])/,
+      (_m, a, body, c) => a + body.replace(/\r?\n/g, "\\n") + c,
+    );
+    return JSON.parse(fixed) as Record<string, unknown>;
+  }
+}
+
 function getAdminApp(): App {
   if (_app) return _app;
   const existing = getApps();
@@ -44,7 +62,7 @@ function getAdminApp(): App {
   }
   let credentials: ServiceAccount;
   try {
-    credentials = JSON.parse(raw) as ServiceAccount;
+    credentials = parseServiceAccount(raw) as unknown as ServiceAccount;
   } catch (e) {
     throw new Error(
       `FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
@@ -76,7 +94,7 @@ export function adminBucketName(): string {
   try {
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (raw) {
-      const parsed = JSON.parse(raw) as { project_id?: string };
+      const parsed = parseServiceAccount(raw) as { project_id?: string };
       if (parsed.project_id) return `${parsed.project_id}.appspot.com`;
     }
   } catch {
