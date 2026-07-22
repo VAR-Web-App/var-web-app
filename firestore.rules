@@ -235,8 +235,38 @@ service cloud.firestore {
     // (not deal-scoped) since pending invoices may not yet be matched
     // to a project.
     match /invoices/{invId} {
-      allow read, update, delete: if ownsByOrg();
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      // Two access patterns:
+      //  - org-scoped: pending/unmatched invoices listed by org_ref (Inbox).
+      //    ownsByOrg() authorizes that query directly.
+      //  - deal-scoped: a project's invoices listed by deal_ref (Finances
+      //    tab). An org_ref rule alone rejects a deal_ref-only query, so we
+      //    also allow via a parent-deal get() — which authorizes the query
+      //    per-document, the same pattern as payments/quote_lines. Ordered
+      //    so ownsByOrg() short-circuits (no get()) for the org-wide list,
+      //    where invoices may not have a deal_ref yet.
+      allow read: if ownsByOrg()
+                  || (request.auth != null && dealOrg() == callerOrgRef());
+      allow update, delete: if ownsByOrg();
       allow create: if creatingForOwnOrg();
+    }
+
+    // Payments (money in/out ledger): deal-scoped bookkeeping records —
+    // client deposits in, sub/supplier payouts out. The Payment doc has
+    // no org_ref of its own (see types/index.ts), so gate on the parent
+    // deal's org_ref, the same pattern as quote_lines / project_milestones
+    // / project_change_orders. The Finances tab lists these by deal_ref.
+    match /payments/{payId} {
+      function dealOrg() {
+        return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
+      }
+      function newDealOrg() {
+        return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
+      }
+      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
 
     // Project selections (Builder vertical): client-facing priced
