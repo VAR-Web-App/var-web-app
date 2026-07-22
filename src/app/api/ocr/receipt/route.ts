@@ -232,7 +232,7 @@ function parseDate(text: string): string | null {
   }
   const slash = text.match(DATE_SLASH_RX);
   if (slash) {
-    let [, a, b, c] = slash;
+    const [, a, b, c] = slash;
     // Heuristic: 4-digit year always at the end; 2-digit interpret as 20XX.
     const year = c.length === 4 ? +c : 2000 + +c;
     // Default to US-style MM/DD/YYYY; swap to DD/MM if first part > 12.

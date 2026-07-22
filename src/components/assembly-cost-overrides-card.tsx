@@ -179,7 +179,7 @@ export default function AssemblyCostOverridesCard({
         </h3>
         <p className="mt-0.5 text-xs text-slate-500">
           Applied to every assembly in your catalog. Set both to 1.20 if your
-          market runs 20% above the catalog's national-average pricing.
+          market runs 20% above the catalog&apos;s national-average pricing.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <MultiplierInput
@@ -204,7 +204,7 @@ export default function AssemblyCostOverridesCard({
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
               Stacks on top of the global multipliers. Leave at 1× unless a
-              specific assembly's pricing diverges from the global trend.
+              specific assembly&apos;s pricing diverges from the global trend.
             </p>
           </div>
           {overrideCount > 0 && (
@@ -703,7 +703,7 @@ function MaterialsEditorModal({
                 </h4>
                 <p className="mt-0.5 text-xs text-slate-500">
                   Set a quantity by either a fixed number, or by scaling
-                  off one of this assembly's properties. Example:{" "}
+                  off one of this assembly&apos;s properties. Example:{" "}
                   <em>vapor barrier × 1.10 of Floor Area = 10% waste</em>.
                 </p>
               </div>
