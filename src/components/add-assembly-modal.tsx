@@ -139,7 +139,7 @@ export default function AddAssemblyModal({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
             />
             <span className="mt-1 block text-xs text-slate-500">
-              Goes into each derived line's Phase column — useful for grouping
+              Goes into each derived line&apos;s Phase column — useful for grouping
               and matching draws.
             </span>
           </label>
