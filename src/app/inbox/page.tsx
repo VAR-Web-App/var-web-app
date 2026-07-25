@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import EmailDigester from "@/components/email-digester";
+import PhoneSummarizer from "@/components/phone-summarizer";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
@@ -290,6 +291,7 @@ export default function InboxPage() {
         </header>
 
         <EmailDigester />
+        <PhoneSummarizer />
 
         {!loaded && (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
