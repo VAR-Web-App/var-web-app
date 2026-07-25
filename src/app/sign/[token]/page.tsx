@@ -105,6 +105,17 @@ export default function SignPage({
         signed_by_name: signatureName.trim(),
         signed_user_agent: ua,
       });
+      // Alert the builder the moment their client signs (fire-and-forget;
+      // never block or fail the signature on a notification hiccup).
+      void fetch("/api/notify/gc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "client_signed",
+          token,
+          clientName: signatureName.trim(),
+        }),
+      }).catch(() => {});
       // Reload the link to show the signed state.
       const fresh = await getClientSignLink(token);
       if (fresh) setLink(fresh);

@@ -426,6 +426,9 @@ export interface OrgSettings {
    * the GC opted in on. Same shape as Distributor.push_subscriptions.
    */
   push_subscriptions?: PushSubscriptionRecord[];
+  /** Smart Notifications routing: which channels fire per event + quiet
+   *  hours. See lib/notify/events.ts for the schema + defaults. */
+  notification_prefs?: import("@/lib/notify/events").NotificationPrefs;
   /**
    * Per-org cost-multiplier overrides on the assembly catalog. The
    * stub catalog ships with national-average pricing; builders tune
