@@ -8,13 +8,35 @@ type Mode = "signin" | "signup";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp, signInWithGoogle, signInWithApple } =
+  const { user, loading, signIn, signUp, signInWithGoogle, signInWithApple, resetPassword } =
     useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  async function handleReset() {
+    setError(null);
+    setResetMsg(null);
+    if (!email.trim()) {
+      setError("Enter your email above, then tap “Forgot password?” again.");
+      return;
+    }
+    try {
+      await resetPassword(email.trim());
+      setResetMsg(`Password reset link sent to ${email.trim()}.`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Don't reveal whether an account exists — generic confirmation.
+      if (msg.includes("auth/user-not-found") || msg.includes("auth/invalid-email")) {
+        setResetMsg(`If an account exists for ${email.trim()}, a reset link is on its way.`);
+      } else {
+        setError("Couldn't send the reset email. Try again.");
+      }
+    }
+  }
   // One pending flag per OAuth provider so two buttons don't race.
   const [oauthPending, setOauthPending] = useState<"google" | "apple" | null>(
     null,
@@ -189,6 +211,9 @@ export default function LoginPage() {
             {error && (
               <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
             )}
+            {resetMsg && (
+              <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{resetMsg}</p>
+            )}
 
             <button
               type="submit"
@@ -197,6 +222,16 @@ export default function LoginPage() {
             >
               {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
+
+            {mode === "signin" && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="w-full text-center text-xs font-medium text-sky-700 hover:text-sky-900 hover:underline"
+              >
+                Forgot password?
+              </button>
+            )}
           </form>
 
           <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-slate-400">

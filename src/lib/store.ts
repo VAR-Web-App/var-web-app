@@ -420,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -507,6 +507,45 @@ export async function createOrGetDesignerLink(
     updated_at: now,
   };
   await setDoc(doc(db, "designer_links", token), link, { merge: false });
+  return token;
+}
+
+/** Mint (or reuse) the no-login client portal link for a project. Same
+ *  org-scoped-query pattern as the designer link so the list rule is
+ *  satisfiable. The homeowner opens /portal/{token}. */
+export async function createOrGetClientPortalLink(
+  deal: Deal,
+  builderName: string,
+  clientName: string,
+): Promise<string> {
+  const existing = await getDocs(
+    query(collection(db, "client_portal_links"), where("org_ref", "==", deal.org_ref)),
+  );
+  const mine = existing.docs.find(
+    (d) => (d.data() as ClientPortalLink).deal_ref === deal.id,
+  );
+  const now = new Date().toISOString();
+  if (mine) {
+    await updateDoc(doc(db, "client_portal_links", mine.id), {
+      project_name: deal.name,
+      builder_name: builderName,
+      client_name: clientName,
+      updated_at: now,
+    });
+    return mine.id;
+  }
+  const token = crypto.randomUUID();
+  const link: ClientPortalLink = {
+    token,
+    org_ref: deal.org_ref,
+    deal_ref: deal.id,
+    project_name: deal.name,
+    builder_name: builderName,
+    client_name: clientName,
+    created_at: now,
+    updated_at: now,
+  };
+  await setDoc(doc(db, "client_portal_links", token), link, { merge: false });
   return token;
 }
 

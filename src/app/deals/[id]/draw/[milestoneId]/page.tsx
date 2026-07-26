@@ -29,6 +29,7 @@ import {
   saveMilestone,
   listChangeOrders,
   effectiveContractValue,
+  createOrGetClientPortalLink,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import DrawAttachmentsSection from "@/components/draw-attachments-section";
@@ -197,12 +198,23 @@ export default function DrawRequestPage({
     );
   }
 
-  function emailToClient() {
-    // Build a mailto: link with prefilled draw request notification +
-    // portal link. GC forwards in their normal email client.
+  async function emailToClient() {
+    // Build a mailto: link with prefilled draw request notification + the
+    // homeowner's no-login portal link. GC forwards in their normal email
+    // client; the client opens /portal/{token} and can approve the draw.
     if (!deal || !thisMs) return;
     const subject = `Draw Request #${drawNumber}: ${thisMs.name} — ${deal.name}`;
-    const portalUrl = `${window.location.origin}/deals/${id}/portal`;
+    let portalUrl = `${window.location.origin}/deals/${id}/portal`;
+    try {
+      const token = await createOrGetClientPortalLink(
+        deal,
+        settings?.company_name || settings?.prepared_by_name || "",
+        deal.account_name || deal.poc_name || "",
+      );
+      portalUrl = `${window.location.origin}/portal/${token}`;
+    } catch {
+      // Fall back to the authed preview URL if minting fails.
+    }
     const body = [
       `Hi,`,
       ``,

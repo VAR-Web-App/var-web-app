@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 import { OrgSettings } from "@/types";
+import { defaultSettings } from "@/lib/default-settings";
 import { getSettings, saveSettings } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
@@ -13,24 +14,7 @@ import GCPushOptIn from "@/components/gc-push-opt-in";
 import NotificationPrefsCard from "@/components/notification-prefs-card";
 import { Input, TextArea } from "../accounts/page";
 
-const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
-  org_ref: orgRef,
-  company_name: "",
-  company_address: "",
-  company_phone: "",
-  company_email: "",
-  // Builder repurpose: the federal-contractor identifier fields are
-  // reused for builder-side license/registration fields. Schema names
-  // are kept for compatibility; UI labels remap them.
-  cage_code: "",     // → State Contractor License #
-  duns: "",          // → EIN (or business reg #)
-  sam_id: "",        // → Local business license #
-  default_blanket_discount_percent: 0,  // not used by builders; kept zero
-  default_markup_percent: 15,           // typical mid-grade builder markup
-  default_manufacturer: "Custom Home",  // → default project type
-  prepared_by_name: "",
-  prepared_by_phone: "",
-});
+const DEFAULT_SETTINGS = defaultSettings;
 
 export default function SettingsPage() {
   const { profile } = useAuth();
