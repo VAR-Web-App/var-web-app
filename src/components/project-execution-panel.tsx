@@ -34,6 +34,7 @@ import {
   saveMilestones,
   deleteMilestone,
   listQuoteLines,
+  savePayment,
   saveDeal,
   listDeals,
   listDistributors,
@@ -515,6 +516,23 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
     const updated: ProjectMilestone = { ...m, ...patch };
     setMilestones((prev) => prev.map((x) => (x.id === m.id ? updated : x)));
     await saveMilestone(updated);
+    // Reconcile cash-in: releasing a draw is money received, so record an
+    // incoming Payment. Deterministic id keyed to the milestone → idempotent
+    // (re-releasing won't double-count), and milestone_ref links the two.
+    if (next === "released") {
+      await savePayment({
+        id: `pay-draw-${m.id}`,
+        deal_ref: m.deal_ref,
+        direction: "in",
+        party_name: "Client draw",
+        amount: m.amount,
+        method: "other",
+        milestone_ref: m.id,
+        date: now.slice(0, 10),
+        notes: `Draw released: ${m.name}`,
+        created_at: now,
+      });
+    }
   }
 
   async function removeMilestone(m: ProjectMilestone) {

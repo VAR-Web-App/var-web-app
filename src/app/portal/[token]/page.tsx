@@ -23,11 +23,17 @@ interface ChangeOrder {
   id: string; number: string; title: string; description: string;
   amount_delta: number; schedule_impact_days: number; status: string; rejection_reason: string | null;
 }
+interface SelOption { id: string; label: string; description: string; cost: number; image_url: string | null; }
+interface Selection {
+  id: string; number: string; title: string; description: string;
+  allowance: number; status: string; selected_option_id: string | null; options: SelOption[];
+}
 interface PortalData {
   project: { name: string; builder_name: string; client_name: string };
   contract_value: number;
   milestones: Milestone[];
   change_orders: ChangeOrder[];
+  selections: Selection[];
 }
 
 export default function ClientPortalPage({ params }: { params: Promise<{ token: string }> }) {
@@ -37,6 +43,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [sig, setSig] = useState<Record<string, string>>({});
+  const [pickedOpt, setPickedOpt] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -77,9 +84,11 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
     );
   }
 
-  const { project, milestones, change_orders, contract_value } = data;
+  const { project, milestones, change_orders, contract_value, selections } = data;
   const pendingCos = change_orders.filter((c) => c.status === "sent");
   const decidedCos = change_orders.filter((c) => c.status === "approved" || c.status === "rejected");
+  const openSelections = selections.filter((s) => s.status === "sent");
+  const pickedSelections = selections.filter((s) => s.status === "approved" || s.status === "over_allowance");
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -144,6 +153,76 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
           </section>
         )}
 
+        {/* Selections to pick */}
+        {openSelections.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Choose your selections</h2>
+            <ul className="space-y-3">
+              {openSelections.map((sel) => {
+                const chosen = pickedOpt[sel.id];
+                return (
+                  <li key={sel.id} className="rounded-xl border border-sky-200 bg-white p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-slate-900">{sel.number} · {sel.title}</span>
+                      <span className="text-xs text-slate-500">Allowance: {money(sel.allowance)}</span>
+                    </div>
+                    {sel.description && <p className="mt-1 text-sm text-slate-600">{sel.description}</p>}
+                    <div className="mt-3 space-y-2">
+                      {sel.options.map((o) => {
+                        const over = o.cost - sel.allowance;
+                        const active = chosen === o.id;
+                        return (
+                          <button
+                            key={o.id}
+                            onClick={() => setPickedOpt((p) => ({ ...p, [sel.id]: o.id }))}
+                            className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left ${active ? "border-sky-500 bg-sky-50 ring-1 ring-sky-300" : "border-slate-200 hover:bg-slate-50"}`}
+                          >
+                            <span className={`mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border ${active ? "border-sky-600 bg-sky-600" : "border-slate-300"}`} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-medium text-slate-900">{o.label}</span>
+                              {o.description && <span className="block text-xs text-slate-500">{o.description}</span>}
+                            </span>
+                            <span className="text-right text-sm">
+                              <span className="block font-semibold tabular-nums text-slate-900">{money(o.cost)}</span>
+                              {over !== 0 && (
+                                <span className={`block text-[11px] font-medium ${over > 0 ? "text-orange-600" : "text-emerald-600"}`}>
+                                  {over > 0 ? `+${money(over)} over` : `${money(Math.abs(over))} under`}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {chosen && (
+                      <div className="mt-3 space-y-2">
+                        {sel.options.find((o) => o.id === chosen)!.cost > sel.allowance && (
+                          <p className="rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                            This is over your allowance — approving adds a change order for the difference.
+                          </p>
+                        )}
+                        <input
+                          value={sig[sel.id] ?? ""}
+                          onChange={(e) => setSig((s) => ({ ...s, [sel.id]: e.target.value }))}
+                          placeholder="Type your full name to confirm"
+                          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        />
+                        <button
+                          disabled={busy === sel.id || !(sig[sel.id]?.trim())}
+                          onClick={() => act({ action: "pick_selection", selectionId: sel.id, optionId: chosen, signature: sig[sel.id] }, sel.id)}
+                          className="w-full rounded-md bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:bg-sky-300"
+                        >
+                          {busy === sel.id ? "Working…" : "Confirm selection"}
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {/* Draws / phases */}
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Project phases & draws</h2>
@@ -200,6 +279,24 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
                   </span>
                 </li>
               ))}
+            </ul>
+          </section>
+        )}
+
+        {pickedSelections.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Your selections</h2>
+            <ul className="space-y-1.5">
+              {pickedSelections.map((s) => {
+                const opt = s.options.find((o) => o.id === s.selected_option_id);
+                return (
+                  <li key={s.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                    <span className="flex-1 truncate text-slate-700">{s.title}: <span className="font-medium">{opt?.label ?? "—"}</span></span>
+                    {opt && <span className="tabular-nums text-slate-500">{money(opt.cost)}</span>}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
