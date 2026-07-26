@@ -15,10 +15,12 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   OAuthProvider,
+  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { defaultSettings } from "./default-settings";
 
 // Profile is the per-user record we keep in Firestore at users/{uid}.
 // Stores the user's org membership + display info. Auth identity (email,
@@ -51,6 +53,8 @@ interface AuthContextValue {
    *  Apple provider to be enabled in Firebase Auth and the Vercel
    *  domain registered in the Apple Services ID. */
   signInWithApple: () => Promise<void>;
+  /** Send a password-reset email. Throws on failure (caller catches). */
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -123,6 +127,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...profileDoc,
       created_at: serverTimestamp(),
     });
+    // Seed org settings with the company name + email up front, so proposals,
+    // estimates, and the client portal show the builder's name from day one
+    // instead of the "Your builder" placeholder.
+    await setDoc(doc(db, "settings", orgRef), {
+      ...defaultSettings(orgRef),
+      company_name: companyName,
+      company_email: email,
+    });
     // Set profile state synchronously so pages don't get stuck on Loading…
     // waiting for the listener to re-fetch.
     setProfile(profileDoc);
@@ -156,6 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...profileDoc,
       created_at: serverTimestamp(),
     });
+    await setDoc(doc(db, "settings", orgRef), {
+      ...defaultSettings(orgRef),
+      company_name: displayName,
+      company_email: cred.user.email || "",
+    });
     setProfile(profileDoc);
   }
 
@@ -177,6 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await ensureOAuthProfile(cred);
   }
 
+  async function resetPassword(email: string) {
+    await sendPasswordResetEmail(auth, email);
+  }
+
   async function logout() {
     await signOut(auth);
   }
@@ -191,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signInWithGoogle,
         signInWithApple,
+        resetPassword,
         logout,
       }}
     >
