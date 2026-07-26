@@ -1950,6 +1950,77 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   ];
   for (const co of maddoxCOs) await saveChangeOrder(co);
 
+  // ── Maddox invoices (feeds the actuals → estimating loop) ────
+  // Paid/matched invoices with cat_id-tagged line items. The Settings →
+  // Estimate Template "Update from actuals" panel reads these and offers
+  // to push the real unit costs back into the org's GFE template so future
+  // estimates use actuals instead of catalog averages.
+  const maddoxInvoices: Invoice[] = [
+    {
+      id: newId("inv"),
+      org_ref: orgRef,
+      deal_ref: maddoxId,
+      vendor_name: "Cano Concrete & Foundation",
+      invoice_number: "CC-4471",
+      invoice_date: isoDaysAgo(70).slice(0, 10),
+      total: 23859,
+      line_items: [
+        {
+          id: newId("il"),
+          description: "Strip footings — labor + concrete",
+          quantity: 264,
+          unit: "LF",
+          unit_price: 12.8,
+          extended: 3379,
+          cat_id: "21", // FOOTINGS
+        },
+        {
+          id: newId("il"),
+          description: '4" slab on grade',
+          quantity: 3200,
+          unit: "SF",
+          unit_price: 6.4,
+          extended: 20480,
+          cat_id: "26", // SLAB
+        },
+      ],
+      status: "paid",
+      source: "upload",
+      sub_ref: subs[0].id,
+      parse_confidence: "high",
+      created_at: isoDaysAgo(70),
+      updated_at: isoDaysAgo(70),
+    },
+    {
+      id: newId("inv"),
+      org_ref: orgRef,
+      deal_ref: maddoxId,
+      vendor_name: "Quick-Sparks Electric",
+      invoice_number: "QS-2093",
+      invoice_date: isoDaysAgo(15).slice(0, 10),
+      total: 19800,
+      line_items: [
+        {
+          id: newId("il"),
+          description: "22 kW standby generator + transfer switch, installed",
+          quantity: 1,
+          unit: "EA",
+          unit_price: 19800,
+          extended: 19800,
+          cat_id: "31", // ELECTRICAL
+
+        },
+      ],
+      status: "matched",
+      source: "email",
+      sub_ref: subs[2].id,
+      parse_confidence: "high",
+      created_at: isoDaysAgo(15),
+      updated_at: isoDaysAgo(15),
+    },
+  ];
+  for (const inv of maddoxInvoices) await saveInvoice(inv);
+
   return { parsedCacheByDeal: {} };
 }
 

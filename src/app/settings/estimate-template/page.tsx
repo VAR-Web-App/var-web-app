@@ -25,6 +25,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import ActualsLoopPanel from "@/components/actuals-loop-panel";
 import { useAuth } from "@/lib/auth-context";
 import { getSettings, saveSettings } from "@/lib/store";
 import { OrgSettings } from "@/types";
@@ -397,6 +398,21 @@ export default function EstimateTemplatePage() {
             </button>
           </div>
         </header>
+
+        {/* Actuals → estimating loop: fold real invoiced costs into the
+            template before editing. */}
+        {profile ? (
+          <div className="mb-6">
+            <ActualsLoopPanel
+              orgRef={profile.org_ref}
+              onApplied={(tpl, s) => {
+                setTemplate(tpl);
+                setSettings(s);
+                setSavedSnapshot(JSON.stringify(tpl));
+              }}
+            />
+          </div>
+        ) : null}
 
         {/* Search bar — filters by category/section name, item name,
          *  item id, or unit. Matched sections + their parent
