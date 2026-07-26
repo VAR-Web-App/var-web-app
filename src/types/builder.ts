@@ -567,6 +567,23 @@ export interface DesignerLink {
   updated_at: string;
 }
 
+// Client portal link (public, no-login). The homeowner opens /portal/{token}
+// from a link the builder shares. Grants a read-only project view + the ability
+// to approve draws and approve/reject change orders — all mediated server-side
+// through /api/portal/* (admin SDK) after the token is verified. Same trust
+// model as DesignerLink: the token doc is get-public, gated by the unguessable
+// token; only the authed builder (own org) can mint/update it.
+export interface ClientPortalLink {
+  token: string;
+  org_ref: string;
+  deal_ref: string;
+  project_name: string;
+  builder_name: string;
+  client_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectSelection {
   id: string;
   deal_ref: string;

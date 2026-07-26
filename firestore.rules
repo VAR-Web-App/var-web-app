@@ -162,6 +162,22 @@ service cloud.firestore {
         && resource.data.org_ref == callerOrgRef();
     }
 
+    // Client portal links: PUBLIC no-login homeowner portal at /portal/{token}.
+    // Same trust model as designer_links — get-by-token public, list scoped to
+    // the authed builder's own org (createOrGetClientPortalLink queries by
+    // org_ref). All homeowner reads/writes to the project go through
+    // /api/portal/* (admin SDK) after the token is verified.
+    match /client_portal_links/{token} {
+      allow get: if true;
+      allow list: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
+      allow create: if request.auth != null
+        && request.resource.data.token == token
+        && request.resource.data.org_ref == callerOrgRef();
+      allow update, delete: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
+    }
+
     // Settings: keyed by org_ref directly. Each user can only access their
     // own org's settings doc.
     match /settings/{orgRef} {
