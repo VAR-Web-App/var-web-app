@@ -26,6 +26,7 @@ import {
   saveRFQ,
 } from "@/lib/store";
 import { RFQModal } from "@/components/rfq-panel";
+import SubReliabilityPanel from "@/components/sub-reliability-panel";
 import { useAuth } from "@/lib/auth-context";
 import { Modal, ModalFooter, Input, TextArea } from "../accounts/page";
 import { parseSubsFromText, rowsToDistributors, type BulkImportResult } from "@/lib/bulk-import-subs";
@@ -256,6 +257,13 @@ export default function DistributorsPage() {
           </ul>
         )}
       </section>
+
+      {/* Cross-project sub reliability scores. */}
+      {profile ? (
+        <div className="mb-6">
+          <SubReliabilityPanel orgRef={profile.org_ref} />
+        </div>
+      ) : null}
 
       {/* Desktop table — hidden on mobile in favor of the card list below. */}
       <section className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">

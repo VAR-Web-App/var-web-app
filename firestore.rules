@@ -184,7 +184,12 @@ service cloud.firestore {
     }
 
     // Project milestones (Builder vertical): one milestone per draw.
-    // Same gate-on-parent-deal pattern as quote_lines / attachments.
+    // Same gate-on-parent-deal pattern as quote_lines / attachments, plus an
+    // org-scoped read branch so the cross-project queries (the /schedule
+    // conflict view via listAllMilestonesForOrg, sub reliability) are
+    // authorized — a deal_ref-only rule rejects an org_ref-filtered query.
+    // Milestones carry org_ref, so ownsByOrg() covers it; writes stay
+    // gated on the parent deal.
     match /project_milestones/{msId} {
       function dealOrg() {
         return get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref;
@@ -192,7 +197,9 @@ service cloud.firestore {
       function newDealOrg() {
         return get(/databases/$(database)/documents/deals/$(request.resource.data.deal_ref)).data.org_ref;
       }
-      allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
+      allow read: if ownsByOrg()
+                  || (request.auth != null && dealOrg() == callerOrgRef());
+      allow update, delete: if request.auth != null && dealOrg() == callerOrgRef();
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
 
