@@ -260,8 +260,12 @@ service cloud.firestore {
     // surface "sub confirmed" / "sub flagged a conflict" badges. No
     // client write path — admin SDK bypasses these rules.
     match /sub_acknowledgments/{ackId} {
+      // Read via org_ref directly OR the parent deal's org, so the deal_ref-
+      // scoped query (listSubAcknowledgmentsByDeal) isn't rejected by the
+      // "rules aren't filters" trap. Writes are server-only (admin route).
       allow read: if request.auth != null
-                  && resource.data.org_ref == callerOrgRef();
+                  && (resource.data.org_ref == callerOrgRef()
+                      || get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref == callerOrgRef());
       allow write: if false;
     }
 
