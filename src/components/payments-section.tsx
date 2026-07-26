@@ -137,7 +137,21 @@ export default function PaymentsSection({ deal }: { deal: Deal }) {
     }
     setSaving(true);
     try {
+      const isNew = !payments.some((p) => p.id === editing.id);
       await savePayment(editing);
+      // Alert the org when money comes in (a deposit/draw is recorded).
+      // New incoming payments only — edits shouldn't re-notify.
+      if (isNew && editing.direction === "in") {
+        void fetch("/api/notify/gc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "payment_recorded",
+            dealRef: deal.id,
+            amount: editing.amount,
+          }),
+        }).catch(() => {});
+      }
       setPayments((prev) => {
         const without = prev.filter((p) => p.id !== editing.id);
         return [...without, editing].sort((a, b) =>

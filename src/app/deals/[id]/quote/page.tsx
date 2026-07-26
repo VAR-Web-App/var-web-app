@@ -25,6 +25,8 @@ import AddAssemblyModal, {
   type AddAssemblyResult,
 } from "@/components/add-assembly-modal";
 import AssemblyInstancesPanel from "@/components/assembly-instances-panel";
+import MaterialsCatalogModal from "@/components/materials-catalog-modal";
+import type { MaterialItem } from "@/lib/catalog/materials";
 import NumberInput from "@/components/number-input";
 import SoftCostsPanel, {
   computeSoftCosts,
@@ -84,6 +86,7 @@ export default function DealQuotePage({
   const [loaded, setLoaded] = useState(false);
   const [parsedDistributorBoms, setParsedDistributorBoms] = useState<ParsedAttCache[]>([]);
   const [showAssemblyModal, setShowAssemblyModal] = useState(false);
+  const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // Client-presentation mode — hides cost columns + margin from the
   // screen so the builder can turn the laptop / phone toward the
@@ -277,6 +280,35 @@ export default function DealQuotePage({
       // Builder typed this line in directly — flag as "manual" so the
       // provenance pill in the table reads correctly.
       price_source: "manual",
+    });
+    setLines((prev) => [...prev, next]);
+  }
+
+  // Add a material from the sourcing catalog as a cost line. Mirrors
+  // addBlankLine's cost model (GC's cost goes in list_price; markup + client
+  // price derive from it), tagged price_source "catalog" + the GFE cat_id so
+  // it flows into the actuals loop and Cost Forecast.
+  function addCatalogLine(m: MaterialItem) {
+    const next: QuoteLine = recomputeLine({
+      id: newId("ql"),
+      line_number: lines.length + 1,
+      product_code: m.id.toUpperCase().slice(0, 24),
+      description: m.name,
+      manufacturer: "",
+      is_service: false,
+      qty: 1,
+      list_price: m.unitCostUsd,
+      discount_percent: 0,
+      customer_unit_price: 0,
+      customer_extended: 0,
+      markup_percent: settings?.default_markup_percent ?? 20,
+      cost_unit_price: 0,
+      cost_extended: 0,
+      margin_percent: 0,
+      subscription_term_months: 0,
+      notes: `per ${m.uom}`,
+      price_source: "catalog",
+      ...(m.catId ? { cat_id: m.catId } : {}),
     });
     setLines((prev) => [...prev, next]);
   }
@@ -989,14 +1021,24 @@ export default function DealQuotePage({
         ) : null}
 
         <div className="flex flex-wrap justify-between gap-2 pb-24 sm:pb-0">
-          <button
-            onClick={addBlankLine}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            title="Add a one-off line not tied to an assembly — for materials or labor that don't come from an assembly's formula."
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add blank line
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={addBlankLine}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              title="Add a one-off line not tied to an assembly — for materials or labor that don't come from an assembly's formula."
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add blank line
+            </button>
+            <button
+              onClick={() => setShowCatalogModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100"
+              title="Search the materials catalog and add priced items to this estimate."
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add from catalog
+            </button>
+          </div>
           {/* Takeoff PDF — desktop-only (printing/lumber-yard workflow). */}
           <Link
             href={`/deals/${id}/takeoff`}
@@ -1014,6 +1056,13 @@ export default function DealQuotePage({
         onClose={() => setShowAssemblyModal(false)}
         onConfirm={importFromAssembly}
       />
+
+      {showCatalogModal && (
+        <MaterialsCatalogModal
+          onPick={addCatalogLine}
+          onClose={() => setShowCatalogModal(false)}
+        />
+      )}
 
       {/* Undo toasts for destructive actions — bottom-right on desktop,
        *  raised above the mobile sticky bar + bottom nav on phones so

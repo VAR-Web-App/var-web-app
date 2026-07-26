@@ -20,6 +20,7 @@ import { composeBidArrivedSms, toE164 } from "@/lib/sms";
 import { sendEmail } from "@/lib/email";
 import { composeBidArrivedEmail, isLikelyEmail } from "@/lib/email-compose";
 import { sendPushToAll } from "@/lib/push";
+import { resolveChannels } from "@/lib/notify/events";
 import type { ProjectRFQ, RFQInvitee, SubScheduleLink } from "@/types/builder";
 import type { Attachment, Deal, OrgSettings } from "@/types";
 
@@ -279,10 +280,12 @@ async function notifyGc(
   if (!settingsSnap.exists) return;
   const settings = settingsSnap.data() as OrgSettings;
   const builderName = settings.company_name?.trim() || "KeystonePro";
+  // Respect the org's Smart Notifications routing + quiet hours for this event.
+  const ch = resolveChannels(settings.notification_prefs, "sub_bid");
 
   // Email branch — fires whenever the org has a valid company_email,
   // independent of SMS configuration / approval state.
-  if (isLikelyEmail(settings.company_email)) {
+  if (ch.email && isLikelyEmail(settings.company_email)) {
     void sendEmail({
       to: settings.company_email!,
       ...composeBidArrivedEmail({
@@ -297,7 +300,7 @@ async function notifyGc(
   // Push branch — fires for every device the GC has registered via
   // Settings → Instant alerts. Stale subscriptions pruned back to
   // Firestore inline.
-  const orgSubscriptions = settings.push_subscriptions ?? [];
+  const orgSubscriptions = ch.push ? settings.push_subscriptions ?? [] : [];
   if (orgSubscriptions.length > 0) {
     const fmt = `$${Math.round(bidAmount).toLocaleString("en-US")}`;
     const stillActive = await sendPushToAll(orgSubscriptions, {
@@ -318,7 +321,8 @@ async function notifyGc(
     }
   }
 
-  // SMS branch — only if a valid phone is on file + Twilio configured.
+  // SMS branch — only if enabled for this event + a valid phone + Twilio.
+  if (!ch.sms) return;
   const to = toE164(settings.company_phone ?? "");
   if (!to) return;
 

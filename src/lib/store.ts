@@ -531,6 +531,15 @@ export async function saveRFQ(r: ProjectRFQ): Promise<void> {
   await setDoc(doc(db, "project_rfqs", r.id), r, { merge: false });
 }
 
+/** Every RFQ across the org, loaded the same deals→per-deal way the schedule
+ *  view loads milestones (project_rfqs is deal-scoped in the rules, so a bare
+ *  org_ref query would be rejected). Used for cross-project bid benchmarking. */
+export async function listAllRFQsForOrg(orgRef: string): Promise<ProjectRFQ[]> {
+  const deals = await listDeals(orgRef);
+  const perDeal = await Promise.all(deals.map((d) => listRFQs(d.id).catch(() => [])));
+  return perDeal.flat();
+}
+
 // ── client sign links (public-facing proposal acceptance) ───────
 //
 // Top-level collection client_sign_links/{token}. Doc ID IS the token
