@@ -8,6 +8,7 @@ import PaymentsSection from "@/components/payments-section";
 import BudgetPanel from "@/components/budget-panel";
 import FinanceForecastPanel from "@/components/finance-forecast-panel";
 import CashFlowTimelinePanel from "@/components/cash-flow-timeline-panel";
+import SubCostPanel from "@/components/sub-cost-panel";
 import InvoicesPanel from "@/components/invoices-panel";
 import DealPageShell, {
   DealLoadingShell,
@@ -48,6 +49,7 @@ export default function DealFinancesPage({
         <BudgetPanel dealId={deal.id} />
         <FinanceForecastPanel dealId={deal.id} />
         <CashFlowTimelinePanel dealId={deal.id} />
+        <SubCostPanel dealId={deal.id} />
         <ChangeOrdersPanel deal={deal} />
         <InvoicesPanel deal={deal} />
         <PaymentsSection deal={deal} />
