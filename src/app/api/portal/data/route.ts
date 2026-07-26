@@ -8,6 +8,7 @@ import type { ClientPortalLink } from "@/types/builder";
 import type {
   ProjectMilestone,
   ProjectChangeOrder,
+  ProjectSelection,
 } from "@/types/builder";
 import type { Deal } from "@/types";
 
@@ -27,9 +28,10 @@ export async function GET(req: NextRequest) {
   if (!dealSnap.exists) return NextResponse.json({ ok: false, error: "deal_gone" }, { status: 404 });
   const deal = dealSnap.data() as Deal;
 
-  const [msSnap, coSnap] = await Promise.all([
+  const [msSnap, coSnap, selSnap] = await Promise.all([
     db.collection("project_milestones").where("deal_ref", "==", link.deal_ref).get(),
     db.collection("project_change_orders").where("deal_ref", "==", link.deal_ref).get(),
+    db.collection("project_selections").where("deal_ref", "==", link.deal_ref).get(),
   ]);
 
   const milestones = msSnap.docs
@@ -52,6 +54,21 @@ export async function GET(req: NextRequest) {
       status: c.status, rejection_reason: c.rejection_reason ?? null,
     }));
 
+  // Selections the client can act on (sent) or has decided (approved/over).
+  // Drafts aren't shown — they're still being built by the builder/designer.
+  const selections = selSnap.docs
+    .map((d) => d.data() as ProjectSelection)
+    .filter((s) => s.status !== "draft")
+    .sort((a, b) => a.number.localeCompare(b.number))
+    .map((s) => ({
+      id: s.id, number: s.number, title: s.title, description: s.description,
+      allowance: s.allowance, status: s.status, selected_option_id: s.selected_option_id ?? null,
+      options: (s.options || []).map((o) => ({
+        id: o.id, label: o.label, description: o.description, cost: o.cost,
+        image_url: o.image_url ?? null,
+      })),
+    }));
+
   const approvedCoTotal = changeOrders
     .filter((c) => c.status === "approved")
     .reduce((s, c) => s + (c.amount_delta || 0), 0);
@@ -63,5 +80,6 @@ export async function GET(req: NextRequest) {
     contract_value: contractValue,
     milestones,
     change_orders: changeOrders,
+    selections,
   });
 }

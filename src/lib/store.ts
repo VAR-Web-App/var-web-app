@@ -2071,6 +2071,40 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   ];
   for (const inv of maddoxInvoices) await saveInvoice(inv);
 
+  // ── Maddox selections (client picks → portal + auto-CO demo) ──
+  // One awaiting the client's pick (drives the /portal selection flow), one
+  // already chosen (history).
+  const counterId = newId("opt");
+  const maddoxSelections: ProjectSelection[] = [
+    {
+      id: newId("sel"), deal_ref: maddoxId, org_ref: orgRef, number: "SEL-001",
+      category: "flooring", title: "Main floor flooring",
+      description: "Choose the flooring for the main living areas.",
+      allowance: 8000,
+      options: [
+        { id: newId("opt"), label: "Luxury vinyl plank (waterproof)", description: "Durable, pet-friendly, 20-mil wear layer.", cost: 6500 },
+        { id: newId("opt"), label: "White oak, site-finished", description: '5" plank, matte finish.', cost: 9200 },
+        { id: newId("opt"), label: "Porcelain wood-look tile", description: "Radiant-heat compatible.", cost: 7800 },
+      ],
+      status: "sent", notes: "Sent to client for selection.",
+      created_at: isoDaysAgo(3), updated_at: isoDaysAgo(3),
+    },
+    {
+      id: newId("sel"), deal_ref: maddoxId, org_ref: orgRef, number: "SEL-002",
+      category: "countertops", title: "Kitchen countertops",
+      description: "Countertop material for the kitchen.",
+      allowance: 6000,
+      options: [
+        { id: counterId, label: "Quartz — Calacatta", description: "Low-maintenance, consistent veining.", cost: 5800 },
+        { id: newId("opt"), label: "Granite — Ubatuba", description: "Natural stone, sealed.", cost: 4600 },
+      ],
+      status: "approved", selected_option_id: counterId,
+      approval_signature: "Brennan Maddox", approved_at: isoDaysAgo(10),
+      notes: "", created_at: isoDaysAgo(14), updated_at: isoDaysAgo(10),
+    },
+  ];
+  for (const s of maddoxSelections) await saveSelection(s);
+
   return { parsedCacheByDeal: {} };
 }
 

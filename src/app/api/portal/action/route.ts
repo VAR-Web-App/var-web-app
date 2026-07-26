@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminConfigured, adminDb } from "@/lib/firebase-admin";
 import { notifyGc } from "@/lib/notify/gc";
-import type { ClientPortalLink, ProjectMilestone, ProjectChangeOrder } from "@/types/builder";
+import type { ClientPortalLink, ProjectMilestone, ProjectChangeOrder, ProjectSelection } from "@/types/builder";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,8 @@ interface Body {
   action?: string;
   milestoneId?: string;
   coId?: string;
+  selectionId?: string;
+  optionId?: string;
   signature?: string;
   reason?: string;
 }
@@ -91,6 +93,57 @@ export async function POST(req: NextRequest) {
         url,
       });
     }
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Client picks a selection option (auto-CO if over allowance) ──
+  if (action === "pick_selection") {
+    if (!body.selectionId || !body.optionId || !body.signature?.trim()) {
+      return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
+    }
+    const ref = db.collection("project_selections").doc(body.selectionId);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const sel = snap.data() as ProjectSelection;
+    if (sel.deal_ref !== link.deal_ref) return NextResponse.json({ ok: false, error: "wrong_project" }, { status: 403 });
+    if (sel.status === "approved" || sel.status === "over_allowance") {
+      return NextResponse.json({ ok: false, error: "already_decided" }, { status: 409 });
+    }
+    const option = (sel.options || []).find((o) => o.id === body.optionId);
+    if (!option) return NextResponse.json({ ok: false, error: "option_not_found" }, { status: 400 });
+
+    const delta = option.cost - sel.allowance;
+    const patch: Record<string, unknown> = {
+      selected_option_id: body.optionId,
+      approval_signature: body.signature.trim(),
+      approved_at: now,
+      updated_at: now,
+      status: delta > 0 ? "over_allowance" : "approved",
+    };
+
+    // Over allowance → auto-spawn a linked, approved change order for the delta.
+    if (delta > 0) {
+      const coSnap = await db.collection("project_change_orders").where("deal_ref", "==", link.deal_ref).get();
+      const nums = coSnap.docs.map((d) => parseInt(String((d.data() as ProjectChangeOrder).number).replace(/\D/g, ""), 10) || 0);
+      const number = `CO-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0")}`;
+      const coRef = db.collection("project_change_orders").doc();
+      await coRef.set({
+        id: coRef.id, deal_ref: sel.deal_ref, org_ref: sel.org_ref, number,
+        title: `Over-allowance: ${sel.title}`,
+        description: `Client selected “${option.label}” for ${sel.title}. Over allowance by ${money(delta)}.`,
+        amount_delta: delta, schedule_impact_days: 0, reason: "client_request",
+        status: "approved", approval_signature: body.signature.trim(), approved_at: now,
+        notes: `Auto-created from selection ${sel.number}.`, created_at: now, updated_at: now,
+      });
+      patch.linked_change_order_id = coRef.id;
+    }
+
+    await ref.update(patch);
+    await notifyGc(link.org_ref, "client_signed", {
+      title: "🎨 Selection picked",
+      body: `${link.client_name || "Your client"} chose “${option.label}” for ${sel.title}${delta > 0 ? ` (+${money(delta)} over allowance)` : ""} on ${link.project_name}.`,
+      url,
+    });
     return NextResponse.json({ ok: true });
   }
 
