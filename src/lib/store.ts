@@ -1823,6 +1823,91 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   };
   await saveRFQ(flooringRfq);
 
+  // ── Maddox awarded RFQs ──────────────────────────────────────
+  // Awarded scopes give the Finances tab a *committed* baseline to
+  // compare paid-to-date against (Sub costs & overruns panel + the
+  // BudgetPanel "Committed" tile). Amounts are set so a couple subs
+  // land slightly over their award — the realistic overrun the panel
+  // is meant to surface — while framing is mid-job and still on track.
+  const awardedRfqs: ProjectRFQ[] = [
+    {
+      id: newId("rfq"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      scope_title: "Foundation — excavation, footings + slab",
+      scope_description:
+        "Site excavation, strip footings, and 4\" slab on grade per plan. Includes vapor barrier + rebar.",
+      phase: "Foundation",
+      status: "awarded",
+      awarded_to_sub_ref: subs[0].id, // Cano Concrete
+      invitees: [
+        {
+          sub_ref: subs[0].id,
+          sub_name: subs[0].name,
+          status: "selected",
+          bid_amount: 92000, // paid $95,100 → ~3.4% over
+          bid_notes: "Firm through Q3.",
+          responded_at: isoDaysAgo(95),
+          notified_at: isoDaysAgo(100),
+        },
+      ],
+      notes: "",
+      sent_at: isoDaysAgo(100),
+      created_at: isoDaysAgo(100),
+      updated_at: isoDaysAgo(92),
+    },
+    {
+      id: newId("rfq"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      scope_title: "Framing — labor",
+      scope_description:
+        "Whole-home rough framing labor per structural set. Material by others.",
+      phase: "Framing",
+      status: "awarded",
+      awarded_to_sub_ref: subs[1].id, // Hill Country Framing
+      invitees: [
+        {
+          sub_ref: subs[1].id,
+          sub_name: subs[1].name,
+          status: "selected",
+          bid_amount: 248000, // paid $175k so far (70%) → on track
+          responded_at: isoDaysAgo(50),
+          notified_at: isoDaysAgo(55),
+        },
+      ],
+      notes: "",
+      sent_at: isoDaysAgo(55),
+      created_at: isoDaysAgo(55),
+      updated_at: isoDaysAgo(48),
+    },
+    {
+      id: newId("rfq"),
+      deal_ref: maddoxId,
+      org_ref: orgRef,
+      scope_title: "Framing — lumber package",
+      scope_description: "Full framing lumber + fasteners + sheathing package.",
+      phase: "Framing",
+      status: "awarded",
+      awarded_to_sub_ref: subs[5].id, // Boerne Lumber Co.
+      invitees: [
+        {
+          sub_ref: subs[5].id,
+          sub_name: subs[5].name,
+          status: "selected",
+          bid_amount: 46000, // paid $48,200 → ~4.8% over
+          responded_at: isoDaysAgo(40),
+          notified_at: isoDaysAgo(45),
+        },
+      ],
+      notes: "",
+      sent_at: isoDaysAgo(45),
+      created_at: isoDaysAgo(45),
+      updated_at: isoDaysAgo(38),
+    },
+  ];
+  for (const r of awardedRfqs) await saveRFQ(r);
+
   // ── Maddox change orders ────────────────────────────────────
   // One approved CO (gives the AIA G702 draw request something to
   // show under the "Approved Change Orders" table) plus one out
