@@ -334,15 +334,56 @@ export default function SchedulePage() {
           </p>
         </div>
       ) : (
-        <ScheduleGrid
-          subs={subRows}
-          assignments={assignments}
-          conflicts={conflicts}
-          window={window}
-          todayMs={todayMs}
-          onAssignClick={(subId) => setAssignSubId(subId)}
-          onUnassign={(subId, mId) => void unassignSubFromMilestone(subId, mId)}
-        />
+        <>
+          {/* Desktop: the Gantt grid (unusable on a phone). */}
+          <div className="hidden md:block">
+            <ScheduleGrid
+              subs={subRows}
+              assignments={assignments}
+              conflicts={conflicts}
+              window={window}
+              todayMs={todayMs}
+              onAssignClick={(subId) => setAssignSubId(subId)}
+              onUnassign={(subId, mId) => void unassignSubFromMilestone(subId, mId)}
+            />
+          </div>
+          {/* Mobile: a stacked "who's on what" list grouped by sub. */}
+          <div className="space-y-3 md:hidden">
+            {[...new Map(assignments.map((a) => [a.sub_id, a.sub_name])).entries()].map(([subId, subName]) => {
+              const rows = assignments
+                .filter((a) => a.sub_id === subId)
+                .sort((x, y) => x.start_date.localeCompare(y.start_date));
+              return (
+                <div key={subId} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <button
+                    onClick={() => setAssignSubId(subId)}
+                    className="mb-2 flex w-full items-center justify-between text-left"
+                  >
+                    <span className="font-semibold text-slate-900">{subName}</span>
+                    <span className="text-xs font-medium text-sky-700">+ Assign</span>
+                  </button>
+                  <ul className="space-y-1.5">
+                    {rows.map((a) => {
+                      const conflict = conflicts.has(`${a.sub_id}|${a.milestone_id}`);
+                      const d = (s: string) => new Date(s + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                      return (
+                        <li key={a.milestone_id} className={`rounded-lg border p-2 text-sm ${conflict ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate font-medium text-slate-800">{a.deal_name}</span>
+                            {conflict && <span className="flex-shrink-0 text-[10px] font-semibold uppercase text-red-600">conflict</span>}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {a.milestone_name} · {d(a.start_date)}–{d(a.end_date)}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {assignSubId && (
