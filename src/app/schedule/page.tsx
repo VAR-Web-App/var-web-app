@@ -15,6 +15,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import SchedulingInsights from "@/components/scheduling-insights";
 import Tooltip from "@/components/tooltip";
 import { Deal, Distributor } from "@/types";
 import { ProjectMilestone, MILESTONE_STATUS_STYLES, MILESTONE_STATUS_LABELS } from "@/types/builder";
@@ -303,6 +304,10 @@ export default function SchedulePage() {
         </div>
         <ColorLegend />
       </div>
+
+      {loaded && (
+        <SchedulingInsights deals={deals} subs={subs} milestones={milestones} />
+      )}
 
       {!loaded ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm">

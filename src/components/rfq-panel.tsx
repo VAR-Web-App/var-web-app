@@ -57,23 +57,30 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
     undefined,
   );
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<ProjectRFQ | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      listRFQs(deal.id),
-      listDistributors(deal.org_ref),
-      getSettings(deal.org_ref),
-    ]).then(([r, s, settings]) => {
+    // Settle independently + always flip `loaded` so a failed/denied read
+    // never strands the panel on "Loading RFQs…" forever.
+    void (async () => {
+      const [rR, sR, setR] = await Promise.allSettled([
+        listRFQs(deal.id),
+        listDistributors(deal.org_ref),
+        getSettings(deal.org_ref),
+      ]);
       if (!active) return;
-      setRfqs(r);
-      setSubs(s);
-      setBuilderName(settings?.company_name ?? "");
-      setFromNumberHint(settings?.sms_config?.from_number);
+      if (rR.status === "fulfilled") setRfqs(rR.value);
+      else { console.warn("[rfq-panel] listRFQs failed", rR.reason); setLoadError(true); }
+      if (sR.status === "fulfilled") setSubs(sR.value);
+      if (setR.status === "fulfilled") {
+        setBuilderName(setR.value?.company_name ?? "");
+        setFromNumberHint(setR.value?.sms_config?.from_number);
+      }
       setLoaded(true);
-    });
+    })();
     return () => { active = false; };
   }, [deal.id, deal.org_ref]);
 
@@ -186,6 +193,10 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
 
       {!loaded ? (
         <div className="px-6 py-6 text-sm text-slate-500">Loading RFQs…</div>
+      ) : loadError ? (
+        <div className="px-6 py-6 text-sm text-red-600">
+          Couldn&rsquo;t load bid requests. Refresh to try again.
+        </div>
       ) : rfqs.length === 0 ? (
         <div className="px-6 py-12 text-center">
           <ClipboardDocumentListIcon className="mx-auto h-10 w-10 text-slate-300" />

@@ -47,10 +47,27 @@ service cloud.firestore {
                             && resource.data.owner_uid == request.auth.uid;
     }
 
-    // User profile: each user can read/write their own. Used by all the
-    // org-scoped rules below to look up the caller's org_ref.
+    // User profile: each user can read/write their own. org_ref is the ONLY
+    // thing that gates cross-tenant access, so it can't be freely written —
+    // otherwise anyone could read a victim's org_ref (exposed in public link
+    // docs) and self-assign into that tenant. It may only be set to your
+    // personal org (your uid) or to an org that actually invited your email.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.org_ref == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && (
+          request.resource.data.org_ref == resource.data.org_ref
+          || request.resource.data.org_ref == uid
+          || (
+            request.auth.token.email != null
+            && exists(/databases/$(database)/documents/invites/$(request.auth.token.email))
+            && get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.org_ref
+               == request.resource.data.org_ref
+          )
+        );
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // Deals: org-scoped.
@@ -76,7 +93,10 @@ service cloud.firestore {
     //     (b) the authed GC marks synced_to_deal once they've picked up
     //         the signature into the deal record.
     match /client_sign_links/{token} {
-      allow read: if true;
+      // get-by-token is the trust boundary; list must be denied so nobody can
+      // enumerate the collection and dump every org's signed proposals.
+      allow get: if true;
+      allow list: if false;
       allow create: if request.auth != null
         && request.resource.data.token == token
         && request.resource.data.org_ref == callerOrgRef();
@@ -110,7 +130,9 @@ service cloud.firestore {
     // - allow read: public
     // - allow create/update/delete: only the authed builder, own org
     match /sub_schedule_links/{token} {
-      allow read: if true;
+      // get-by-token only; deny list to prevent cross-tenant enumeration.
+      allow get: if true;
+      allow list: if false;
       allow create: if request.auth != null
         && request.resource.data.token == token
         && request.resource.data.org_ref == callerOrgRef();
@@ -126,7 +148,13 @@ service cloud.firestore {
     // reads + writes to project_selections go through /api/designer/*
     // (admin SDK) after the server verifies the token.
     match /designer_links/{token} {
-      allow read: if true;
+      // get-by-token is public (the designer opens /d/{token} with no login).
+      // list is allowed only to the authed builder, scoped to their own org —
+      // createOrGetDesignerLink queries by org_ref so this is satisfiable
+      // without exposing other tenants' links to enumeration.
+      allow get: if true;
+      allow list: if request.auth != null
+        && resource.data.org_ref == callerOrgRef();
       allow create: if request.auth != null
         && request.resource.data.token == token
         && request.resource.data.org_ref == callerOrgRef();
@@ -232,8 +260,12 @@ service cloud.firestore {
     // surface "sub confirmed" / "sub flagged a conflict" badges. No
     // client write path — admin SDK bypasses these rules.
     match /sub_acknowledgments/{ackId} {
+      // Read via org_ref directly OR the parent deal's org, so the deal_ref-
+      // scoped query (listSubAcknowledgmentsByDeal) isn't rejected by the
+      // "rules aren't filters" trap. Writes are server-only (admin route).
       allow read: if request.auth != null
-                  && resource.data.org_ref == callerOrgRef();
+                  && (resource.data.org_ref == callerOrgRef()
+                      || get(/databases/$(database)/documents/deals/$(resource.data.deal_ref)).data.org_ref == callerOrgRef());
       allow write: if false;
     }
 

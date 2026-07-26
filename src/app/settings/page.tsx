@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import AssemblyCostOverridesCard from "@/components/assembly-cost-overrides-card";
 import TeamInviteCard from "@/components/team-invite-card";
 import GCPushOptIn from "@/components/gc-push-opt-in";
+import NotificationPrefsCard from "@/components/notification-prefs-card";
 import { Input, TextArea } from "../accounts/page";
 
 const DEFAULT_SETTINGS = (orgRef: string): OrgSettings => ({
@@ -127,6 +128,13 @@ export default function SettingsPage() {
                 void saveSettings(next);
               }}
             />
+          </Card>
+
+          <Card
+            title="Notification routing"
+            subtitle="Choose which channels fire for each event, and set quiet hours. Changes save automatically."
+          >
+            <NotificationPrefsCard settings={settings} onChange={setSettings} />
           </Card>
 
           <Card

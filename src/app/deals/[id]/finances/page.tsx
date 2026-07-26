@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import RFQPanel from "@/components/rfq-panel";
+import BidIntelligencePanel from "@/components/bid-intelligence-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
 import PaymentsSection from "@/components/payments-section";
 import BudgetPanel from "@/components/budget-panel";
@@ -54,6 +55,7 @@ export default function DealFinancesPage({
         <InvoicesPanel deal={deal} />
         <PaymentsSection deal={deal} />
         <RFQPanel deal={deal} />
+        <BidIntelligencePanel deal={deal} />
       </div>
     </DealPageShell>
   );

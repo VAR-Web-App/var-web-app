@@ -477,12 +477,14 @@ export async function createOrGetDesignerLink(
   deal: Deal,
   builderName: string,
 ): Promise<string> {
-  // Reuse an existing link for this project if one was already minted.
+  // Reuse an existing link for this project if one was already minted. Query
+  // by org_ref (the field the designer_links list rule gates on) and narrow to
+  // this deal in memory — a bare deal_ref query would be permission-denied.
   const existing = await getDocs(
-    query(collection(db, "designer_links"), where("deal_ref", "==", deal.id)),
+    query(collection(db, "designer_links"), where("org_ref", "==", deal.org_ref)),
   );
   const mine = existing.docs.find(
-    (d) => (d.data() as DesignerLink).org_ref === deal.org_ref,
+    (d) => (d.data() as DesignerLink).deal_ref === deal.id,
   );
   const now = new Date().toISOString();
   if (mine) {
@@ -529,6 +531,15 @@ export async function listRFQs(dealRef: string): Promise<ProjectRFQ[]> {
 
 export async function saveRFQ(r: ProjectRFQ): Promise<void> {
   await setDoc(doc(db, "project_rfqs", r.id), r, { merge: false });
+}
+
+/** Every RFQ across the org, loaded the same deals→per-deal way the schedule
+ *  view loads milestones (project_rfqs is deal-scoped in the rules, so a bare
+ *  org_ref query would be rejected). Used for cross-project bid benchmarking. */
+export async function listAllRFQsForOrg(orgRef: string): Promise<ProjectRFQ[]> {
+  const deals = await listDeals(orgRef);
+  const perDeal = await Promise.all(deals.map((d) => listRFQs(d.id).catch(() => [])));
+  return perDeal.flat();
 }
 
 // ── client sign links (public-facing proposal acceptance) ───────
