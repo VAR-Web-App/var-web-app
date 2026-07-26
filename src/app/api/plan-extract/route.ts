@@ -376,17 +376,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Clean up the uploaded PDF — extraction is persisted on the deal,
-  // the blob has no further use. Fire-and-forget; a delete failure
-  // shouldn't break the user-visible response (the blob's lifecycle
-  // policy will eventually catch it anyway).
-  deleteBlob(body.blob_url).catch((e) => {
-    console.warn("[plan-extract] post-extraction blob cleanup failed", e);
-  });
+  // Retain the uploaded plan by default — these PDFs are the training corpus
+  // for an in-house floor-plan model (CubiCasa5K is NonCommercial, so our own
+  // plans are the only commercially-clean training data). The plan_url is
+  // stamped onto the deal by the client. Set RETAIN_PLAN_UPLOADS=false to
+  // revert to delete-after-extraction. NOTE: retaining customer plans for
+  // training must be covered by your customer terms.
+  const retain = process.env.RETAIN_PLAN_UPLOADS !== "false";
+  if (!retain) {
+    deleteBlob(body.blob_url).catch((e) => {
+      console.warn("[plan-extract] post-extraction blob cleanup failed", e);
+    });
+  }
 
   return NextResponse.json({
     ok: true,
     extraction,
+    plan_url: retain ? body.blob_url : undefined,
     model: MODEL,
     input_tokens: response.usage.input_tokens,
     output_tokens: response.usage.output_tokens,

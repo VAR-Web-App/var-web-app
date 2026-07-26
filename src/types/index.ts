@@ -74,6 +74,10 @@ export interface Deal {
   // and marketed design plans.
   floor_plan_extraction?: Record<string, unknown>;
   floor_plan_extracted_at?: string;
+  /** Retained uploaded plan PDF (Vercel Blob URL). Kept as training-corpus
+   *  raw material for the in-house floor-plan model. Undefined when retention
+   *  is disabled (RETAIN_PLAN_UPLOADS=false) or for pre-retention deals. */
+  floor_plan_url?: string;
   /** Indices into floor_plan_extraction.ambiguity_notes that the GC
    *  has marked as verified / resolved. Persists alongside the
    *  extraction so resolution survives navigation. Reset to []

@@ -215,6 +215,8 @@ export default function PlanExtractor({
   // hydrates from initialExtraction props — no point writing back the
   // exact data we just read (would also bump deal.updated_at uselessly).
   const skipFirstSave = useRef(!!initialExtraction);
+  // Retained plan URL from the last extraction, stamped onto the deal below.
+  const planUrlRef = useRef<string | null>(null);
   useEffect(() => {
     if (!extraction) return;
     if (skipFirstSave.current) {
@@ -229,6 +231,7 @@ export default function PlanExtractor({
           ...deal,
           floor_plan_extraction: extraction as unknown as Record<string, unknown>,
           floor_plan_extracted_at: deal.floor_plan_extracted_at ?? new Date().toISOString(),
+          ...(planUrlRef.current ? { floor_plan_url: planUrlRef.current } : {}),
           resolved_ambiguity_indices: Array.from(resolvedFlags).sort((a, b) => a - b),
           updated_at: new Date().toISOString(),
         });
@@ -378,7 +381,7 @@ export default function PlanExtractor({
       // Parse defensively: even with the blob hop, the function can
       // still 504 (extraction timeout) or return a non-JSON edge error.
       const bodyText = await res.text();
-      let json: { ok?: boolean; error?: string; extraction?: PlanExtraction } | null = null;
+      let json: { ok?: boolean; error?: string; extraction?: PlanExtraction; plan_url?: string } | null = null;
       try {
         json = bodyText ? JSON.parse(bodyText) : null;
       } catch {
@@ -389,6 +392,9 @@ export default function PlanExtractor({
         throw new Error(json?.error || `Request failed (${res.status})`);
       }
       setProgress(100);
+      // Capture the retained plan URL (if retention is on) so the debounced
+      // save below stamps it onto the deal for the training corpus.
+      planUrlRef.current = json.plan_url ?? null;
       // Brief pause at 100% so the user sees the bar finish before the
       // results render.
       await new Promise((r) => setTimeout(r, 250));
