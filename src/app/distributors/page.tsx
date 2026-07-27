@@ -415,8 +415,11 @@ export default function DistributorsPage() {
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-sky-700"
               />
               <span>
-                This sub agreed to receive schedule text notifications.
-                KeystonePro won&apos;t text a sub until this is checked.
+                This sub gave permission to receive SMS from{" "}
+                {orgSettings?.company_name?.trim() || "us"} about scheduling,
+                RFQs, and job updates. Msg frequency varies; msg &amp; data
+                rates may apply. Reply STOP to opt out, HELP for help. We
+                won&apos;t text this sub until this box is checked.
               </span>
             </label>
             <TextArea label="Address" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} />
