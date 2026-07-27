@@ -403,6 +403,9 @@ export interface OrgSettings {
   default_manufacturer: string;
   prepared_by_name: string;
   prepared_by_phone: string;
+  /** First-run onboarding wizard completed (or skipped). Undefined/false =
+   *  the new-account walkthrough still shows. */
+  onboarding_done?: boolean;
   /**
    * Per-org SMS configuration. Lets the platform run Twilio Option A
    * today (one shared platform number) while leaving a clean migration

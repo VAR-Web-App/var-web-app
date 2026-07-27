@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Sidebar from "./sidebar";
 import MobileBottomNav from "./mobile-bottom-nav";
 import JoinOrgBanner from "./join-org-banner";
+import OnboardingWizard from "./onboarding-wizard";
 import { useAuth } from "@/lib/auth-context";
+import { getSettings } from "@/lib/store";
+import type { OrgSettings } from "@/types";
 
 // Auth-gated shell. Unauthenticated users get bounced to /login.
 // Anyone who wants to browse without an account can hit /demo, which is
@@ -18,13 +21,39 @@ import { useAuth } from "@/lib/auth-context";
 // Desktop (md+): sidebar is pinned-left, content shifts right by w-56.
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // First-run onboarding: show the walkthrough once, until the org marks it
+  // done. Only owners see it (invited members join an already-set-up org).
+  const [onboarding, setOnboarding] = useState<OrgSettings | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!profile?.org_ref || profile.role !== "owner") return;
+    // Once we've confirmed onboarding is done, skip the per-navigation read
+    // for the rest of the session.
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("kp_onboarded")) {
+      return;
+    }
+    let active = true;
+    void getSettings(profile.org_ref)
+      .then((s) => {
+        if (!active || !s) return;
+        if (s.onboarding_done) {
+          try { sessionStorage.setItem("kp_onboarded", "1"); } catch {}
+        } else {
+          setOnboarding(s);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [profile?.org_ref, profile?.role]);
 
   if (loading) {
     return (
@@ -63,6 +92,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <JoinOrgBanner />
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+      {onboarding && (
+        <OnboardingWizard
+          initial={onboarding}
+          onClose={() => {
+            try { sessionStorage.setItem("kp_onboarded", "1"); } catch {}
+            setOnboarding(null);
+          }}
+        />
+      )}
     </div>
   );
 }
