@@ -59,10 +59,13 @@ Everything the app needs across push, email, and SMS to be fully live.
 - [x] ✅ Consent disclosure copy is carrier-grade (PR #17)
 
 **External (Collin — standard/EIN path):**
-- [ ] 👤 Create Twilio account + payment method
-- [ ] 👤 Buy a 10-digit number (~$1.15/mo)
-- [ ] 👤 Register **Brand** — LLC name exactly as on the EIN letter + EIN (~$4)
-- [ ] 👤 Register **Campaign** — use case "Customer Care – notifications" + 2–3 sample messages
+> **Entity structure:** KeystonePro is a product under the **Knoxx Group** umbrella (Knoxx holds the EIN). The A2P **Brand = Knoxx Group** (keyed by EIN — register ONCE, one brand per EIN). KeystonePro is a **Campaign** under that brand; other Knoxx products (e.g. RoofWorks) get their own campaigns under the same brand. **Reuse an existing Knoxx Twilio account if one exists** — don't create a second or re-register the EIN.
+
+- [ ] 👤 **Check first:** does a Knoxx product (RoofWorks?) already have a Twilio account + the Knoxx brand registered? If yes → reuse it, skip the brand step.
+- [ ] 👤 Create/log into the **Knoxx Group** Twilio account + payment method
+- [ ] 👤 Buy a 10-digit number for KeystonePro (~$1.15/mo)
+- [ ] 👤 Register **Brand = Knoxx Group** — legal name exactly as on the EIN/IRS letter + EIN (~$4) — *only if not already registered*
+- [ ] 👤 Register **Campaign** (KeystonePro) — use case "Customer Care – notifications" + 2–3 sample messages
 - [ ] 👤 Point the number's "A message comes in" webhook → `https://keystonepro.app/api/sms/inbound`
 - [ ] 👤 Send Claude the number + Account SID + Auth Token
 - [ ] 🔧 Add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` to Vercel
