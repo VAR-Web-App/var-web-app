@@ -41,6 +41,10 @@ export default function SchedulingInsights({
   const [today, setToday] = useState<string | null>(null);
   const [advisories, setAdvisories] = useState<WeatherAdvisory[]>([]);
   const [weatherState, setWeatherState] = useState<"idle" | "loading" | "done">("idle");
+  // False when we tried to fetch a forecast but every address failed to
+  // geocode / return data — so we show "couldn't check" instead of the
+  // misleading "no rain" all-clear.
+  const [weatherReachable, setWeatherReachable] = useState(true);
 
   useEffect(() => {
     setToday(new Date().toISOString().slice(0, 10));
@@ -96,20 +100,27 @@ export default function SchedulingInsights({
 
     let active = true;
     setWeatherState("loading");
+    setWeatherReachable(true);
     void (async () => {
       const all: WeatherAdvisory[] = [];
+      let succeeded = 0;
       for (const d of relevant.slice(0, 6)) {
         try {
           const res = await fetch(`/api/weather?address=${encodeURIComponent(d.ship_to_address)}`);
           const data = (await res.json()) as { ok: boolean; forecast?: ForecastDay[] };
           if (!data.ok || !data.forecast) continue;
+          succeeded++;
           const dealMs = milestones.filter((m) => m.deal_ref === d.id);
           all.push(...weatherAdvisories(dealMs, data.forecast, d.name));
         } catch {
           /* skip this deal's weather */
         }
       }
-      if (active) { setAdvisories(all); setWeatherState("done"); }
+      if (active) {
+        setAdvisories(all);
+        setWeatherReachable(succeeded > 0);
+        setWeatherState("done");
+      }
     })();
     return () => { active = false; };
   }, [deals, milestones, today]);
@@ -159,7 +170,11 @@ export default function SchedulingInsights({
         {weatherState === "loading" ? (
           <Empty>Checking forecasts…</Empty>
         ) : advisories.length === 0 ? (
-          <Empty>No rain threatening upcoming outdoor phases.</Empty>
+          weatherReachable ? (
+            <Empty>No rain threatening upcoming outdoor phases.</Empty>
+          ) : (
+            <Empty>Couldn&rsquo;t check the forecast for this project&rsquo;s address — double-check it&rsquo;s a valid US address.</Empty>
+          )
         ) : (
           <ul className="space-y-2">
             {advisories.map((a) => (

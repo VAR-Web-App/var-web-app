@@ -33,6 +33,9 @@ export default function PhoneSummarizer() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [saved, setSaved] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  // When Claude can't confidently match a project, the user picks one here so
+  // the summary is never a dead end.
+  const [chosenId, setChosenId] = useState("");
 
   async function run() {
     if (!transcript.trim() || busy) return;
@@ -40,6 +43,7 @@ export default function PhoneSummarizer() {
     setError(null);
     setSummary(null);
     setSaved(false);
+    setChosenId("");
     try {
       const ds = profile?.org_ref ? await listDeals(profile.org_ref) : [];
       setDeals(ds);
@@ -64,8 +68,10 @@ export default function PhoneSummarizer() {
   }
 
   async function saveToProject() {
-    if (!summary?.matched_project_id || savingNote) return;
-    const deal = deals.find((d) => d.id === summary.matched_project_id);
+    if (!summary || savingNote) return;
+    const targetId = summary.matched_project_id || chosenId;
+    if (!targetId) return;
+    const deal = deals.find((d) => d.id === targetId);
     if (!deal) return;
     setSavingNote(true);
     try {
@@ -162,7 +168,27 @@ export default function PhoneSummarizer() {
                 </div>
               )}
 
-              {summary.matched_project_id && (
+              {!summary.matched_project_id && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    No project matched — pick one to save this to:
+                  </label>
+                  <select
+                    value={chosenId}
+                    onChange={(e) => { setChosenId(e.target.value); setSaved(false); }}
+                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  >
+                    <option value="">Select a project…</option>
+                    {deals.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(summary.matched_project_id || chosenId) && (
                 <button
                   onClick={saveToProject}
                   disabled={savingNote || saved}

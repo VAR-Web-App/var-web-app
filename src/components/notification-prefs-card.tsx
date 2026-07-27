@@ -4,6 +4,7 @@
 // (push / email / SMS) + a quiet-hours window. Persists on every change so
 // there's nothing to remember to Save (mirrors the push opt-in card).
 
+import { useEffect, useState } from "react";
 import { saveSettings } from "@/lib/store";
 import type { OrgSettings } from "@/types";
 import {
@@ -27,6 +28,18 @@ export default function NotificationPrefsCard({
   onChange: (s: OrgSettings) => void;
 }) {
   const prefs: NotificationPrefs = settings.notification_prefs ?? {};
+
+  // Which channels the server can actually deliver on. Default everything to
+  // configured so we never flash "needs setup" before the check resolves (or
+  // cry wolf if the check itself fails).
+  const [ready, setReady] = useState<Record<Channel, boolean>>({ push: true, email: true, sms: true });
+  useEffect(() => {
+    void fetch("/api/notify/channels")
+      .then((r) => r.json())
+      .then((d: { push?: boolean; email?: boolean; sms?: boolean }) =>
+        setReady({ push: true, email: !!d.email, sms: !!d.sms }))
+      .catch(() => {});
+  }, []);
 
   function update(next: NotificationPrefs) {
     const nextSettings = { ...settings, notification_prefs: next };
@@ -62,6 +75,11 @@ export default function NotificationPrefsCard({
               {CHANNELS.map((c) => (
                 <th key={c.key} className="w-16 pb-2 text-center font-medium">
                   {c.label}
+                  {!ready[c.key] && (
+                    <span className="mt-0.5 block text-[9px] font-semibold normal-case tracking-normal text-amber-600">
+                      Needs setup
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -93,6 +111,17 @@ export default function NotificationPrefsCard({
         SMS needs a phone number on file (Business info) and can incur carrier
         costs. Push goes to devices you&rsquo;ve enabled above.
       </p>
+      {(!ready.email || !ready.sms) && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {!ready.email && !ready.sms
+            ? "Email and SMS aren’t set up on this workspace yet"
+            : !ready.email
+              ? "Email isn’t set up on this workspace yet"
+              : "SMS isn’t set up on this workspace yet"}{" "}
+          — you can choose your routing now, but those channels won’t deliver
+          until an admin finishes setup. Push notifications work today.
+        </p>
+      )}
 
       {/* Quiet hours */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
