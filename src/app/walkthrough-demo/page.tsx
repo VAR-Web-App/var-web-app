@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import WalkthroughViewer from "@/components/walkthrough-viewer";
 import type { WalkthroughLayout } from "@/app/api/walkthrough/layout/route";
-import { layoutToStl, downloadStl, buildHouseMesh } from "@/lib/model3d";
+import { layoutToStl, downloadStl, buildWalledHouseMesh } from "@/lib/model3d";
 import { exportGlb, exportUsdz } from "@/lib/model3d/three-export";
 
 // Maddox — Country Dream House (Architectural Designs plan 46380L), the app's
@@ -43,7 +43,7 @@ export default function WalkthroughDemoPage() {
     if (!layout) return;
     setArBusy(true);
     try {
-      const mesh = buildHouseMesh(layout, { targetLongestMm: 200 });
+      const mesh = buildWalledHouseMesh(layout, { targetLongestMm: 200 });
       const [glb, usdz] = await Promise.all([exportGlb(mesh), exportUsdz(mesh)]);
       setAr((prev) => {
         if (prev) {
@@ -122,8 +122,9 @@ export default function WalkthroughDemoPage() {
             Maddox — Country Dream House
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Rooms placed by AI from names + sizes, extruded with three.js. Drag
-            to orbit, scroll to zoom. Blue = main level, amber = second.
+            Walled rooms + a 9:12 gable roof, built from the floor-plan
+            dimensions. Drag to orbit, scroll to zoom. Same model exports to
+            AR + a printable STL.
           </p>
         </div>
         <div className="flex gap-2">

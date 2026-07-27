@@ -7,14 +7,14 @@
 // at a ~200 mm longest side (a ~0.2 m dollhouse in AR).
 
 import { NextResponse } from "next/server";
-import { buildHouseMesh } from "@/lib/model3d";
+import { buildWalledHouseMesh } from "@/lib/model3d";
 import { meshToGlb } from "@/lib/model3d/glb";
 import { maddoxLayout } from "@/lib/model3d/sample-house";
 
 export const runtime = "nodejs";
 
 export function GET() {
-  const mesh = buildHouseMesh(maddoxLayout(), { targetLongestMm: 200 });
+  const mesh = buildWalledHouseMesh(maddoxLayout(), { targetLongestMm: 200 });
   const glb = meshToGlb(mesh);
   return new NextResponse(glb as BodyInit, {
     status: 200,
