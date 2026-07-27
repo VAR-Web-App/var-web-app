@@ -7,20 +7,25 @@
 import { useCallback, useEffect, useState } from "react";
 import WalkthroughViewer from "@/components/walkthrough-viewer";
 import type { WalkthroughLayout } from "@/app/api/walkthrough/layout/route";
-import { layoutToStl, downloadStl } from "@/lib/model3d";
+import { layoutToStl, downloadStl, buildHouseMesh } from "@/lib/model3d";
+import { exportGlb, exportUsdz } from "@/lib/model3d/three-export";
 
+// Maddox — Country Dream House (Architectural Designs plan 46380L), the app's
+// sample project. Rooms + dimensions taken straight off the labeled floor plan
+// (72'9" × 82'7" footprint, 10' main / 9' second ceilings).
 const DEMO_ROOMS = [
-  { name: "Foyer", dimensions: "10' × 14'", sqft: 140, level: "main" },
-  { name: "Great Room", dimensions: "22' × 18'", sqft: 396, level: "main" },
-  { name: "Kitchen", dimensions: "18' × 16'", sqft: 288, level: "main" },
-  { name: "Dining", dimensions: "14' × 14'", sqft: 196, level: "main" },
-  { name: "Master Suite", dimensions: "16' × 18'", sqft: 288, level: "main" },
-  { name: "Master Bath", dimensions: "14' × 11'", sqft: 154, level: "main" },
-  { name: "Mudroom", dimensions: "8' × 10'", sqft: 80, level: "main" },
-  { name: "Bedroom 2", dimensions: "13' × 14'", sqft: 182, level: "second" },
-  { name: "Bedroom 3", dimensions: "12' × 13'", sqft: 156, level: "second" },
-  { name: "Bedroom 4", dimensions: "12' × 13'", sqft: 156, level: "second" },
-  { name: "Bonus / Office", dimensions: "16' × 14'", sqft: 224, level: "second" },
+  { name: "Foyer", dimensions: "12' × 12'", sqft: 144, level: "main" },
+  { name: "Study", dimensions: "12' × 12'", sqft: 144, level: "main" },
+  { name: "Dining", dimensions: "12' × 12'", sqft: 144, level: "main" },
+  { name: "Bedroom 2", dimensions: "12' × 12'", sqft: 144, level: "main" },
+  { name: "Bedroom 3", dimensions: "12' × 12'", sqft: 144, level: "main" },
+  { name: "Vaulted Family", dimensions: "17' × 19'", sqft: 329, level: "main" },
+  { name: "Kitchen", dimensions: "11' × 24'", sqft: 269, level: "main" },
+  { name: "Owner's Suite", dimensions: "16' × 17'", sqft: 272, level: "main" },
+  { name: "Garage", dimensions: "26' × 33'", sqft: 858, level: "main" },
+  { name: "Bedroom 4", dimensions: "12' × 14'", sqft: 170, level: "second" },
+  { name: "Bedroom 5", dimensions: "12' × 14'", sqft: 170, level: "second" },
+  { name: "Bonus / 6th BR", dimensions: "12' × 19'", sqft: 243, level: "second" },
 ];
 
 export default function WalkthroughDemoPage() {
@@ -28,6 +33,31 @@ export default function WalkthroughDemoPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printNote, setPrintNote] = useState<string | null>(null);
+  const [ar, setAr] = useState<{ glb: string; usdz: string } | null>(null);
+  const [arBusy, setArBusy] = useState(false);
+
+  // AR proof: build the same mesh, export GLB (Android/web) + USDZ (iOS AR
+  // Quick Look), and hand back object URLs. On an iPhone, the "View in AR"
+  // link drops the house on your table at ~20 cm.
+  const buildAr = useCallback(async () => {
+    if (!layout) return;
+    setArBusy(true);
+    try {
+      const mesh = buildHouseMesh(layout, { targetLongestMm: 200 });
+      const [glb, usdz] = await Promise.all([exportGlb(mesh), exportUsdz(mesh)]);
+      setAr((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev.glb);
+          URL.revokeObjectURL(prev.usdz);
+        }
+        return { glb: URL.createObjectURL(glb), usdz: URL.createObjectURL(usdz) };
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "AR export failed.");
+    } finally {
+      setArBusy(false);
+    }
+  }, [layout]);
 
   // Proof of the physical-model path: turn the same layout into a printable
   // STL, fit to a 200 mm longest side (a typical desk-model size), and download
@@ -52,7 +82,7 @@ export default function WalkthroughDemoPage() {
       const res = await fetch("/api/walkthrough/layout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rooms: DEMO_ROOMS, footprint: "68' × 42'" }),
+        body: JSON.stringify({ rooms: DEMO_ROOMS, footprint: "72' × 82'" }),
       });
       const data = (await res.json()) as { ok: boolean; layout?: WalkthroughLayout; error?: string };
       if (!data.ok || !data.layout) setError(data.error || "Layout failed.");
@@ -76,7 +106,7 @@ export default function WalkthroughDemoPage() {
             3D Walkthrough · Path B (POC)
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Sample home — inferred model
+            Maddox — Country Dream House
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Rooms placed by AI from names + sizes, extruded with three.js. Drag
@@ -118,6 +148,64 @@ export default function WalkthroughDemoPage() {
           <WalkthroughViewer layout={layout} />
         )}
       </div>
+
+      {layout && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">
+                View on your table (AR)
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Same model, exported to AR formats. On an iPhone, tap “View in
+                AR” to drop the house on your table at ~20&nbsp;cm.
+              </p>
+            </div>
+            <button
+              onClick={buildAr}
+              disabled={arBusy}
+              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:bg-sky-300"
+            >
+              {arBusy ? "Building…" : ar ? "Rebuild AR files" : "Generate AR files"}
+            </button>
+          </div>
+          {ar && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* rel="ar" + an <img> child triggers iOS AR Quick Look. */}
+              <a
+                rel="ar"
+                href={ar.usdz}
+                className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                <img
+                  src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                  alt=""
+                  className="h-0 w-0"
+                />
+                View in AR (iOS)
+              </a>
+              <a
+                href={ar.glb}
+                download="maddox-house.glb"
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Download GLB
+              </a>
+              <a
+                href={ar.usdz}
+                download="maddox-house.usdz"
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Download USDZ
+              </a>
+              <span className="text-[11px] text-slate-400">
+                Android AR (Scene Viewer) needs the GLB hosted at a URL — a small
+                follow-up.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {layout && (
         <p className="mt-3 text-xs text-slate-400">
