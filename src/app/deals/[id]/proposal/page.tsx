@@ -116,6 +116,11 @@ export default function ProposalPage({
   }
 
   const totalCustomer = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
+  // The contract figure the client signs must equal what acceptance books
+  // (award_total = total_quote_value, the grand total incl. soft costs) — not
+  // the bare line subtotal. Fall back to the subtotal only if the roll-up is
+  // unset (e.g. quote never saved).
+  const contractTotal = deal?.total_quote_value || totalCustomer;
 
   const proposalDate = new Date().toLocaleDateString(undefined, {
     year: "numeric",
@@ -154,22 +159,32 @@ export default function ProposalPage({
       business_phone: settings?.company_phone,
       business_email: settings?.company_email,
       business_license: settings?.cage_code,
-      contract_amount: totalCustomer,
+      contract_amount: contractTotal,
       lines,
       created_at,
     });
+
+    // Sending a proposal means the estimate has gone out — advance the deal to
+    // "Estimate Sent" (quoted) if it's still in a pre-proposal stage. This is
+    // what unlocks the client-accept + signature-sync flow (both gate on
+    // "quoted"); without it a freshly-created project's sign→contract loop
+    // never closes.
+    const nextStage =
+      fresh.stage === "rfq" || fresh.stage === "vendor_sourcing"
+        ? "quoted"
+        : fresh.stage;
 
     let token = fresh.client_sign_token;
     if (token) {
       const existing = await getClientSignLink(token);
       if (existing) {
-        // Reuse the same URL so the client doesn't get a fresh link on
-        // every re-send. BUT if it hasn't been signed yet, refresh the
-        // snapshot from current data — the GC may have updated the
-        // estimate or filled in their company name since. Once signed,
-        // the snapshot is frozen (audit integrity).
+        // Reuse the same URL so the client doesn't get a fresh link on every
+        // re-send; refresh the (unsigned) snapshot from current data.
         if (!existing.signed_at) {
           await createClientSignLink(snapshot(token, existing.created_at));
+        }
+        if (nextStage !== fresh.stage) {
+          await saveDeal({ ...fresh, stage: nextStage, updated_at: new Date().toISOString() });
         }
         return `${window.location.origin}/sign/${token}`;
       }
@@ -180,6 +195,7 @@ export default function ProposalPage({
     await saveDeal({
       ...fresh,
       client_sign_token: token,
+      stage: nextStage,
       updated_at: new Date().toISOString(),
     });
     return `${window.location.origin}/sign/${token}`;
@@ -197,7 +213,7 @@ export default function ProposalPage({
         ``,
         `Here's your proposal for ${deal.name}.`,
         ``,
-        `Total contract amount: ${fmtMoneyRound(totalCustomer)}`,
+        `Total contract amount: ${fmtMoneyRound(contractTotal)}`,
         `Target start: ${deal.due_date || "TBD"}`,
         `Proposal valid until: ${validUntilLabel}`,
         ``,
@@ -447,7 +463,7 @@ export default function ProposalPage({
                   Total Contract Amount
                 </p>
                 <p className="mt-1 text-4xl font-bold tabular-nums text-slate-900">
-                  {fmtMoneyRound(totalCustomer)}
+                  {fmtMoneyRound(contractTotal)}
                 </p>
               </div>
               <div className="text-right text-xs text-slate-600">
@@ -491,13 +507,27 @@ export default function ProposalPage({
                   </div>
                 ))}
               </div>
-              <div className="mt-6 flex items-baseline justify-between border-t-2 border-slate-900 pt-3">
-                <span className="text-sm font-bold uppercase tracking-wider text-slate-900">
-                  Total
-                </span>
-                <span className="text-xl font-bold tabular-nums text-slate-900">
-                  {fmtMoney(totalCustomer)}
-                </span>
+              <div className="mt-6 space-y-1 border-t-2 border-slate-900 pt-3">
+                {contractTotal > totalCustomer + 0.5 && (
+                  <>
+                    <div className="flex items-baseline justify-between text-sm text-slate-600">
+                      <span>Scope subtotal</span>
+                      <span className="tabular-nums">{fmtMoney(totalCustomer)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between text-sm text-slate-600">
+                      <span>Soft costs &amp; fees</span>
+                      <span className="tabular-nums">{fmtMoney(contractTotal - totalCustomer)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-baseline justify-between pt-1">
+                  <span className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                    Total
+                  </span>
+                  <span className="text-xl font-bold tabular-nums text-slate-900">
+                    {fmtMoney(contractTotal)}
+                  </span>
+                </div>
               </div>
             </section>
           ) : (
