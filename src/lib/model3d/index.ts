@@ -10,12 +10,14 @@
 // that. See src/app/api/walkthrough/stl/route.ts for the server seam.
 
 import type { WalkthroughLayout } from "@/app/api/walkthrough/layout/route";
-import { buildHouseMesh, meshBoundsMm } from "./build-mesh";
+import { meshBoundsMm } from "./build-mesh";
+import { buildWalledHouseMesh } from "./walls";
 import { meshToBinaryStl } from "./stl";
 import type { ModelSpec } from "./types";
 
 export * from "./types";
 export { buildHouseMesh, meshBoundsMm, mmPerFoot } from "./build-mesh";
+export { buildWalledHouseMesh } from "./walls";
 export { meshToBinaryStl, downloadStl } from "./stl";
 
 export interface StlResult {
@@ -31,7 +33,7 @@ export function layoutToStl(
   layout: WalkthroughLayout,
   spec: Partial<ModelSpec> = {},
 ): StlResult {
-  const mesh = buildHouseMesh(layout, spec);
+  const mesh = buildWalledHouseMesh(layout, spec);
   return {
     bytes: meshToBinaryStl(mesh),
     boundsMm: meshBoundsMm(mesh),
