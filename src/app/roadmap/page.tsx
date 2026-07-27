@@ -140,16 +140,16 @@ const FEATURES: Feature[] = [
   },
   {
     id: "walkthrough",
-    title: "3D Virtual Walkthrough",
+    title: "3D Model & Scale Print",
     icon: HomeModernIcon,
-    tagline: "Your client walks the house before you break ground.",
+    tagline: "Hand your client a to-scale model of their home before ground breaks.",
     description:
-      "Convert the floor plan into a 3D model your client can virtually walk through from their phone. Fewer change orders, happier clients, marketing material for your portfolio.",
+      "Turn the floor plan into a to-scale 3D model — a physical, 3D-printed scale model shipped to your client, plus an orbitable 3D preview on their phone. Sell the vision, cut change orders, wow high-end buyers.",
     bullets: [
-      "Auto-generate 3D model from CubiCasa integration",
-      "Client-facing walkthrough link (mobile-friendly)",
-      "Material/finish overlays as selections get made",
-      "Optional 3D printed scale model add-on for high-end clients",
+      "Generated from your uploaded floor plan — no scanning, no site visit",
+      "Physical 3D-printed scale model, printed on demand and shipped to your client",
+      "Orbitable 3D preview link (mobile-friendly)",
+      "Finish/material overlays as selections get made",
     ],
     preview: <WalkthroughPreview />,
   },
