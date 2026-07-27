@@ -2105,6 +2105,50 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   ];
   for (const s of maddoxSelections) await saveSelection(s);
 
+  // ── End-to-end test coverage ─────────────────────────────────
+  const nowIso = new Date().toISOString();
+  const futureDate = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // (a) A client portal link for Maddox so /portal/{token} is one-click
+  //     testable (no need to generate one from a draw first).
+  const orgSettings = await getSettings(orgRef);
+  const demoPortalToken = `demo-portal-${maddoxId}`;
+  await setDoc(doc(db, "client_portal_links", demoPortalToken), {
+    token: demoPortalToken,
+    org_ref: orgRef,
+    deal_ref: maddoxId,
+    project_name: "Maddox — Country Dream House",
+    builder_name: orgSettings?.company_name || "your builder",
+    client_name: "Brennan Maddox",
+    created_at: nowIso,
+    updated_at: nowIso,
+  });
+
+  // (b) A cross-project double-booking so the Scheduling Intelligence
+  //     "Conflicts" card has real data: Hill Country Framing (subs[1]) is
+  //     booked on two OTHER projects with overlapping upcoming dates.
+  const conflictMilestone = async (
+    dealId: string,
+    name: string,
+    startOff: number,
+    endOff: number,
+  ) => {
+    const mid = newId("ms");
+    await saveMilestone({
+      id: mid, deal_ref: dealId, org_ref: orgRef, name, description: "",
+      order: 2, percentage: 15, amount: 60000, status: "pending",
+      planned_start_date: futureDate(startOff), planned_end_date: futureDate(endOff),
+      assigned_subs: [subs[1].id], notes: "",
+      created_at: nowIso, updated_at: nowIso,
+    });
+  };
+  await conflictMilestone(projects[1].id, "Framing", 20, 34); // Hunter
+  await conflictMilestone(projects[4].id, "Framing", 25, 40); // Webb — overlaps Hunter
+
   return { parsedCacheByDeal: {} };
 }
 
