@@ -8,6 +8,7 @@ import JoinOrgBanner from "./join-org-banner";
 import OnboardingWizard from "./onboarding-wizard";
 import AnnotationLayer from "./annotation-layer";
 import { useAuth } from "@/lib/auth-context";
+import { canAnnotate } from "@/lib/testers";
 import { getSettings } from "@/lib/store";
 import type { OrgSettings } from "@/types";
 
@@ -102,7 +103,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           }}
         />
       )}
-      <AnnotationLayer />
+      {canAnnotate(profile?.email) && <AnnotationLayer />}
     </div>
   );
 }
