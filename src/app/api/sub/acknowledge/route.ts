@@ -190,6 +190,8 @@ async function notifyGcOfConflict(
           startDate: assignment.start_date,
           reason,
         }),
+        fromName: settings.company_name,
+        replyTo: settings.company_email,
       });
     }
 

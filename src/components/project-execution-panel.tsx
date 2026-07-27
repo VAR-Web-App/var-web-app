@@ -78,6 +78,8 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
   const [loaded, setLoaded] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [companyName, setCompanyName] = useState("");
+  // Builder's business email → reply-to for tenant-identified emails (Option B).
+  const [replyTo, setReplyTo] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -129,6 +131,7 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
       setOrgMilestones(orgMs);
       setOrgDeals(orgDls);
       setCompanyName(settings?.company_name || "");
+      setReplyTo(settings?.company_email || "");
       const live = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
       setLiveEstimateTotal(live);
       if (live > 0 && Math.abs(deal.total_quote_value - live) > 0.01) {
@@ -448,7 +451,10 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         void sendSms(to, composeAssignmentSms(params));
       }
       if (isLikelyEmail(sub.email)) {
-        void sendEmail(sub.email!, composeAssignmentEmail(params));
+        void sendEmail(sub.email!, composeAssignmentEmail(params), {
+          fromName: companyName,
+          replyTo,
+        });
       }
       // Web push fires for every device the sub has registered via the
       // portal's PushOptIn banner. No-op if sub has no subscriptions.
@@ -481,7 +487,10 @@ export default function ProjectExecutionPanel({ deal }: { deal: Deal }) {
         void sendSms(to, composeRescheduleSms(params));
       }
       if (isLikelyEmail(sub.email)) {
-        void sendEmail(sub.email!, composeRescheduleEmail(params));
+        void sendEmail(sub.email!, composeRescheduleEmail(params), {
+          fromName: companyName,
+          replyTo,
+        });
       }
       void pushNotifySub(sub.id, {
         title: `${companyName || "KeystonePro"}: schedule change`,

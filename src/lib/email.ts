@@ -41,6 +41,11 @@ export async function sendEmail(args: {
   subject: string;
   text: string;
   html?: string;
+  /** Per-tenant sender identity (multi-tenant Option B): the builder's
+   *  company shows as the display name and their email as reply-to, over
+   *  one shared authenticated domain. Both fall back to platform defaults. */
+  fromName?: string;
+  replyTo?: string;
 }): Promise<SendEmailResult> {
   if (!isLikelyEmail(args.to)) {
     return { ok: false, delivered: false, reason: "invalid_email" };
@@ -60,12 +65,16 @@ export async function sendEmail(args: {
     );
     return { ok: false, delivered: false, reason: "no_from_address" };
   }
-  const fromName = process.env.SENDGRID_FROM_NAME || "KeystonePro";
+  const fromName =
+    args.fromName?.trim() || process.env.SENDGRID_FROM_NAME || "KeystonePro";
+  const replyTo =
+    args.replyTo && isLikelyEmail(args.replyTo) ? args.replyTo : undefined;
 
   try {
     await sgMail.send({
       to: args.to,
       from: { email: from, name: fromName },
+      ...(replyTo ? { replyTo } : {}),
       subject: args.subject.slice(0, 200),
       text: args.text,
       ...(args.html ? { html: args.html } : {}),

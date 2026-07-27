@@ -294,6 +294,8 @@ async function notifyGc(
         scopeTitle: rfq.scope_title,
         bidAmount,
       }),
+      fromName: settings.company_name,
+      replyTo: settings.company_email,
     });
   }
 

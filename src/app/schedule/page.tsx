@@ -62,6 +62,9 @@ export default function SchedulePage() {
   const [todayMs, setTodayMs] = useState<number | null>(null);
   const [assignSubId, setAssignSubId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
+  // Reply-to for tenant-identified emails (Option B): the builder's business
+  // email, falling back to their login. So a sub replies to the builder.
+  const [replyTo, setReplyTo] = useState("");
 
   useEffect(() => {
     setTodayMs(Date.now());
@@ -106,7 +109,10 @@ export default function SchedulePage() {
       const to = sub.phone && sub.sms_consent ? toE164(sub.phone) : null;
       if (to) void sendSms(to, composeAssignmentSms(params));
       if (isLikelyEmail(sub.email))
-        void sendEmail(sub.email!, composeAssignmentEmail(params));
+        void sendEmail(sub.email!, composeAssignmentEmail(params), {
+          fromName: companyName,
+          replyTo,
+        });
       void pushNotifySub(sub.id, {
         title: `${companyName || "KeystonePro"}: scheduled for ${m.name}`,
         body: `${deal.name}${m.planned_start_date ? ` (${m.planned_start_date})` : ""}`,
@@ -151,6 +157,7 @@ export default function SchedulePage() {
       setMilestones(allMilestones);
       setSubs(s);
       setCompanyName(settings?.company_name || "");
+      setReplyTo(settings?.company_email || profile!.email || "");
       setLoaded(true);
     }
     void load();

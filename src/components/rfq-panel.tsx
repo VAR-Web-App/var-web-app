@@ -56,6 +56,8 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
   const [fromNumberHint, setFromNumberHint] = useState<string | undefined>(
     undefined,
   );
+  // Builder's business email → reply-to for tenant-identified emails (Option B).
+  const [replyToHint, setReplyToHint] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -78,6 +80,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
       if (setR.status === "fulfilled") {
         setBuilderName(setR.value?.company_name ?? "");
         setFromNumberHint(setR.value?.sms_config?.from_number);
+        setReplyToHint(setR.value?.company_email);
       }
       setLoaded(true);
     })();
@@ -225,6 +228,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
           subs={subs}
           builderName={builderName}
           fromNumberHint={fromNumberHint}
+          replyToHint={replyToHint}
           onSave={onCreate}
           onClose={() => setShowNew(false)}
         />
@@ -235,6 +239,7 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
           subs={subs}
           builderName={builderName}
           fromNumberHint={fromNumberHint}
+          replyToHint={replyToHint}
           existing={editing}
           onSave={onUpdate}
           onClose={() => setEditing(null)}
@@ -326,6 +331,7 @@ export function RFQModal({
   subs,
   builderName,
   fromNumberHint,
+  replyToHint,
   existing,
   onSave,
   onClose,
@@ -334,6 +340,7 @@ export function RFQModal({
   subs: Distributor[];
   builderName: string;
   fromNumberHint?: string;
+  replyToHint?: string;
   existing?: ProjectRFQ;
   onSave: (rfq: ProjectRFQ) => void;
   onClose: () => void;
@@ -451,6 +458,7 @@ export function RFQModal({
               const result = await sendEmail(
                 sub.email!,
                 composeRfqInviteEmail(params),
+                { fromName: builderName, replyTo: replyToHint },
               );
               if (result.ok) anyOk = true;
             }
@@ -553,7 +561,10 @@ export function RFQModal({
         );
       }
       if (emailOk) {
-        void sendEmail(sub.email!, composeRfqAwardEmail(params));
+        void sendEmail(sub.email!, composeRfqAwardEmail(params), {
+          fromName: builderName,
+          replyTo: replyToHint,
+        });
       }
       void pushNotifySub(sub.id, {
         title: `${builderName || "KeystonePro"}: 🎉 You won — ${params.scopeTitle}`,

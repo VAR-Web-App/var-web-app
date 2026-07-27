@@ -469,6 +469,7 @@ export default function DistributorsPage() {
           subs={distributors}
           builderName={orgSettings?.company_name ?? ""}
           fromNumberHint={orgSettings?.sms_config?.from_number}
+          replyToHint={orgSettings?.company_email}
           onSave={async (rfq) => {
             await saveRFQ(rfq);
             // Optimistic update of the org-wide list.
