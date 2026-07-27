@@ -39,6 +39,8 @@ export async function notifyGc(
       to: settings.company_email!,
       subject: notice.title,
       text: notice.url ? `${notice.body}\n\n${notice.url}` : notice.body,
+      fromName: settings.company_name,
+      replyTo: settings.company_email,
     });
   }
 

@@ -244,6 +244,9 @@ export interface SendEmailResult {
 export async function sendEmail(
   to: string,
   composed: ComposedEmail,
+  /** Per-tenant sender identity (Option B): builder company as display
+   *  name + their email as reply-to. Omit to use platform defaults. */
+  opts?: { fromName?: string; replyTo?: string },
 ): Promise<SendEmailResult> {
   if (!isLikelyEmail(to)) {
     return { ok: false, delivered: false, reason: "invalid_email" };
@@ -257,6 +260,8 @@ export async function sendEmail(
         subject: composed.subject,
         text: composed.text,
         html: composed.html,
+        fromName: opts?.fromName,
+        replyTo: opts?.replyTo,
       }),
     });
     const data = (await res.json()) as Partial<SendEmailResult>;

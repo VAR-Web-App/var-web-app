@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     subject?: string;
     text?: string;
     html?: string;
+    fromName?: string;
+    replyTo?: string;
   };
   try {
     body = await req.json();
@@ -37,6 +39,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await sendEmail({ to, subject, text, html: body.html });
+  const result = await sendEmail({
+    to,
+    subject,
+    text,
+    html: body.html,
+    fromName: body.fromName,
+    replyTo: body.replyTo,
+  });
   return NextResponse.json(result);
 }

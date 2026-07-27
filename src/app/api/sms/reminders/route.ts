@@ -242,6 +242,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
           const emailRes = await sendEmail({
             to: sub.email!,
             ...composeReminderEmail(params),
+            fromName: settings?.company_name,
+            replyTo: settings?.company_email,
           });
           if (emailRes.ok) {
             sent++;
