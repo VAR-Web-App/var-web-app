@@ -8,16 +8,23 @@ Everything the app needs across push, email, and SMS to be fully live.
 
 ---
 
-## 0. Domain — do this FIRST (unblocks email + SMS)
+## 0. Domain — DNS access plan (DEFERRED until testing is complete)
 
-- [x] ✅ `keystonepro.app` attached to the `var-web-app` Vercel project (Brennan's scope)
-- [ ] 👤 At **GoDaddy DNS** for keystonepro.app add:
-  - `A` · name `@` · value `76.76.21.21`
-  - `CNAME` · name `www` · value `cname.vercel-dns.com`
-  - **Keep the GoDaddy nameservers** (do NOT switch to Vercel's — we need GoDaddy DNS for the email MX record later)
-- [ ] ⏳ Vercel auto-verifies + issues SSL after DNS propagates (minutes)
+`keystonepro.app` lives in **Ira's** GoDaddy account, shared with other domains
+he won't delegate. GoDaddy's native "Delegate Access" is *account-wide*, so it
+can't scope to a single domain — hence the plan below.
 
-*Why first:* SendGrid needs a verified sender domain, Twilio brand registration wants a live website, and inbound email needs an MX record on this domain.
+**Chosen = Option B (Cloudflare DNS delegation). Do this AFTER the test run:**
+- [x] ✅ `keystonepro.app` already attached to the `var-web-app` Vercel project
+- [ ] 👤 Collin: free Cloudflare account → add `keystonepro.app` → Cloudflare gives 2 nameservers
+- [ ] 👤 Ira: **one-time** nameserver change at GoDaddy → point to Cloudflare's NS
+- [ ] 👤 Collin (in Cloudflare, no GoDaddy access needed): `A @ 76.76.21.21` · `CNAME www cname.vercel-dns.com` · later the SendGrid MX
+- [ ] ⏳ Vercel auto-verifies + issues SSL; Collin now controls all DNS himself
+
+*Alt (Option A):* Ira "Move domain to another account" → Collin owns just
+keystonepro.app outright. *Why it matters:* SendGrid sender domain, Twilio
+brand website, inbound-email MX, and Firebase reset-email deliverability all
+depend on this domain being live under Collin's control.
 
 ---
 
