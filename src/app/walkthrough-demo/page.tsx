@@ -59,6 +59,19 @@ export default function WalkthroughDemoPage() {
     }
   }, [layout]);
 
+  // Android: launch Google's Scene Viewer against the server-hosted GLB (it
+  // needs a real URL, not a blob). No-op on non-Android — Chrome falls back to
+  // the browser_fallback_url (the raw GLB download).
+  function openAndroidAr() {
+    const glb = `${window.location.origin}/api/walkthrough/glb`;
+    const intent =
+      `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(glb)}` +
+      `&mode=ar_preferred&title=${encodeURIComponent("Maddox — Country Dream House")}` +
+      `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;` +
+      `action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(glb)};end;`;
+    window.location.href = intent;
+  }
+
   // Proof of the physical-model path: turn the same layout into a printable
   // STL, fit to a 200 mm longest side (a typical desk-model size), and download
   // it. Feed the file to a slicer to sanity-check the geometry.
@@ -157,17 +170,29 @@ export default function WalkthroughDemoPage() {
                 View on your table (AR)
               </h2>
               <p className="mt-0.5 text-xs text-slate-500">
-                Same model, exported to AR formats. On an iPhone, tap “View in
-                AR” to drop the house on your table at ~20&nbsp;cm.
+                Drop the house on your table at ~20&nbsp;cm.{" "}
+                <span className="font-medium text-slate-700">Android:</span> tap
+                “View in AR” (opens Scene Viewer).{" "}
+                <span className="font-medium text-slate-700">iPhone:</span>{" "}
+                Generate first, then “View in AR (iOS)”. Works on the deployed
+                site, not localhost.
               </p>
             </div>
-            <button
-              onClick={buildAr}
-              disabled={arBusy}
-              className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:bg-sky-300"
-            >
-              {arBusy ? "Building…" : ar ? "Rebuild AR files" : "Generate AR files"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={openAndroidAr}
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              >
+                View in AR (Android)
+              </button>
+              <button
+                onClick={buildAr}
+                disabled={arBusy}
+                className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:bg-sky-300"
+              >
+                {arBusy ? "Building…" : ar ? "Rebuild iOS/files" : "Generate iOS / files"}
+              </button>
+            </div>
           </div>
           {ar && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
