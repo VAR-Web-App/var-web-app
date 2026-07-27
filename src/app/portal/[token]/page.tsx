@@ -240,7 +240,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
                   </div>
                   {awaiting && (
                     <div className="mt-3 space-y-2 rounded-lg bg-sky-50 p-3">
-                      <p className="text-sm font-medium text-sky-900">This phase is complete — approve to release the draw.</p>
+                      <p className="text-sm font-medium text-sky-900">This phase is complete. Approve it to authorize your builder to release the {money(m.amount)} draw payment.</p>
                       <input
                         value={sig[m.id] ?? ""}
                         onChange={(e) => setSig((s) => ({ ...s, [m.id]: e.target.value }))}
@@ -252,7 +252,7 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
                         onClick={() => act({ action: "approve_draw", milestoneId: m.id, signature: sig[m.id] }, m.id)}
                         className="w-full rounded-md bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:bg-sky-300"
                       >
-                        {busy === m.id ? "Working…" : `Approve & release ${money(m.amount)}`}
+                        {busy === m.id ? "Working…" : `Approve draw · ${money(m.amount)}`}
                       </button>
                     </div>
                   )}

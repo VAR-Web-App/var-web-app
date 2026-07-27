@@ -122,12 +122,15 @@ export async function POST(req: NextRequest) {
     };
 
     // Over allowance → auto-spawn a linked, approved change order for the delta.
+    // The CO create + selection update must commit together: a batch prevents an
+    // orphaned CO (or a re-pickable selection) if one write fails mid-way.
+    const batch = db.batch();
     if (delta > 0) {
       const coSnap = await db.collection("project_change_orders").where("deal_ref", "==", link.deal_ref).get();
       const nums = coSnap.docs.map((d) => parseInt(String((d.data() as ProjectChangeOrder).number).replace(/\D/g, ""), 10) || 0);
       const number = `CO-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0")}`;
       const coRef = db.collection("project_change_orders").doc();
-      await coRef.set({
+      batch.set(coRef, {
         id: coRef.id, deal_ref: sel.deal_ref, org_ref: sel.org_ref, number,
         title: `Over-allowance: ${sel.title}`,
         description: `Client selected “${option.label}” for ${sel.title}. Over allowance by ${money(delta)}.`,
@@ -138,7 +141,8 @@ export async function POST(req: NextRequest) {
       patch.linked_change_order_id = coRef.id;
     }
 
-    await ref.update(patch);
+    batch.update(ref, patch);
+    await batch.commit();
     await notifyGc(link.org_ref, "client_signed", {
       title: "🎨 Selection picked",
       body: `${link.client_name || "Your client"} chose “${option.label}” for ${sel.title}${delta > 0 ? ` (+${money(delta)} over allowance)` : ""} on ${link.project_name}.`,

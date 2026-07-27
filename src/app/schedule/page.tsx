@@ -347,21 +347,28 @@ export default function SchedulePage() {
               onUnassign={(subId, mId) => void unassignSubFromMilestone(subId, mId)}
             />
           </div>
-          {/* Mobile: a stacked "who's on what" list grouped by sub. */}
+          {/* Mobile: a stacked "who's on what" list grouped by sub. Shows the
+              whole directory — idle subs get a "no assignments yet" note so you
+              can still assign them from a phone. */}
           <div className="space-y-3 md:hidden">
-            {[...new Map(assignments.map((a) => [a.sub_id, a.sub_name])).entries()].map(([subId, subName]) => {
+            {[...subRows.active, ...subRows.idle].map((sub) => {
               const rows = assignments
-                .filter((a) => a.sub_id === subId)
+                .filter((a) => a.sub_id === sub.id)
                 .sort((x, y) => x.start_date.localeCompare(y.start_date));
               return (
-                <div key={subId} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div key={sub.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                   <button
-                    onClick={() => setAssignSubId(subId)}
+                    onClick={() => setAssignSubId(sub.id)}
                     className="mb-2 flex w-full items-center justify-between text-left"
                   >
-                    <span className="font-semibold text-slate-900">{subName}</span>
+                    <span className="font-semibold text-slate-900">{sub.name}</span>
                     <span className="text-xs font-medium text-sky-700">+ Assign</span>
                   </button>
+                  {rows.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs text-slate-400">
+                      No assignments yet
+                    </p>
+                  ) : (
                   <ul className="space-y-1.5">
                     {rows.map((a) => {
                       const conflict = conflicts.has(`${a.sub_id}|${a.milestone_id}`);
@@ -379,6 +386,7 @@ export default function SchedulePage() {
                       );
                     })}
                   </ul>
+                  )}
                 </div>
               );
             })}
