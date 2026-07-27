@@ -4,6 +4,16 @@
 
 **Where:** live at `var-web-app-beryl.vercel.app` (auto-deploys from `main`), or `npm run dev` locally.
 
+## How to run this pass (recommended)
+
+Don't go journey-by-journey until each is perfect — surface all the blockers first:
+
+1. **Breadth pass — annotate, don't stop.** Run the whole flow top to bottom. Use the in-app annotation tool (bottom-right button, testers only) to tap-and-note every issue, and keep moving. Rabbit-holing on Journey 1 risks polishing it while a blocker hides in Journey 8.
+2. **Triage + batch-fix.** Copy-all the notes (panel → copy icon) and hand them off. Fixes get done blocker → major → minor. Shared-code fixes (store, components, rules) often clear issues across several journeys at once, so batching beats sequencing.
+3. **Depth pass on the money paths.** Then go exhaustive on the high-stakes journeys — sales → sign → accept (Journey 2), client portal (5), payments (4), multi-tenant isolation (11).
+
+**Testers with annotation access:** Collin, cmadd.vesel@gmail.com, aaron3902@gmail.com. (Add more in `src/lib/testers.ts`.)
+
 ## Setup — do this before starting
 - [ ] **Two browsers/profiles ready:** your normal window (logged in as the builder) + a **private/incognito** window (for the no-login client/sub/designer portals).
 - [ ] **A second account** (different email) if you want to test tenant isolation (Journey 11).
