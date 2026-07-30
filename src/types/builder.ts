@@ -455,6 +455,22 @@ export interface ProjectRequest {
   resolved_at?: string;
 }
 
+/** A forwarded/inbound email filed onto a deal (or left unassigned for review)
+ *  by the /api/email/inbound webhook. Metadata + a text snippet/body. */
+export interface EmailMessage {
+  id: string;
+  org_ref: string;
+  deal_ref: string | null;
+  status: "matched" | "unassigned";
+  from: string;
+  from_email: string;
+  subject: string;
+  snippet: string;
+  body_text?: string;
+  has_attachments?: boolean;
+  received_at: string;
+}
+
 export interface ProjectRFQ {
   id: string;
   deal_ref: string;

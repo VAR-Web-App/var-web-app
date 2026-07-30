@@ -420,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink, ProjectRequest } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink, ProjectRequest, EmailMessage } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -453,6 +453,25 @@ export async function saveRequest(r: ProjectRequest): Promise<void> {
 
 export async function deleteRequest(id: string): Promise<void> {
   await removeFromCollection("project_requests", id);
+}
+
+// ── Inbound email (forward-in) ───────────────────────────────────
+// Query by org_ref (the rule scopes on org_ref; keeps the list satisfiable
+// without a composite index) and filter deal_ref in memory at the call site.
+export async function listEmailMessages(orgRef: string): Promise<EmailMessage[]> {
+  const q = query(collection(db, "email_messages"), where("org_ref", "==", orgRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<EmailMessage, "id">) }))
+    .sort((a, b) => (b.received_at || "").localeCompare(a.received_at || ""));
+}
+
+export async function assignEmailMessage(id: string, dealRef: string): Promise<void> {
+  await setDoc(
+    doc(db, "email_messages", id),
+    { deal_ref: dealRef, status: "matched" },
+    { merge: true },
+  );
 }
 
 // ── project selections (Builder vertical) ──────────────────────

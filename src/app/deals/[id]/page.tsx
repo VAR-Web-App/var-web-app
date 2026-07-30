@@ -2,6 +2,7 @@
 
 import RequestsPanel from "@/components/requests-panel";
 import DealActivityFeed from "@/components/deal-activity-feed";
+import DealCorrespondence from "@/components/deal-correspondence";
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
@@ -107,6 +108,7 @@ export default function DealOverviewPage({
         <div className="space-y-6 lg:col-span-2">
           <NextActionCard deal={deal} />
           <RequestsPanel deal={deal} />
+          <DealCorrespondence deal={deal} />
           <ProjectAIChat deal={deal} />
         </div>
         <div className="space-y-6">
