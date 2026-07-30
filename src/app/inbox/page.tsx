@@ -27,6 +27,7 @@ import {
 import AppShell from "@/components/app-shell";
 import EmailDigester from "@/components/email-digester";
 import PhoneSummarizer from "@/components/phone-summarizer";
+import UnassignedEmailQueue from "@/components/unassigned-email-queue";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
@@ -295,6 +296,7 @@ export default function InboxPage() {
           )}
         </header>
 
+        <UnassignedEmailQueue />
         <EmailDigester />
         <PhoneSummarizer />
 
