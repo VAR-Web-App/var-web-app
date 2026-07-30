@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FinanceSignal } from "@/lib/finance-signal";
 import { BanknotesIcon } from "@heroicons/react/24/outline";
 import {
   listChangeOrders,
@@ -56,7 +57,13 @@ interface CashEvent {
   projected: boolean;
 }
 
-export default function CashFlowTimelinePanel({ dealId }: { dealId: string }) {
+export default function CashFlowTimelinePanel({
+  dealId,
+  onSignal,
+}: {
+  dealId: string;
+  onSignal?: (s: FinanceSignal | null) => void;
+}) {
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [cos, setCos] = useState<ProjectChangeOrder[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -213,6 +220,20 @@ export default function CashFlowTimelinePanel({ dealId }: { dealId: string }) {
       today,
     } as const;
   }, [lines, cos, payments, milestones]);
+
+  const signal = useMemo<FinanceSignal | null>(() => {
+    if (!model.projectable) return null;
+    if (model.projectedLow.value < 0)
+      return { severity: "red", label: "Cash shortfall", detail: `${fmt(Math.abs(model.projectedLow.value))} at the low point` };
+    if (model.projectedLow.value < model.cashNow)
+      return { severity: "amber", label: "Cash dips", detail: `to ${fmt(model.projectedLow.value)}` };
+    return null;
+  }, [model]);
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
+  useEffect(() => {
+    onSignalRef.current?.(signal);
+  }, [signal]);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

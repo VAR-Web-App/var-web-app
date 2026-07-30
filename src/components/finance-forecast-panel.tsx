@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FinanceSignal } from "@/lib/finance-signal";
 import { ChartBarIcon } from "@heroicons/react/24/outline";
 import {
   listChangeOrders,
@@ -37,7 +38,13 @@ const fmt = (n: number) =>
     maximumFractionDigits: 0,
   })}`;
 
-export default function FinanceForecastPanel({ dealId }: { dealId: string }) {
+export default function FinanceForecastPanel({
+  dealId,
+  onSignal,
+}: {
+  dealId: string;
+  onSignal?: (s: FinanceSignal | null) => void;
+}) {
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [cos, setCos] = useState<ProjectChangeOrder[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -127,6 +134,20 @@ export default function FinanceForecastPanel({ dealId }: { dealId: string }) {
 
   const hasAnything =
     f.contract > 0 || f.collected > 0 || f.paidOut > 0 || f.draws.length > 0;
+
+  const signal = useMemo<FinanceSignal | null>(() => {
+    if (f.contract <= 0) return null;
+    if (f.projMarginPct < 0)
+      return { severity: "red", label: "Projected loss", detail: `−${fmt(Math.abs(f.projMargin))} at completion` };
+    if (f.projMarginPct < HEALTHY_MARGIN_PCT)
+      return { severity: "amber", label: "Thin margin", detail: `${f.projMarginPct.toFixed(1)}% projected` };
+    return null;
+  }, [f]);
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
+  useEffect(() => {
+    onSignalRef.current?.(signal);
+  }, [signal]);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

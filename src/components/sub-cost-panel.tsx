@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FinanceSignal } from "@/lib/finance-signal";
 import { ExclamationTriangleIcon, UsersIcon } from "@heroicons/react/24/outline";
 import { listPayments, listRFQs } from "@/lib/store";
 import type { Payment } from "@/types";
@@ -31,7 +32,13 @@ interface SubRow {
   phases: string[];
 }
 
-export default function SubCostPanel({ dealId }: { dealId: string }) {
+export default function SubCostPanel({
+  dealId,
+  onSignal,
+}: {
+  dealId: string;
+  onSignal?: (s: FinanceSignal | null) => void;
+}) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [rfqs, setRfqs] = useState<ProjectRFQ[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -121,6 +128,20 @@ export default function SubCostPanel({ dealId }: { dealId: string }) {
       hasData: rows.length > 0,
     };
   }, [payments, rfqs]);
+
+  const signal = useMemo<FinanceSignal | null>(() => {
+    if (model.overRows.length === 0) return null;
+    return {
+      severity: "red",
+      label: `${model.overRows.length} sub${model.overRows.length === 1 ? "" : "s"} over bid`,
+      detail: `${fmt(model.overTotal)} over`,
+    };
+  }, [model]);
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
+  useEffect(() => {
+    onSignalRef.current?.(signal);
+  }, [signal]);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
