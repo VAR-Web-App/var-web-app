@@ -183,6 +183,9 @@ export interface ForecastDay {
   date: string; // YYYY-MM-DD
   precipProbMax: number; // %
   precipSum: number; // mm
+  tempMax?: number; // °F
+  tempMin?: number; // °F
+  weatherCode?: number; // WMO code
 }
 
 export interface WeatherAdvisory {

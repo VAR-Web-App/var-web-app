@@ -17,6 +17,9 @@ interface ForecastDay {
   date: string;
   precipProbMax: number;
   precipSum: number;
+  tempMax: number;
+  tempMin: number;
+  weatherCode: number;
 }
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
@@ -41,7 +44,8 @@ async function forecast(lat: number, lng: number): Promise<ForecastDay[] | null>
   const url =
     "https://api.open-meteo.com/v1/forecast" +
     `?latitude=${lat}&longitude=${lng}` +
-    "&daily=precipitation_probability_max,precipitation_sum&timezone=auto&forecast_days=14";
+    "&daily=precipitation_probability_max,precipitation_sum,temperature_2m_max,temperature_2m_min,weathercode" +
+    "&temperature_unit=fahrenheit&timezone=auto&forecast_days=14";
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!r.ok) return null;
@@ -50,6 +54,9 @@ async function forecast(lat: number, lng: number): Promise<ForecastDay[] | null>
         time?: string[];
         precipitation_probability_max?: (number | null)[];
         precipitation_sum?: (number | null)[];
+        temperature_2m_max?: (number | null)[];
+        temperature_2m_min?: (number | null)[];
+        weathercode?: (number | null)[];
       };
     };
     const d = j.daily;
@@ -58,6 +65,9 @@ async function forecast(lat: number, lng: number): Promise<ForecastDay[] | null>
       date,
       precipProbMax: d.precipitation_probability_max?.[i] ?? 0,
       precipSum: d.precipitation_sum?.[i] ?? 0,
+      tempMax: Math.round(d.temperature_2m_max?.[i] ?? 0),
+      tempMin: Math.round(d.temperature_2m_min?.[i] ?? 0),
+      weatherCode: d.weathercode?.[i] ?? 0,
     }));
   } catch {
     return null;

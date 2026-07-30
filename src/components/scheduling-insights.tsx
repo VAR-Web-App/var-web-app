@@ -1,9 +1,10 @@
 "use client";
 
-// Scheduling Intelligence — the "Sub Scheduling" add-on surface. Three
-// read-only cards over data the schedule page already holds:
-//   • Conflicts   — cross-project double-bookings + a suggested shift
-//   • Weather     — rain hitting an upcoming outdoor phase + a dry-day suggestion
+// Scheduling Intelligence — the "Sub Scheduling" add-on surface. Cards over
+// data the schedule page already holds:
+//   • Conflicts   — cross-project double-bookings (only shown when one exists)
+//   • Weather     — the ACTUAL forecast for projects with upcoming outdoor
+//                   work, with rain days flagged + a dry-start suggestion
 //   • Performance — per-sub on-time scoring
 // Weather is the only card that hits the network (/api/weather, keyless).
 
@@ -28,6 +29,24 @@ const fmt = (d: string) => {
   const [y, m, dd] = d.split("-").map(Number);
   return new Date(y, m - 1, dd).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
+const wkday = (d: string) => {
+  const [y, m, dd] = d.split("-").map(Number);
+  return new Date(y, m - 1, dd).toLocaleDateString("en-US", { weekday: "short" });
+};
+
+/** WMO weather code → emoji. Coarse buckets are fine for a glanceable strip. */
+function wx(code?: number): string {
+  if (code == null) return "•";
+  if (code === 0) return "☀️";
+  if (code <= 3) return "⛅";
+  if (code <= 48) return "🌫️";
+  if (code <= 57) return "🌦️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "🌨️";
+  if (code <= 82) return "🌧️";
+  if (code <= 86) return "🌨️";
+  return "⛈️";
+}
 
 export default function SchedulingInsights({
   deals,
@@ -41,10 +60,12 @@ export default function SchedulingInsights({
   const [today, setToday] = useState<string | null>(null);
   const [advisories, setAdvisories] = useState<WeatherAdvisory[]>([]);
   const [weatherState, setWeatherState] = useState<"idle" | "loading" | "done">("idle");
-  // False when we tried to fetch a forecast but every address failed to
-  // geocode / return data — so we show "couldn't check" instead of the
-  // misleading "no rain" all-clear.
+  // False when we tried to fetch a forecast but every address failed — so we
+  // show "couldn't check" instead of a misleading all-clear.
   const [weatherReachable, setWeatherReachable] = useState(true);
+  // Raw per-project forecast so we can show the ACTUAL weather, not just rain
+  // alerts — a few days of conditions for projects with upcoming outdoor work.
+  const [forecasts, setForecasts] = useState<{ dealName: string; days: ForecastDay[] }[]>([]);
 
   useEffect(() => {
     setToday(new Date().toISOString().slice(0, 10));
@@ -82,8 +103,8 @@ export default function SchedulingInsights({
   // ── weather (network) ──
   useEffect(() => {
     if (!today) return;
-    // Only fetch for deals that actually have an address + an upcoming
-    // outdoor phase — keeps it to a couple of calls, not one per project.
+    // Only fetch for deals that actually have an address + an upcoming outdoor
+    // phase — keeps it to a couple of calls, not one per project.
     const relevant = deals.filter((d) => {
       if (!d.ship_to_address?.trim()) return false;
       return milestones.some(
@@ -96,13 +117,14 @@ export default function SchedulingInsights({
           isOutdoorPhase(m.name),
       );
     });
-    if (relevant.length === 0) { setWeatherState("done"); return; }
+    if (relevant.length === 0) { setForecasts([]); setWeatherState("done"); return; }
 
     let active = true;
     setWeatherState("loading");
     setWeatherReachable(true);
     void (async () => {
       const all: WeatherAdvisory[] = [];
+      const fc: { dealName: string; days: ForecastDay[] }[] = [];
       let succeeded = 0;
       for (const d of relevant.slice(0, 6)) {
         try {
@@ -110,6 +132,7 @@ export default function SchedulingInsights({
           const data = (await res.json()) as { ok: boolean; forecast?: ForecastDay[] };
           if (!data.ok || !data.forecast) continue;
           succeeded++;
+          fc.push({ dealName: d.name, days: data.forecast });
           const dealMs = milestones.filter((m) => m.deal_ref === d.id);
           all.push(...weatherAdvisories(dealMs, data.forecast, d.name));
         } catch {
@@ -118,6 +141,7 @@ export default function SchedulingInsights({
       }
       if (active) {
         setAdvisories(all);
+        setForecasts(fc);
         setWeatherReachable(succeeded > 0);
         setWeatherState("done");
       }
@@ -125,21 +149,20 @@ export default function SchedulingInsights({
     return () => { active = false; };
   }, [deals, milestones, today]);
 
-  const hasAny = conflicts.length > 0 || advisories.length > 0 || scores.length > 0;
+  const hasAny =
+    conflicts.length > 0 || forecasts.length > 0 || scores.length > 0;
   if (!hasAny && weatherState !== "loading") return null;
 
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-3">
-      {/* Conflicts */}
-      <Card
-        icon={<ExclamationTriangleIcon className="h-4 w-4" />}
-        title="Conflicts"
-        tone={conflicts.length > 0 ? "red" : "slate"}
-        count={conflicts.length}
-      >
-        {conflicts.length === 0 ? (
-          <Empty>No double-bookings across your projects.</Empty>
-        ) : (
+      {/* Conflicts — only surfaced when there's an actual conflict. */}
+      {conflicts.length > 0 && (
+        <Card
+          icon={<ExclamationTriangleIcon className="h-4 w-4" />}
+          title="Conflicts"
+          tone="red"
+          count={conflicts.length}
+        >
           <ul className="space-y-2">
             {conflicts.map((c) => (
               <li key={c.key} className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs">
@@ -157,10 +180,10 @@ export default function SchedulingInsights({
               </li>
             ))}
           </ul>
-        )}
-      </Card>
+        </Card>
+      )}
 
-      {/* Weather */}
+      {/* Weather — actual forecast for projects with upcoming outdoor work. */}
       <Card
         icon={<CloudIcon className="h-4 w-4" />}
         title="Weather watch"
@@ -169,30 +192,62 @@ export default function SchedulingInsights({
       >
         {weatherState === "loading" ? (
           <Empty>Checking forecasts…</Empty>
-        ) : advisories.length === 0 ? (
+        ) : forecasts.length === 0 ? (
           weatherReachable ? (
-            <Empty>No rain threatening upcoming outdoor phases.</Empty>
+            <Empty>No upcoming outdoor phases to check.</Empty>
           ) : (
             <Empty>Couldn&rsquo;t check the forecast for this project&rsquo;s address — double-check it&rsquo;s a valid US address.</Empty>
           )
         ) : (
-          <ul className="space-y-2">
-            {advisories.map((a) => (
-              <li key={a.milestoneId} className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
-                <div className="font-semibold text-amber-900">
-                  {a.phase} · {a.dealName}
-                </div>
-                <div className="mt-0.5 text-amber-800">
-                  Rain up to {a.worstProb}% on {a.rainDays.map(fmt).join(", ")}
-                </div>
-                {a.suggestedStart && (
-                  <div className="mt-1 rounded bg-white/70 px-2 py-1 text-[11px] text-slate-700">
-                    💡 Next dry start: <span className="font-medium">{fmt(a.suggestedStart)}</span>
+          <div className="space-y-3">
+            {forecasts.map((f) => {
+              const days = f.days.filter((d) => !today || d.date >= today).slice(0, 5);
+              return (
+                <div key={f.dealName}>
+                  <div className="mb-1 truncate text-xs font-semibold text-slate-700">{f.dealName}</div>
+                  <div className="flex gap-1">
+                    {days.map((d) => {
+                      const rainy = d.precipProbMax >= 60 || d.precipSum >= 5;
+                      return (
+                        <div
+                          key={d.date}
+                          className={`flex-1 rounded-md px-1 py-1.5 text-center ${rainy ? "bg-amber-50" : "bg-slate-50"}`}
+                        >
+                          <div className="text-[10px] text-slate-500">{wkday(d.date)}</div>
+                          <div className="text-base leading-none">{wx(d.weatherCode)}</div>
+                          <div className="mt-0.5 text-[11px] font-semibold text-slate-800">
+                            {d.tempMax ?? "–"}°
+                          </div>
+                          <div className={`text-[10px] ${rainy ? "font-semibold text-amber-700" : "text-slate-400"}`}>
+                            {d.precipProbMax}%
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                </div>
+              );
+            })}
+            {advisories.length > 0 && (
+              <ul className="space-y-2 border-t border-slate-100 pt-2">
+                {advisories.map((a) => (
+                  <li key={a.milestoneId} className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
+                    <div className="font-semibold text-amber-900">
+                      {a.phase} · {a.dealName}
+                    </div>
+                    <div className="mt-0.5 text-amber-800">
+                      Rain up to {a.worstProb}% on {a.rainDays.map(fmt).join(", ")}
+                    </div>
+                    {a.suggestedStart && (
+                      <div className="mt-1 rounded bg-white/70 px-2 py-1 text-[11px] text-slate-700">
+                        💡 Next dry start: <span className="font-medium">{fmt(a.suggestedStart)}</span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </Card>
 
