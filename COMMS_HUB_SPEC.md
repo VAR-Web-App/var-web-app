@@ -71,8 +71,21 @@ message metadata**, NOT inbound-parse. Data model to mirror:
 - **Floor — paste-in (already built):** the Email Digester works for any
   provider today, zero setup.
 
-Recommendation: **forward-in baseline + Gmail OAuth premium** (100% coverage via
-forwarding, slick zero-config for the Gmail majority, no per-mailbox vendor fee).
+**Recommendation (updated w/ vendor research):** the hidden cost of building Gmail
+OAuth ourselves is **Google's CASA security assessment** (weeks + a 3rd-party
+audit for restricted Gmail scopes) — so **DIY OAuth is not worth it** for a small
+team. Two clean paths instead:
+- **(a) Forward-in only** — SendGrid Inbound Parse. Universal (any provider incl.
+  Yahoo), **~$0**, **no OAuth/CASA at all**; but receive-only + the builder sets a
+  forward rule. Launch here.
+- **(b) Unipile** — ~€49/mo min (≤10 mailboxes), then ~€5/mailbox. Universal incl.
+  Yahoo (IMAP), full two-way sync, and it's **CASA-certified so it REMOVES the
+  Google verification burden** — you ship on their verified client today. Pass it
+  through in the add-on. Use when you want real inbox sync.
+
+Nylas ($15 + $2/mailbox) / Aurinko ($1–2) are cheaper per mailbox but leave the
+CASA grind on us (Nylas removes it only on enterprise). So: (a) to start,
+(b) Unipile when sync matters. Don't build our own Gmail OAuth.
 
 - **Text/SMS:** inbound SMS (Twilio) logged against the matching sub/client's
   number, attached to the deal.
