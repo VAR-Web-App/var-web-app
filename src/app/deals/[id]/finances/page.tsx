@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import type { FinanceSignal } from "@/lib/finance-signal";
 import RFQPanel from "@/components/rfq-panel";
 import BidIntelligencePanel from "@/components/bid-intelligence-panel";
 import ChangeOrdersPanel from "@/components/change-orders-panel";
@@ -27,6 +28,12 @@ export default function DealFinancesPage({
   const { id } = use(params);
   const { deal, loaded } = useDeal(id);
   const [lines, setLines] = useState<QuoteLine[]>([]);
+  // Signals emitted up by the Forecast panels → aggregated in the attention
+  // strip at the top of the tab (governor: hoist the alerts, keep visible).
+  const [signals, setSignals] = useState<Record<string, FinanceSignal | null>>({});
+  const emit = useCallback((key: string, s: FinanceSignal | null) => {
+    setSignals((p) => (p[key] === s ? p : { ...p, [key]: s }));
+  }, []);
 
   useEffect(() => {
     if (!deal) return;
@@ -50,15 +57,16 @@ export default function DealFinancesPage({
           a top attention strip aggregating the red/amber signals + collapsing
           the deep tables. */}
       <div className="space-y-8">
+        <FinancesAttentionStrip signals={signals} />
         <FinanceGroup
           title="Forecast"
           subtitle="Estimate, budget, margin, cash flow & sub overruns"
         >
           <EstimateSummary dealId={deal.id} lines={lines} />
-          <BudgetPanel dealId={deal.id} />
-          <FinanceForecastPanel dealId={deal.id} />
-          <CashFlowTimelinePanel dealId={deal.id} />
-          <SubCostPanel dealId={deal.id} />
+          <BudgetPanel dealId={deal.id} onSignal={(s) => emit("budget", s)} />
+          <FinanceForecastPanel dealId={deal.id} onSignal={(s) => emit("margin", s)} />
+          <CashFlowTimelinePanel dealId={deal.id} onSignal={(s) => emit("cash", s)} />
+          <SubCostPanel dealId={deal.id} onSignal={(s) => emit("subs", s)} />
         </FinanceGroup>
 
         <FinanceGroup
@@ -100,6 +108,41 @@ function FinanceGroup({
       </div>
       <div className="space-y-6">{children}</div>
     </section>
+  );
+}
+
+// Aggregates the red/amber signals the Forecast panels emit into one row at
+// the top of the tab. Self-hides when everything's clear (never shows a
+// "nothing wrong" banner). Red first.
+function FinancesAttentionStrip({
+  signals,
+}: {
+  signals: Record<string, FinanceSignal | null>;
+}) {
+  const active = Object.values(signals).filter((s): s is FinanceSignal => !!s);
+  if (active.length === 0) return null;
+  active.sort((a, b) =>
+    a.severity === b.severity ? 0 : a.severity === "red" ? -1 : 1,
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <span className="mr-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+        Needs attention
+      </span>
+      {active.map((s, i) => (
+        <span
+          key={i}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+            s.severity === "red"
+              ? "bg-rose-100 text-rose-800"
+              : "bg-amber-100 text-amber-800"
+          }`}
+        >
+          {s.label}
+          <span className="font-normal opacity-80">· {s.detail}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 

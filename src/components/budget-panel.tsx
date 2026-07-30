@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FinanceSignal } from "@/lib/finance-signal";
 import { ScaleIcon } from "@heroicons/react/24/outline";
 import {
   listChangeOrders,
@@ -28,7 +29,13 @@ import type { ProjectChangeOrder, ProjectRFQ } from "@/types/builder";
  * Pace bar shows Spent / Budget with a color tier (green/amber/red) so
  * the GC can see "we're 82% spent at 60% complete" at a glance.
  */
-export default function BudgetPanel({ dealId }: { dealId: string }) {
+export default function BudgetPanel({
+  dealId,
+  onSignal,
+}: {
+  dealId: string;
+  onSignal?: (s: FinanceSignal | null) => void;
+}) {
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [rfqs, setRfqs] = useState<ProjectRFQ[]>([]);
   const [cos, setCos] = useState<ProjectChangeOrder[]>([]);
@@ -108,6 +115,20 @@ export default function BudgetPanel({ dealId }: { dealId: string }) {
       : totals.pacePct >= 80
         ? "text-amber-700"
         : "text-emerald-700";
+
+  const signal = useMemo<FinanceSignal | null>(() => {
+    if (!totals || totals.budget <= 0) return null;
+    if (totals.pacePct >= 100)
+      return { severity: "red", label: "Over budget", detail: `by $${Math.round(totals.spent - totals.budget).toLocaleString()}` };
+    if (totals.pacePct >= 80)
+      return { severity: "amber", label: "Approaching budget", detail: `$${Math.round(totals.remaining).toLocaleString()} left` };
+    return null;
+  }, [totals]);
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
+  useEffect(() => {
+    onSignalRef.current?.(signal);
+  }, [signal]);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
