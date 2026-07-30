@@ -363,5 +363,11 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && dealOrg() == callerOrgRef();
       allow create: if request.auth != null && newDealOrg() == callerOrgRef();
     }
+
+    // Inbound email (forward-in). Written by the admin webhook (/api/email/inbound);
+    // org-scoped reads for the app. org_ref is on the doc directly.
+    match /email_messages/{msgId} {
+      allow read, update, delete: if request.auth != null && resource.data.org_ref == callerOrgRef();
+    }
   }
 }
