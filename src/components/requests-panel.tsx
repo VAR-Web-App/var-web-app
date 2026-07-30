@@ -18,6 +18,8 @@ import {
   newId,
   listMilestones,
   listDistributors,
+  listChangeOrders,
+  saveChangeOrder,
 } from "@/lib/store";
 import type {
   ProjectRequest,
@@ -53,6 +55,7 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
   const [source, setSource] = useState<RequestSource>("verbal");
   const [phaseRef, setPhaseRef] = useState("");
   const [subRef, setSubRef] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -117,6 +120,43 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
     await refresh();
   }
 
+  // Escalate an ask into a priced change order (draft) seeded from the request.
+  async function convertToCO(r: ProjectRequest) {
+    const cos = await listChangeOrders(deal.id).catch(() => []);
+    const used = cos
+      .map((c) => parseInt(c.number.replace(/\D/g, ""), 10))
+      .filter(Number.isFinite);
+    const number = `CO-${String((used.length ? Math.max(...used) : 0) + 1).padStart(3, "0")}`;
+    const now = new Date().toISOString();
+    await saveChangeOrder({
+      id: newId("co"),
+      deal_ref: deal.id,
+      org_ref: deal.org_ref,
+      number,
+      title: r.title,
+      description: r.body || r.title,
+      amount_delta: 0,
+      schedule_impact_days: 0,
+      reason: "client_request",
+      status: "draft",
+      notes: `Created from a logged request (${new Date(r.created_at).toLocaleDateString()}).`,
+      created_at: now,
+      updated_at: now,
+    });
+    await saveRequest({ ...r, status: "scheduled", updated_at: now });
+    setToast(`${number} created (draft) — price & send it on the Finances tab.`);
+    setTimeout(() => setToast(null), 3500);
+    await refresh();
+  }
+
+  // Active asks (open/scheduled) surface first, above resolved ones.
+  const ACTIVE = new Set<RequestStatus>(["open", "scheduled"]);
+  const sorted = [...reqs].sort((a, b) => {
+    const rank = (ACTIVE.has(a.status) ? 0 : 1) - (ACTIVE.has(b.status) ? 0 : 1);
+    return rank || (b.created_at || "").localeCompare(a.created_at || "");
+  });
+  const openCount = reqs.filter((r) => r.status === "open").length;
+
   const phaseName = (id?: string) => milestones.find((m) => m.id === id)?.name;
   const subName = (id?: string) => subs.find((s) => s.id === id)?.name;
   const selectCls =
@@ -128,6 +168,11 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
         <div className="flex items-center gap-2">
           <ChatBubbleLeftRightIcon className="h-4 w-4 text-slate-500" />
           <h2 className="text-sm font-semibold text-slate-900">Requests &amp; asks</h2>
+          {openCount > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+              {openCount} open
+            </span>
+          )}
         </div>
         <button
           onClick={() => setAdding((v) => !v)}
@@ -200,7 +245,7 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
         </div>
       ) : (
         <ul className="divide-y divide-slate-100">
-          {reqs.map((r) => (
+          {sorted.map((r) => (
             <li key={r.id} className="px-4 py-3 sm:px-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -218,6 +263,15 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {ACTIVE.has(r.status) && (
+                    <button
+                      onClick={() => convertToCO(r)}
+                      title="Create a change order from this request"
+                      className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                    >
+                      → CO
+                    </button>
+                  )}
                   <select
                     value={r.status}
                     onChange={(e) => setStatus(r, e.target.value as RequestStatus)}
@@ -239,6 +293,11 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
             </li>
           ))}
         </ul>
+      )}
+      {toast && (
+        <div className="border-t border-slate-100 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-800">
+          {toast}
+        </div>
       )}
     </section>
   );
