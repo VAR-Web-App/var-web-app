@@ -1,5 +1,7 @@
 "use client";
 
+import CollapsibleDetail from "@/components/collapsible-detail";
+
 import { Fragment, useEffect, useState } from "react";
 import {
   PlusIcon,
@@ -209,17 +211,19 @@ export default function RFQPanel({ deal }: { deal: Deal }) {
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100">
-          {rfqs.map((r) => (
-            <RFQRow
-              key={r.id}
-              rfq={r}
-              onOpen={() => setEditing(r)}
-              onRemove={() => onRemove(r)}
-              onPushToEstimate={() => onPushToEstimate(r)}
-            />
-          ))}
-        </ul>
+        <CollapsibleDetail summary={`${rfqs.length} bid request${rfqs.length === 1 ? "" : "s"}`}>
+          <ul className="divide-y divide-slate-100">
+            {rfqs.map((r) => (
+              <RFQRow
+                key={r.id}
+                rfq={r}
+                onOpen={() => setEditing(r)}
+                onRemove={() => onRemove(r)}
+                onPushToEstimate={() => onPushToEstimate(r)}
+              />
+            ))}
+          </ul>
+        </CollapsibleDetail>
       )}
 
       {showNew && (
