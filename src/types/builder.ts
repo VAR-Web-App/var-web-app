@@ -426,6 +426,35 @@ export interface ProjectChangeOrder {
   updated_at: string;
 }
 
+export type RequestStatus = "open" | "scheduled" | "done" | "wont_do";
+export type RequestSource = "verbal" | "email" | "text" | "call" | "portal";
+
+/** A per-deal ad-hoc request ("ask") — the paper trail for verbal/emailed
+ *  scope requests that a *different* sub may execute months later (the
+ *  "fireplace nuance during framing, mason does it 3 months later" case).
+ *  Distinct from Selections (allowance-bound catalog choices) and Change
+ *  Orders (priced, signed scope changes); a Request can be escalated to
+ *  either. */
+export interface ProjectRequest {
+  id: string;
+  deal_ref: string;
+  org_ref: string;
+  /** The ask, in the client's words. */
+  title: string;
+  body: string;
+  /** Optional tie to the milestone/phase + sub who executes it, so it can
+   *  resurface when that phase/sub comes up. */
+  phase_ref?: string;
+  assigned_sub_ref?: string;
+  status: RequestStatus;
+  source: RequestSource;
+  /** Client sign-off captured via the portal (phase 2). */
+  client_signoff?: { signature: string; signed_at: string };
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+}
+
 export interface ProjectRFQ {
   id: string;
   deal_ref: string;
