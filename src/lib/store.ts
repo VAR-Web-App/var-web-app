@@ -420,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink, ProjectRequest } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -437,6 +437,22 @@ export async function saveChangeOrder(co: ProjectChangeOrder): Promise<void> {
 
 export async function deleteChangeOrder(id: string): Promise<void> {
   await removeFromCollection("project_change_orders", id);
+}
+
+// ── Requests / asks (the paper-trail log) ────────────────────────
+export async function listRequests(dealRef: string): Promise<ProjectRequest[]> {
+  const q = query(collection(db, "project_requests"), where("deal_ref", "==", dealRef));
+  const snap = await getDocs(q);
+  const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectRequest, "id">) }));
+  return items.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+}
+
+export async function saveRequest(r: ProjectRequest): Promise<void> {
+  await setDoc(doc(db, "project_requests", r.id), r, { merge: false });
+}
+
+export async function deleteRequest(id: string): Promise<void> {
+  await removeFromCollection("project_requests", id);
 }
 
 // ── project selections (Builder vertical) ──────────────────────

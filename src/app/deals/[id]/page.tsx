@@ -1,5 +1,7 @@
 "use client";
 
+import RequestsPanel from "@/components/requests-panel";
+
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
@@ -103,6 +105,7 @@ export default function DealOverviewPage({
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <NextActionCard deal={deal} />
+          <RequestsPanel deal={deal} />
           <ProjectAIChat deal={deal} />
         </div>
         <div className="space-y-6">
