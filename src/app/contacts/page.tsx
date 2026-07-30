@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
@@ -72,7 +74,10 @@ export default function ContactsPage() {
     <AppShell>
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Contacts</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Contacts</h1>
+            <HeaderHint label="People you work with across clients and subs — architects, lenders, inspectors, designers." />
+          </div>
           <p className="mt-1 hidden text-sm text-slate-500 md:block">
             People at your customer agencies, distributors, and manufacturer reps.
           </p>

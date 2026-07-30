@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 // /inbox — app-wide attention center. Aggregates "things waiting on
 // you" across every active project, so the GC doesn't have to dig
 // through individual project pages to find what needs their decision.
@@ -272,9 +274,12 @@ export default function InboxPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-6 flex items-baseline justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Inbox
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Inbox
+              </h1>
+              <HeaderHint label="Everything waiting on you across every project — bids to award, draws pending approval, change orders out for signature." />
+            </div>
             <p className="mt-1 text-sm text-slate-500">
               Things waiting on you across every project. One screen, one
               decision per row.

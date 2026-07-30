@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 // Cross-project sub schedule. One row per sub, weekly columns across,
 // colored bars per assignment showing which project + which phase that
 // sub is on. Today line marks the current week. Conflict alerts when
@@ -301,9 +303,12 @@ export default function SchedulePage() {
             <CalendarDaysIcon className="h-4 w-4" />
             Cross-project schedule
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Sub Schedule
-          </h1>
+          <div className="mt-1 flex items-center gap-1.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Sub Schedule
+            </h1>
+            <HeaderHint label="Who's working when across all your active projects. Assign subs to phases; conflicts show in red." />
+          </div>
           <p className="mt-1 text-sm text-slate-500">
             Who&apos;s working when across all your active projects. Conflicts
             highlighted in red.

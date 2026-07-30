@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 import { useEffect, useState } from "react";
 import {
   ArrowTopRightOnSquareIcon,
@@ -146,10 +148,13 @@ export default function DistributorsPage() {
     <AppShell>
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-            <span className="md:hidden">Subs</span>
-            <span className="hidden md:inline">Subs & Suppliers</span>
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              <span className="md:hidden">Subs</span>
+              <span className="hidden md:inline">Subs & Suppliers</span>
+            </h1>
+            <HeaderHint label="Your trade roster — framers, plumbers, electricians, lumberyards. Used by RFQs and milestone assignments." />
+          </div>
           <p className="mt-1 hidden text-sm text-slate-500 md:block">
             Subcontractors and material suppliers — your trade partners and vendor list for RFQs.
           </p>

@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
@@ -54,7 +56,10 @@ export default function AccountsPage() {
     <AppShell>
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Clients</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Clients</h1>
+            <HeaderHint label="Your client roster — homeowners and the projects tied to each." />
+          </div>
           <p className="mt-1 hidden text-sm text-slate-500 md:block">
             Homeowners, developers, and other clients tied to your projects.
           </p>
