@@ -1,5 +1,7 @@
 "use client";
 
+import CollapsibleDetail from "@/components/collapsible-detail";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FinanceSignal } from "@/lib/finance-signal";
 import { ExclamationTriangleIcon, UsersIcon } from "@heroicons/react/24/outline";
@@ -192,11 +194,13 @@ export default function SubCostPanel({
             />
           </div>
 
-          <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
-            {model.rows.map((r) => (
-              <SubRowView key={r.key} row={r} status={model.classify(r)} />
-            ))}
-          </ul>
+          <CollapsibleDetail summary={`${model.rows.length} sub${model.rows.length === 1 ? "" : "s"}`}>
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+              {model.rows.map((r) => (
+                <SubRowView key={r.key} row={r} status={model.classify(r)} />
+              ))}
+            </ul>
+          </CollapsibleDetail>
 
           {model.untrackedPaid > 0 ? (
             <p className="mt-3 text-[11px] text-slate-500">

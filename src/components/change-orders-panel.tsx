@@ -1,5 +1,7 @@
 "use client";
 
+import CollapsibleDetail from "@/components/collapsible-detail";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   PlusIcon,
@@ -127,16 +129,18 @@ export default function ChangeOrdersPanel({ deal }: { deal: Deal }) {
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100">
-          {items.map((co) => (
-            <COrow
-              key={co.id}
-              co={co}
-              onOpen={() => setEditing(co)}
-              onRemove={() => onRemove(co)}
-            />
-          ))}
-        </ul>
+        <CollapsibleDetail summary={`${items.length} change order${items.length === 1 ? "" : "s"}`}>
+          <ul className="divide-y divide-slate-100">
+            {items.map((co) => (
+              <COrow
+                key={co.id}
+                co={co}
+                onOpen={() => setEditing(co)}
+                onRemove={() => onRemove(co)}
+              />
+            ))}
+          </ul>
+        </CollapsibleDetail>
       )}
 
       {showNew && (

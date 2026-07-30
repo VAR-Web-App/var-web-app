@@ -1,5 +1,7 @@
 "use client";
 
+import CollapsibleDetail from "@/components/collapsible-detail";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   PlusIcon,
@@ -103,16 +105,18 @@ export default function InvoicesPanel({ deal }: { deal: Deal }) {
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100">
-          {items.map((inv) => (
-            <InvoiceRow
-              key={inv.id}
-              inv={inv}
-              onOpen={() => setViewing(inv)}
-              onRemove={() => onRemove(inv)}
-            />
-          ))}
-        </ul>
+        <CollapsibleDetail summary={`${items.length} invoice${items.length === 1 ? "" : "s"}`}>
+          <ul className="divide-y divide-slate-100">
+            {items.map((inv) => (
+              <InvoiceRow
+                key={inv.id}
+                inv={inv}
+                onOpen={() => setViewing(inv)}
+                onRemove={() => onRemove(inv)}
+              />
+            ))}
+          </ul>
+        </CollapsibleDetail>
       )}
 
       {showImport && (
