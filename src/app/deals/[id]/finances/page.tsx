@@ -45,19 +45,61 @@ export default function DealFinancesPage({
 
   return (
     <DealPageShell deal={deal} active="finances">
-      <div className="space-y-6">
-        <EstimateSummary dealId={deal.id} lines={lines} />
-        <BudgetPanel dealId={deal.id} />
-        <FinanceForecastPanel dealId={deal.id} />
-        <CashFlowTimelinePanel dealId={deal.id} />
-        <SubCostPanel dealId={deal.id} />
-        <ChangeOrdersPanel deal={deal} />
-        <InvoicesPanel deal={deal} />
-        <PaymentsSection deal={deal} />
-        <RFQPanel deal={deal} />
-        <BidIntelligencePanel deal={deal} />
+      {/* Grouped into three bands so the tab reads as 3 areas, not 10 flat
+          peers (UX_PRINCIPLES: group past ~4–5 co-equal panels). Phase 2:
+          a top attention strip aggregating the red/amber signals + collapsing
+          the deep tables. */}
+      <div className="space-y-8">
+        <FinanceGroup
+          title="Forecast"
+          subtitle="Estimate, budget, margin, cash flow & sub overruns"
+        >
+          <EstimateSummary dealId={deal.id} lines={lines} />
+          <BudgetPanel dealId={deal.id} />
+          <FinanceForecastPanel dealId={deal.id} />
+          <CashFlowTimelinePanel dealId={deal.id} />
+          <SubCostPanel dealId={deal.id} />
+        </FinanceGroup>
+
+        <FinanceGroup
+          title="Ledger"
+          subtitle="Change orders, invoices & payments"
+        >
+          <ChangeOrdersPanel deal={deal} />
+          <InvoicesPanel deal={deal} />
+          <PaymentsSection deal={deal} />
+        </FinanceGroup>
+
+        <FinanceGroup title="Sourcing" subtitle="Sub RFQs & bid benchmarking">
+          <RFQPanel deal={deal} />
+          <BidIntelligencePanel deal={deal} />
+        </FinanceGroup>
       </div>
     </DealPageShell>
+  );
+}
+
+function FinanceGroup({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-baseline gap-2 border-b border-slate-200 pb-1.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          {title}
+        </h2>
+        <span className="hidden truncate text-xs text-slate-400 sm:inline">
+          {subtitle}
+        </span>
+      </div>
+      <div className="space-y-6">{children}</div>
+    </section>
   );
 }
 
