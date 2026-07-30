@@ -42,17 +42,42 @@ A per-deal log entry. Fields:
 - **Client sign-off:** push a Request to the portal for the homeowner to
   approve, same token flow as draws/COs. Timestamped, immutable.
 
-## Correspondence attached to the deal
+## Correspondence attached to the deal — email (layered, provider-agnostic)
 
-- **Email:** connect Gmail / forward to a per-org parse address
-  (`u-<orgId>@parse.keystonepro.app` → SendGrid Inbound Parse → `/api/email/inbound`).
-  Threads render on the deal (Avanchor's "Email Correspondence · N threads"). The
-  **Email Digester** we built is the seed — it already routes a pasted email to a
-  project + extracts action items; inbound just automates the paste and files it.
+Studied Brennan's Avanchor build (`Avanchor/Avanchor-Web-App`). His email
+system is **Gmail OAuth + client polling → thread↔deal bindings → per-deal
+message metadata**, NOT inbound-parse. Data model to mirror:
+- **Bindings:** `email_thread_bindings/{threadId}` = thread → deal
+  (`{thread_id, deal_ref, bound_by: user | auto_label | auto_match}`).
+- **Per-deal messages:** `deals/{id}/email_messages/{messageId}` = **metadata
+  only** (from/subject/snippet/date; bodies fetched on demand). Idempotent
+  write + a post-poll sync sweep.
+- **Display:** a live `onSnapshot` "Correspondence" card on the deal, grouped by
+  thread, links out. (Keep our org-scoped Firestore rules — do NOT copy
+  Avanchor's wide-open single-tenant rules.)
+- **Auto-bind** by a Gmail label (`KeystonePro/Deals/{name}`) or by substring-
+  matching deal identifiers (PO#/award#/address) — `deal-matcher`.
+
+**The catch: Gmail OAuth is Gmail-only.** So we LAYER for every provider:
+- **Baseline — forward-in (ANY provider incl. Yahoo / Outlook / ISP):** builder
+  sets one auto-forward rule → `u-<orgId>@parse.keystonepro.app` → SendGrid
+  Inbound Parse → `/api/email/inbound` → file to the deal. Needs domain +
+  SendGrid (domain now live). The universal path.
+- **Premium UX — Gmail OAuth** (Gmail + Google Workspace majority): Brennan's
+  auto-sync + label-bind; no forwarding, reads history; no domain needed.
+- **Outlook/Microsoft OAuth:** obvious second connector if the data warrants.
+- **Alt — unified email API (Nylas / Unipile):** one integration = Gmail +
+  Outlook + Yahoo + IMAP; paid per mailbox (pass-through in the add-on).
+- **Floor — paste-in (already built):** the Email Digester works for any
+  provider today, zero setup.
+
+Recommendation: **forward-in baseline + Gmail OAuth premium** (100% coverage via
+forwarding, slick zero-config for the Gmail majority, no per-mailbox vendor fee).
+
 - **Text/SMS:** inbound SMS (Twilio) logged against the matching sub/client's
   number, attached to the deal.
-- **Calls:** the **Phone Summarizer** we built → recap + action items saved to the
-  deal (already exists; just file under the deal's correspondence).
+- **Calls:** the **Phone Summarizer** we built → recap + action items on the deal
+  (already exists; just file under correspondence).
 
 ## Attachments (typed buckets)
 
@@ -91,12 +116,20 @@ data (log a Request, draft a reply, summarize the trail).
 
 ## Phasing
 
-1. **Requests log** (data model + per-deal UI + resurface-on-milestone + convert-to-CO/Selection). Highest value, no external deps. **Build first.**
-2. **Client sign-off on Requests** (extend portal).
-3. **Inbound email filing** (needs domain + SendGrid Inbound Parse — already scoped in COMMS.md).
-4. **Inbound SMS filing** (needs Twilio).
-5. **Typed attachments + paper-trail export.**
+1. ✅ **Requests log** — DONE (PR#39): `project_requests` + `RequestsPanel` on the
+   deal, tied to phase/sub, status cycle, org-scoped rule deployed.
+2. **Requests 1.5** — resurface-on-milestone (show a phase's open requests when it
+   comes up on the schedule), convert Request → Change Order / Selection, portal
+   client sign-off. No external deps — buildable now.
+3. **Email correspondence on the deal** — the Avanchor triad (bindings +
+   per-deal `email_messages` + Correspondence card). Ship **forward-in
+   (universal)** first (needs SendGrid + the now-live domain), then **Gmail
+   OAuth** (premium, no domain). Outlook/unified-API optional later.
+4. **Per-deal activity feed = "notifications by project"** (net-new — neither
+   app has it): a per-deal `activity` subcollection written on binds / requests /
+   draws / COs + a badge. Reuse the poller→badge pattern.
+5. **Inbound SMS filing** (Twilio) + **paper-trail export** (one-click PDF of
+   correspondence + requests + sign-offs for a dispute).
 
-Phase 1 alone solves the fireplace scenario and is buildable now with zero
-external setup. Confirm the add-on framing and I'll spec the data model +
-schema for phase 1.
+Phases 2 + 4 need zero external setup and are buildable now; phase 3's forward-in
+leg only waits on SendGrid (domain is live).
