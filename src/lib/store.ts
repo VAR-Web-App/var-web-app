@@ -1311,6 +1311,26 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       notes: "Kitchen remodel only — completed Mar 2026, in warranty.",
       org_ref: orgRef,
     },
+    {
+      id: newId("client"),
+      name: "Ramirez Family",
+      type: "commercial",
+      contract_vehicles: ["Direct inquiry — referral"],
+      ship_to_addresses: ["77 Vineyard Way\nFredericksburg, TX 78624"],
+      payment_terms: "Per draw schedule (construction loan)",
+      notes: "Active build — Lone Star Bank construction loan.",
+      org_ref: orgRef,
+    },
+    {
+      id: newId("client"),
+      name: "Nguyen Family",
+      type: "commercial",
+      contract_vehicles: [],
+      ship_to_addresses: ["12 Comal Springs\nNew Braunfels, TX 78130"],
+      payment_terms: "",
+      notes: "Lost lead — price. Worth a re-touch in ~6 months.",
+      org_ref: orgRef,
+    },
   ];
   for (const c of clients) await saveAccount(c);
 
@@ -1418,6 +1438,7 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
   // The Maddox project is the demo's anchor — it's mid-build with
   // milestones populated below. Other projects show pipeline variety.
   const maddoxId = newId("deal");
+  const ramirezId = newId("deal"); // In-Progress build — draws flowing
 
   const projects: Deal[] = [
     {
@@ -1582,6 +1603,57 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       created_at: isoDaysAgo(220),
       updated_at: isoDaysAgo(45),
     },
+    {
+      id: ramirezId,
+      name: "Ramirez — Modern Farmhouse",
+      stage: "partially_shipped", // = In Progress
+      deal_type: "quotation",
+      manufacturer: "Custom Home",
+      account_ref: clients[5].id,
+      account_name: clients[5].name,
+      solicitation_number: "RAM-2026-006",
+      customer_po: "Lone Star Bank construction loan #CL-31120",
+      ship_to_address: "77 Vineyard Way\nFredericksburg, TX 78624",
+      ship_to_poc_name: "Sofia Ramirez",
+      ship_to_poc_email: "sofia@ramirezfam.com",
+      lead_time: "30 weeks",
+      due_date: isoDaysAgo(-40).slice(0, 10),
+      award_date: isoDaysAgo(95),
+      award_total: 920000,
+      total_quote_value: 920000,
+      total_cost: 781000,
+      margin_percent: 15.1,
+      notes:
+        "Mid-build. Foundation + framing draws released; dried-in draw awaiting owner approval; MEP rough in progress.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(130),
+      updated_at: isoDaysAgo(1),
+    },
+    {
+      id: newId("deal"),
+      name: "Nguyen — New Build (Lost)",
+      stage: "closed_lost", // = Lost
+      deal_type: "budgetary",
+      manufacturer: "Custom Home",
+      account_ref: clients[6].id,
+      account_name: clients[6].name,
+      solicitation_number: "NGU-2026-007",
+      customer_po: "",
+      ship_to_address: "12 Comal Springs\nNew Braunfels, TX 78130",
+      ship_to_poc_name: "",
+      ship_to_poc_email: "",
+      lead_time: "",
+      due_date: isoDaysAgo(20).slice(0, 10),
+      award_total: 0,
+      total_quote_value: 540000,
+      total_cost: 0,
+      margin_percent: 0,
+      notes:
+        "Lost — went with a lower budgetary bid from another builder. Budget was tight; follow up in ~6 months.",
+      org_ref: orgRef,
+      created_at: isoDaysAgo(55),
+      updated_at: isoDaysAgo(20),
+    },
   ];
   for (const p of projects) await saveDeal(p);
 
@@ -1683,6 +1755,58 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       }),
       ...(status === "in_progress" && {
         started_at: isoDaysAgo(-phaseStarts[i]),
+      }),
+    };
+    await saveMilestone(m);
+  }
+
+  // ── Ramirez (In-Progress) milestones — a second active build so the
+  //    "In Progress" stage has real draws flowing (released + one awaiting
+  //    approval + MEP in progress). Reuses the first 7 phase definitions.
+  const ramStarts = [-100, -80, -55, -25, -10, 20, 45];
+  const ramDurations = [7, 21, 30, 14, 21, 35, 14];
+  const ramStatuses: typeof phaseStatuses = [
+    "released", "released", "released", "awaiting_approval", "in_progress", "pending", "pending",
+  ];
+  const ramPhases = milestonePhases.slice(0, 7);
+  for (let i = 0; i < ramPhases.length; i++) {
+    const phase = ramPhases[i];
+    const status = ramStatuses[i];
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() + ramStarts[i]);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + ramDurations[i]);
+    const amount = Math.round((920000 * phase.percent) / 100);
+    const assignedSubIds = phaseSubAssignments[i].map((idx) => subs[idx].id);
+    const m: Parameters<typeof saveMilestone>[0] = {
+      id: newId("ms"),
+      deal_ref: ramirezId,
+      org_ref: orgRef,
+      name: phase.label,
+      description: phase.description,
+      order: i,
+      percentage: phase.percent,
+      amount,
+      status,
+      planned_start_date: startDate.toISOString().slice(0, 10),
+      planned_end_date: endDate.toISOString().slice(0, 10),
+      assigned_subs: assignedSubIds,
+      notes: "",
+      created_at: isoDaysAgo(120),
+      updated_at: isoDaysAgo(1),
+      ...(status === "released" && {
+        started_at: isoDaysAgo(-ramStarts[i] + 4),
+        marked_complete_at: isoDaysAgo(-ramStarts[i] - ramDurations[i] - 1),
+        approved_at: isoDaysAgo(-ramStarts[i] - ramDurations[i] - 1),
+        released_at: isoDaysAgo(-ramStarts[i] - ramDurations[i]),
+        released_amount: amount,
+      }),
+      ...(status === "awaiting_approval" && {
+        started_at: isoDaysAgo(-ramStarts[i] + 3),
+        marked_complete_at: isoDaysAgo(3),
+      }),
+      ...(status === "in_progress" && {
+        started_at: isoDaysAgo(-ramStarts[i]),
       }),
     };
     await saveMilestone(m);
