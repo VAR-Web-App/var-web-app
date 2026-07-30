@@ -1,5 +1,7 @@
 "use client";
 
+import HeaderHint from "@/components/header-hint";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -128,10 +130,13 @@ export default function DealsPage() {
         <div className="min-w-0">
           {/* Desktop: full title + subtext. Mobile: just the short
            *  heading — companion UX strips chrome to maximize content. */}
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-            <span className="md:hidden">Projects</span>
-            <span className="hidden md:inline">Project Pipeline</span>
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              <span className="md:hidden">Projects</span>
+              <span className="hidden md:inline">Project Pipeline</span>
+            </h1>
+            <HeaderHint label="Your project pipeline — kanban across stages from new lead to closeout. Click a card to open the project." />
+          </div>
           <p className="mt-1 hidden text-sm text-slate-500 md:block">
             {loaded
               ? `${deals.length} project${deals.length === 1 ? "" : "s"} · drag cards between columns to update stage`
