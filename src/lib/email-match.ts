@@ -5,6 +5,19 @@
 
 import type { Firestore } from "firebase-admin/firestore";
 
+// Normalize for tolerant matching: lowercase, fold all dash variants
+// (em/en dash etc.) + underscores/slashes to spaces, collapse whitespace.
+// Deal names in the app use em dashes ("Webb — Hill Country Cabin") but a
+// human types a plain hyphen in an email — without this they never match.
+function norm(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[‐-―−]/g, "-") // unicode dashes → hyphen
+    .replace(/[-_/]+/g, " ") // hyphen/underscore/slash → space
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function matchDealForOrg(
   db: Firestore,
   orgRef: string,
@@ -15,7 +28,7 @@ export async function matchDealForOrg(
     .collection("deals")
     .where("org_ref", "==", orgRef)
     .get();
-  const hay = `${subject}\n${text}`.toLowerCase();
+  const hay = norm(`${subject}\n${text}`);
   let dealRef: string | null = null;
   let bestLen = 4; // ignore very short identifiers
   for (const d of dealsSnap.docs) {
@@ -27,9 +40,10 @@ export async function matchDealForOrg(
       data.ship_to_address,
     ].filter((v): v is string => typeof v === "string" && v.length > 4);
     for (const idv of ids) {
-      if (idv.length > bestLen && hay.includes(idv.toLowerCase())) {
+      const n = norm(idv);
+      if (n.length > bestLen && hay.includes(n)) {
         dealRef = d.id;
-        bestLen = idv.length;
+        bestLen = n.length;
       }
     }
   }
