@@ -12,11 +12,15 @@ import { useAuth } from "@/lib/auth-context";
 import { listEmailAccounts } from "@/lib/store";
 import type { EmailAccount } from "@/types/builder";
 
-const PROVIDER_LABEL: Record<string, string> = {
-  GOOGLE: "Gmail",
-  MICROSOFT: "Outlook",
-  IMAP: "IMAP",
-};
+// Unipile reports provider types like "GOOGLE_OAUTH" / "OUTLOOK" / "MAIL" —
+// normalize to a friendly label. Check Google first ("GMAIL" contains "MAIL").
+function providerLabel(provider: string | null): string {
+  const t = (provider ?? "").toUpperCase();
+  if (t.includes("GOOGLE") || t.includes("GMAIL")) return "Gmail";
+  if (t.includes("OUTLOOK") || t.includes("MICROSOFT")) return "Outlook";
+  if (t.includes("MAIL") || t.includes("IMAP")) return "IMAP";
+  return "Connected";
+}
 
 export default function ConnectInbox() {
   const { profile } = useAuth();
@@ -83,10 +87,10 @@ export default function ConnectInbox() {
               <li key={a.account_id} className="flex items-center gap-2 text-sm">
                 <CheckCircleIcon className="h-4 w-4 shrink-0 text-emerald-600" />
                 <span className="font-medium text-slate-900">
-                  {a.email ?? PROVIDER_LABEL[a.provider ?? ""] ?? "Mailbox"}
+                  {a.email ?? providerLabel(a.provider)}
                 </span>
                 <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                  {PROVIDER_LABEL[a.provider ?? ""] ?? "Connected"}
+                  {providerLabel(a.provider)}
                 </span>
               </li>
             ))}

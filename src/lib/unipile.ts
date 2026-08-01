@@ -99,11 +99,17 @@ export async function getAccount(accountId: string): Promise<UnipileAccount | nu
  *  back to any "@"-looking string field. */
 export function emailFromAccount(acct: UnipileAccount | null): string | null {
   if (!acct) return null;
+  // Shape (GOOGLE_OAUTH): { name: "you@gmail.com", connection_params: {
+  //   mail: { id, username } } }. `name` is the address; the mail source is
+  //   the backup.
+  const cp = acct.connection_params as
+    | { mail?: { id?: string; username?: string } }
+    | undefined;
   const candidates: unknown[] = [
     acct.name,
     (acct as Record<string, unknown>).email,
-    ((acct as Record<string, unknown>).connection_params as Record<string, unknown> | undefined)?.mail,
-    ((acct as Record<string, unknown>).connection_params as Record<string, unknown> | undefined)?.username,
+    cp?.mail?.username,
+    cp?.mail?.id,
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.includes("@")) return c.toLowerCase();
