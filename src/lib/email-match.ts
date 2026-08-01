@@ -18,23 +18,50 @@ function norm(s: string): string {
     .trim();
 }
 
+export interface MatchInput {
+  subject: string;
+  text: string;
+  /** Participant addresses (from/to/cc), any case — used for client match. */
+  emails?: string[];
+}
+
+const cleanEmail = (s: unknown): string =>
+  typeof s === "string" ? s.trim().toLowerCase() : "";
+
 export async function matchDealForOrg(
   db: Firestore,
   orgRef: string,
-  subject: string,
-  text: string,
+  input: MatchInput,
 ): Promise<string | null> {
   const dealsSnap = await db
     .collection("deals")
     .where("org_ref", "==", orgRef)
     .get();
-  const hay = norm(`${subject}\n${text}`);
+
+  // 1) Strongest signal: the email is *with the deal's client*. If any
+  //    participant address matches a deal's contact email, file there —
+  //    even when the project is never named ("tin roof instead of shingles").
+  const parts = new Set((input.emails ?? []).map(cleanEmail).filter(Boolean));
+  if (parts.size) {
+    for (const d of dealsSnap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const contact = cleanEmail(data.ship_to_poc_email);
+      if (contact && parts.has(contact)) return d.id;
+    }
+  }
+
+  // 2) Fall back to an identifier appearing in subject/body — project name,
+  //    client/account/contact name, PO#, or project address. Longest wins.
+  const hay = norm(`${input.subject}\n${input.text}`);
   let dealRef: string | null = null;
   let bestLen = 4; // ignore very short identifiers
   for (const d of dealsSnap.docs) {
     const data = d.data() as Record<string, unknown>;
     const ids = [
       data.name,
+      data.account_name,
+      data.poc_name,
+      data.ship_to_poc_name,
       data.solicitation_number,
       data.customer_po,
       data.ship_to_address,

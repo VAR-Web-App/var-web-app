@@ -19,7 +19,13 @@ export async function fileUnipileEmail(
   const text =
     email.body_plain?.trim() || (email.body ? htmlToText(email.body) : "");
 
-  const dealRef = await matchDealForOrg(db, orgRef, subject, text);
+  const emails = [
+    email.from_attendee?.identifier,
+    ...(email.to_attendees ?? []).map((a) => a.identifier),
+    ...(email.cc_attendees ?? []).map((a) => a.identifier),
+  ].filter((e): e is string => !!e);
+
+  const dealRef = await matchDealForOrg(db, orgRef, { subject, text, emails });
   if (!dealRef) return null; // no flood — skip non-project mail
 
   const dedup =

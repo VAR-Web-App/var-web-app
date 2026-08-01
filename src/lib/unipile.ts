@@ -104,6 +104,8 @@ export interface UnipileEmail {
   body_plain?: string;
   has_attachments?: boolean;
   from_attendee?: { display_name?: string; identifier?: string };
+  to_attendees?: Array<{ display_name?: string; identifier?: string }>;
+  cc_attendees?: Array<{ display_name?: string; identifier?: string }>;
   [k: string]: unknown;
 }
 
