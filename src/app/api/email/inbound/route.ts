@@ -85,6 +85,8 @@ export async function POST(req: NextRequest) {
     body_text: text.slice(0, 20000),
     has_attachments: attachments > 0,
     received_at: now,
+    source: "forward",
+    direction: "in",
   });
 
   return NextResponse.json({ ok: true, org: orgId, deal_ref: dealRef, matched: !!dealRef });

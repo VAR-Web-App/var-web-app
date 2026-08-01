@@ -51,6 +51,12 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
+                    {m.direction !== "out" && !m.addressed && (
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full bg-sky-500"
+                        title="Needs reply"
+                      />
+                    )}
                     <span className="truncate text-sm font-medium text-slate-900">
                       {m.subject || "(no subject)"}
                     </span>

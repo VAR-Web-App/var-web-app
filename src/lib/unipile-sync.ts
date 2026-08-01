@@ -41,6 +41,8 @@ export async function fileUnipileEmail(
   const id = `un_${dedup}`;
   const fromName = email.from_attendee?.display_name ?? "";
   const fromEmail = (email.from_attendee?.identifier ?? "").toLowerCase();
+  // Mail the builder sent is just log; mail from anyone else is a to-do.
+  const direction = self && fromEmail === self ? "out" : "in";
 
   await db
     .collection("email_messages")
@@ -59,6 +61,7 @@ export async function fileUnipileEmail(
         has_attachments: !!email.has_attachments,
         received_at: email.date ?? new Date().toISOString(),
         source: "unipile",
+        direction,
       },
       { merge: true },
     );
