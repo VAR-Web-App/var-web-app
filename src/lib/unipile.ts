@@ -56,6 +56,13 @@ export async function createHostedAuthLink(a: HostedAuthArgs): Promise<string> {
       failure_redirect_url: a.failureUrl,
       notify_url: a.notifyUrl,
       name: a.orgRef,
+      // Request READ-ONLY mail scope so the consent screen reads "view your
+      // email" instead of "read, compose, send, and delete all your email".
+      // We only read to file correspondence onto deals. When we add
+      // reply-from-your-inbox, escalate to gmail.send / Mail.Send here (a
+      // one-time reconnect). Unipile adds its own identity scopes.
+      google_scopes: "https://www.googleapis.com/auth/gmail.readonly",
+      microsoft_scopes: "Mail.Read",
     }),
   });
   if (!res.ok) {
