@@ -67,9 +67,9 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
                 </div>
               </button>
               {openId === m.id && m.body_text && (
-                <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-xs text-slate-700">
+                <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
                   {m.body_text}
-                </pre>
+                </div>
               )}
             </li>
           ))}
