@@ -14,16 +14,21 @@ export async function fileUnipileEmail(
   db: Firestore,
   orgRef: string,
   email: UnipileEmail,
+  selfEmail?: string,
 ): Promise<string | null> {
   const subject = email.subject ?? "";
   const text =
     email.body_plain?.trim() || (email.body ? htmlToText(email.body) : "");
 
+  // The builder's own address is on every message they send or receive, so
+  // exclude it from client matching — only the *other* party identifies the
+  // deal.
+  const self = (selfEmail ?? "").trim().toLowerCase();
   const emails = [
     email.from_attendee?.identifier,
     ...(email.to_attendees ?? []).map((a) => a.identifier),
     ...(email.cc_attendees ?? []).map((a) => a.identifier),
-  ].filter((e): e is string => !!e);
+  ].filter((e): e is string => !!e && e.trim().toLowerCase() !== self);
 
   const dealRef = await matchDealForOrg(db, orgRef, { subject, text, emails });
   if (!dealRef) return null; // no flood — skip non-project mail

@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     ? (acctDoc.data()?.org_ref as string | undefined)
     : undefined;
   if (!orgRef) return NextResponse.json({ ok: true, ignored: "unknown_account" });
+  const selfEmail = acctDoc.data()?.email as string | undefined;
 
   const email: UnipileEmail = {
     id: body.email_id as string | undefined,
@@ -56,6 +57,6 @@ export async function POST(req: NextRequest) {
     cc_attendees: body.cc_attendees as UnipileEmail["cc_attendees"],
   };
 
-  const dealRef = await fileUnipileEmail(db, orgRef, email);
+  const dealRef = await fileUnipileEmail(db, orgRef, email, selfEmail);
   return NextResponse.json({ ok: true, filed: !!dealRef, deal_ref: dealRef });
 }

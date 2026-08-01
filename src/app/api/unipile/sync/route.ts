@@ -37,10 +37,11 @@ export async function POST(req: NextRequest) {
   let filed = 0;
   for (const acc of accountsSnap.docs) {
     const accountId = acc.data().account_id as string;
+    const selfEmail = acc.data().email as string | undefined;
     const emails = await listEmails(accountId, 30);
     scanned += emails.length;
     for (const email of emails) {
-      const dealRef = await fileUnipileEmail(db, orgRef, email);
+      const dealRef = await fileUnipileEmail(db, orgRef, email, selfEmail);
       if (dealRef) filed += 1;
     }
   }
