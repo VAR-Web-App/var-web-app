@@ -469,6 +469,7 @@ export interface EmailMessage {
   body_text?: string;
   has_attachments?: boolean;
   received_at: string;
+  source?: "forward" | "unipile";
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"

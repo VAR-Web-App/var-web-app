@@ -6,7 +6,7 @@
 // linked. Lives on the Inbox above the unassigned-forward queue.
 
 import { useCallback, useEffect, useState } from "react";
-import { EnvelopeIcon, CheckCircleIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon, CheckCircleIcon, PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { listEmailAccounts } from "@/lib/store";
@@ -46,6 +46,26 @@ export default function ConnectInbox() {
       return () => window.clearTimeout(t);
     }
   }, [refresh]);
+
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  async function syncNow() {
+    setSyncMsg("Syncing…");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/unipile/sync", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const d = (await res.json()) as { scanned?: number; filed?: number; error?: string };
+      setSyncMsg(
+        d.error
+          ? `Sync failed: ${d.error}`
+          : `Scanned ${d.scanned ?? 0}, filed ${d.filed ?? 0} onto deals.`,
+      );
+    } catch {
+      setSyncMsg("Sync failed.");
+    }
+  }
 
   async function connect() {
     setBusy(true);
@@ -95,14 +115,24 @@ export default function ConnectInbox() {
               </li>
             ))}
           </ul>
-          <button
-            onClick={() => void connect()}
-            disabled={busy}
-            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-800 disabled:opacity-50"
-          >
-            <PlusIcon className="h-3.5 w-3.5" />
-            {busy ? "Opening…" : "Connect another inbox"}
-          </button>
+          <div className="mt-3 flex items-center gap-4">
+            <button
+              onClick={() => void syncNow()}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900"
+            >
+              <ArrowPathIcon className="h-3.5 w-3.5" />
+              Sync recent mail
+            </button>
+            <button
+              onClick={() => void connect()}
+              disabled={busy}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-800 disabled:opacity-50"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              {busy ? "Opening…" : "Connect another inbox"}
+            </button>
+          </div>
+          {syncMsg && <p className="mt-2 text-xs text-slate-500">{syncMsg}</p>}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
         </div>
       ) : (

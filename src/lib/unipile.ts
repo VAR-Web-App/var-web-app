@@ -94,6 +94,52 @@ export async function getAccount(accountId: string): Promise<UnipileAccount | nu
   }
 }
 
+export interface UnipileEmail {
+  id?: string;
+  provider_id?: string;
+  message_id?: string;
+  date?: string;
+  subject?: string;
+  body?: string; // HTML
+  body_plain?: string;
+  has_attachments?: boolean;
+  from_attendee?: { display_name?: string; identifier?: string };
+  [k: string]: unknown;
+}
+
+/** List recent emails for a connected account (newest first). Best-effort. */
+export async function listEmails(
+  accountId: string,
+  limit = 20,
+): Promise<UnipileEmail[]> {
+  try {
+    const res = await unipileFetch(
+      `/api/v1/emails?account_id=${encodeURIComponent(accountId)}&limit=${limit}`,
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: UnipileEmail[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Crude HTML→text for email bodies (snippets + matching). */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Dig an email address out of a Unipile account object. The address lives
  *  under different keys per provider, so probe the likely spots and fall
  *  back to any "@"-looking string field. */

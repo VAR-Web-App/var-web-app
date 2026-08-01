@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminConfigured, adminDb } from "@/lib/firebase-admin";
+import { matchDealForOrg } from "@/lib/email-match";
 
 export const runtime = "nodejs";
 
@@ -65,22 +66,7 @@ export async function POST(req: NextRequest) {
   const db = adminDb();
 
   // Match a deal by longest identifier substring in subject+body.
-  const dealsSnap = await db.collection("deals").where("org_ref", "==", orgId).get();
-  const hay = `${subject}\n${text}`.toLowerCase();
-  let dealRef: string | null = null;
-  let bestLen = 4; // ignore very short identifiers
-  for (const d of dealsSnap.docs) {
-    const data = d.data() as Record<string, unknown>;
-    const ids = [data.name, data.solicitation_number, data.customer_po, data.ship_to_address].filter(
-      (v): v is string => typeof v === "string" && v.length > 4,
-    );
-    for (const idv of ids) {
-      if (idv.length > bestLen && hay.includes(idv.toLowerCase())) {
-        dealRef = d.id;
-        bestLen = idv.length;
-      }
-    }
-  }
+  const dealRef = await matchDealForOrg(db, orgId, subject, text);
 
   const fromEmail = (from.match(/<([^>]+)>/)?.[1] ?? from).trim().toLowerCase();
   const now = new Date().toISOString();
