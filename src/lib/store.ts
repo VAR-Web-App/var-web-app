@@ -474,6 +474,26 @@ export async function assignEmailMessage(id: string, dealRef: string): Promise<v
   );
 }
 
+/** Received, deal-linked emails the builder hasn't addressed yet — the
+ *  "needs reply" to-do list. Query by org (rule), filter in memory. */
+export async function listAttentionEmails(orgRef: string): Promise<EmailMessage[]> {
+  const q = query(collection(db, "email_messages"), where("org_ref", "==", orgRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<EmailMessage, "id">) }))
+    .filter((m) => m.deal_ref && m.direction !== "out" && !m.addressed)
+    .sort((a, b) => (b.received_at || "").localeCompare(a.received_at || ""));
+}
+
+/** Mark a correspondence item handled — clears it from the to-do list. */
+export async function markEmailAddressed(id: string): Promise<void> {
+  await setDoc(
+    doc(db, "email_messages", id),
+    { addressed: true, addressed_at: new Date().toISOString() },
+    { merge: true },
+  );
+}
+
 /** Mailboxes connected to this org via Unipile ("Connect your inbox"). */
 export async function listEmailAccounts(orgRef: string): Promise<EmailAccount[]> {
   const q = query(collection(db, "email_accounts"), where("org_ref", "==", orgRef));

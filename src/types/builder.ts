@@ -470,6 +470,9 @@ export interface EmailMessage {
   has_attachments?: boolean;
   received_at: string;
   source?: "forward" | "unipile";
+  direction?: "in" | "out"; // "in" = received → a to-do until addressed
+  addressed?: boolean; // builder marked it handled (replied / dealt with)
+  addressed_at?: string | null;
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"

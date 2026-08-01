@@ -20,6 +20,7 @@ import {
   saveDeal,
   seedBuilderDemoData,
   resetAndSeedBuilderDemo,
+  listAttentionEmails,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -48,6 +49,8 @@ export default function DealsPage() {
     null,
   );
 
+  const [attention, setAttention] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (!profile) return;
     let active = true;
@@ -57,6 +60,15 @@ export default function DealsPage() {
         setLoaded(true);
       }
     });
+    // Projects with unanswered client email get an attention dot.
+    listAttentionEmails(profile.org_ref)
+      .then((emails) => {
+        if (active)
+          setAttention(
+            new Set(emails.map((e) => e.deal_ref).filter((r): r is string => !!r)),
+          );
+      })
+      .catch(() => {});
     return () => { active = false; };
   }, [profile]);
 
@@ -215,6 +227,7 @@ export default function DealsPage() {
                     deal={deal}
                     isDragging={draggedDeal === deal.id}
                     onDragStart={() => setDraggedDeal(deal.id)}
+                    needsAttention={attention.has(deal.id)}
                   />
                 ))}
                 {stageDeals.length === 0 && loaded && (
@@ -268,6 +281,7 @@ export default function DealsPage() {
                 key={deal.id}
                 deal={deal}
                 showStageBadge={mobileStageFilter === null}
+                needsAttention={attention.has(deal.id)}
               />
             ))}
             {mobileStageFilter &&
@@ -398,11 +412,13 @@ function DealCard({
   isDragging,
   onDragStart,
   showStageBadge,
+  needsAttention,
 }: {
   deal: Deal;
   isDragging?: boolean;
   onDragStart?: () => void;
   showStageBadge?: boolean;
+  needsAttention?: boolean;
 }) {
   // Stage drives label: pre-contract = "estimate", post-contract = "contract"
   const isPostContract = [
@@ -429,7 +445,14 @@ function DealCard({
       } ${isDragging ? "opacity-50" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-slate-900">
+        <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-slate-900">
+          {needsAttention && (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-sky-500"
+              title="Unanswered client email"
+              aria-label="Needs attention"
+            />
+          )}
           {deal.name}
         </p>
         {showStageBadge && stageMeta && (

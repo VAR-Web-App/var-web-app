@@ -29,6 +29,7 @@ import EmailDigester from "@/components/email-digester";
 import PhoneSummarizer from "@/components/phone-summarizer";
 import UnassignedEmailQueue from "@/components/unassigned-email-queue";
 import ConnectInbox from "@/components/connect-inbox";
+import EmailTodos from "@/components/email-todos";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
@@ -297,8 +298,9 @@ export default function InboxPage() {
           )}
         </header>
 
-        <ConnectInbox />
+        <EmailTodos />
         <UnassignedEmailQueue />
+        <ConnectInbox />
         <EmailDigester />
         <PhoneSummarizer />
 
