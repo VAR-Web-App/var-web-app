@@ -50,22 +50,23 @@ export async function matchDealForOrg(
     }
   }
 
-  // 2) Fall back to an identifier appearing in subject/body — project name,
-  //    client/account/contact name, PO#, or project address. Longest wins.
+  // 2) Fall back to a *distinctive* identifier appearing in subject/body —
+  //    the project name, PO#/job#, or project address. Deliberately NOT
+  //    client/account/contact NAMES: short, common names ("cmadd", "Webb
+  //    Family") match unrelated mail (a Vercel/GitHub notification mentioning
+  //    "cmadd123" caught a deal named "cmadd"). Names are covered by the
+  //    stronger client-email signal above. Require ≥6 chars as a floor.
   const hay = norm(`${input.subject}\n${input.text}`);
   let dealRef: string | null = null;
-  let bestLen = 4; // ignore very short identifiers
+  let bestLen = 5;
   for (const d of dealsSnap.docs) {
     const data = d.data() as Record<string, unknown>;
     const ids = [
       data.name,
-      data.account_name,
-      data.poc_name,
-      data.ship_to_poc_name,
       data.solicitation_number,
       data.customer_po,
       data.ship_to_address,
-    ].filter((v): v is string => typeof v === "string" && v.length > 4);
+    ].filter((v): v is string => typeof v === "string" && v.length > 5);
     for (const idv of ids) {
       const n = norm(idv);
       if (n.length > bestLen && hay.includes(n)) {

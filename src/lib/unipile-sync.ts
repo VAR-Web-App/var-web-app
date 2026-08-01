@@ -62,6 +62,7 @@ export async function fileUnipileEmail(
         received_at: email.date ?? new Date().toISOString(),
         source: "unipile",
         direction,
+        message_id: email.message_id ?? null,
       },
       { merge: true },
     );
