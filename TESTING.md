@@ -1,8 +1,10 @@
 # KeystonePro — Full End-to-End Test Script
 
-**Updated:** 2026-07-27 · Walk top to bottom. Each step is **action → expected**.
+**Updated:** 2026-08-01 · Walk top to bottom. Each step is **action → expected**.
 
-**Where:** live at `var-web-app-beryl.vercel.app` (auto-deploys from `main`), or `npm run dev` locally.
+**Where:** live at `keystonepro.app` (auto-deploys from `main`), or `npm run dev` locally.
+
+> **Out of scope for this pass:** the **email ingestor** (Connect-your-inbox / Correspondence / "Needs reply" / auto-filing client mail) is in **active development + separate testing by Collin** — skip it here; it'll get its own script.
 
 ## How to run this pass (recommended)
 
@@ -17,7 +19,8 @@ Don't go journey-by-journey until each is perfect — surface all the blockers f
 ## Setup — do this before starting
 - [ ] **Two browsers/profiles ready:** your normal window (logged in as the builder) + a **private/incognito** window (for the no-login client/sub/designer portals).
 - [ ] **A second account** (different email) if you want to test tenant isolation (Journey 11).
-- [ ] Log in → **Projects** → if empty, **"Try with sample data"** → opens *Maddox — Country Dream House* (seeded with milestones, quote, payments, RFQs, change orders, selections, portal link, a cross-project conflict).
+- [ ] Log in → **Projects** → if empty, **"Try with sample data"** → seeds a **full portfolio across every stage** (Lead → Estimating → Estimate Sent → Contract Signed → Pre-Con → In Progress → Complete/Lost), e.g. *Webb — Hill Country Cabin*, *Hunter — Lakefront Custom*, *Patel — Kitchen Remodel*, each with milestones, quote, payments, RFQs, change orders, selections, requests, a portal link, and a cross-project conflict.
+- [ ] **"Reset to demo data"** (Projects) wipes and re-seeds the **same** sample set as a fresh account gets — clean slate anytime.
 
 ---
 
@@ -28,6 +31,7 @@ Don't go journey-by-journey until each is perfect — surface all the blockers f
 - [ ] Login page → **"Forgot password?"** → enter email → reset email sent.
 - [ ] `/demo` in a logged-out window → browsable demo with seed data, no account.
 - [ ] **Team invite:** Settings → invite a teammate email → the join-org banner/flow works for that invitee.
+- [ ] **Tooltips:** every core page header has an **ⓘ info tooltip** (hover/tap → one-line "what this page does"); sidebar nav items have tooltips too.
 
 ## Journey 2 — Sales: Lead → Estimate → Proposal → Signed
 - [ ] **Projects → New** → name it → saves in **Lead** (`rfq`).
@@ -55,6 +59,16 @@ Don't go journey-by-journey until each is perfect — surface all the blockers f
 - [ ] Project → **Files** tab → upload a file → it lists; a floor-plan PDF is **retained** (not deleted after extraction).
 - [ ] Draw detail (`/deals/[id]/draw/[milestoneId]`) → attachments/section loads.
 
+## Journey 4b — Finances tab (consolidated)
+- [ ] Project → **Finances** → panels are grouped into **three bands** — **Forecast** (margin / cash-flow / sub-overruns), **Ledger** (invoices / payments / change orders), **Sourcing** (RFQs / bid intelligence) — not one long scroll wall.
+- [ ] A **"Needs attention" strip** sits at the top, surfacing the red/amber signals (cash shortfall, sub over budget, thin margin, overdue draw). It **self-hides when everything's clear**, and red items sort first.
+- [ ] Deep tables (invoices, change orders, RFQ list, sub costs) show a **summary with "N items · Show"** and expand on click — the summary/alert is always visible; only the detail collapses.
+
+## Journey 4c — Requests log & per-project activity (paper trail)
+- [ ] Project → **Overview** → **Requests** panel → **log an ask** (title + the client's words, source = verbal/email/text/call/portal, tie to a phase + sub, status open/scheduled/done/won't-do). Open/active items sort first; header shows an **"N open"** badge.
+- [ ] On a request → **"→ CO"** → creates a **draft change order** seeded from the request (next CO number, reason = client request) and flips the request to **scheduled**.
+- [ ] Overview → **Activity feed** (side column) = a reverse-chron **"notifications by project"** timeline derived from milestones / change orders / payments / requests, with an **"N new"** badge.
+
 ## Journey 5 — Client portal (no-login) ⭐
 - [ ] As builder: open Maddox → a **draw awaiting approval** → **"Email to client"** → copy the `/portal/{token}` link.
 - [ ] **Incognito:** open the portal → **no cost/margin leak** anywhere.
@@ -76,9 +90,9 @@ Don't go journey-by-journey until each is perfect — surface all the blockers f
 - [ ] Phone summarizer with a transcript that **names no project** → "No clear match" → **pick a project from the dropdown** → save works.
 
 ## Journey 9 — Scheduling Intelligence (`/schedule`)
-- [ ] **Conflicts** card shows the seeded cross-project double-booking + a suggested shift.
+- [ ] **Conflicts** card shows the seeded cross-project double-booking + a suggested shift. With **no** conflicts, the card **doesn't render at all** (no empty "all clear" box).
 - [ ] **Sub performance** card shows on-time %.
-- [ ] **Weather:** with a valid US project address, shows rain advisories or "no rain." Set a project address to garbage → reload → **"Couldn't check the forecast for this project's address"** (not a false all-clear). Restore the address.
+- [ ] **Weather:** with a valid US project address, shows a **5-day forecast strip** (icon + high/low °F + rain %) — the *actual* weather, not just a bad-weather warning. Set a project address to garbage → reload → **"Couldn't check the forecast for this project's address"** (not a false all-clear). Restore the address.
 - [ ] **Mobile (<768px):** stacked per-sub list; **idle subs appear** with "No assignments yet" + Assign.
 
 ## Journey 10 — Settings
@@ -102,4 +116,4 @@ Don't go journey-by-journey until each is perfect — surface all the blockers f
 ## Comms delivery — only after external setup (see COMMS.md)
 - [ ] **Email/SMS actually send** once SendGrid/Twilio keys are in Vercel — the "Needs setup" cues clear automatically.
 - [ ] **SMS opt-out:** text STOP to the number → `sms_consent` flips false → no further texts to that sub.
-- [ ] **Inbound email** (kill copy-paste) — not built yet; pending domain + design decision.
+- [ ] **Inbound email ingestor** (Connect-your-inbox / auto-filing correspondence) — **built; in separate active testing by Collin.** Not part of this pass.
