@@ -65,8 +65,10 @@ export async function POST(req: NextRequest) {
 
   const db = adminDb();
 
-  // Match a deal by longest identifier substring in subject+body.
-  const dealRef = await matchDealForOrg(db, orgId, subject, text);
+  // Match by client email (any address in the sender/forwarded body) or by an
+  // identifier in subject+body.
+  const emails = `${from} ${text}`.match(/[\w.+-]+@[\w.-]+\.\w{2,}/g) ?? [];
+  const dealRef = await matchDealForOrg(db, orgId, { subject, text, emails });
 
   const fromEmail = (from.match(/<([^>]+)>/)?.[1] ?? from).trim().toLowerCase();
   const now = new Date().toISOString();

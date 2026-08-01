@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
     body_plain: body.body_plain as string | undefined,
     has_attachments: body.has_attachments as boolean | undefined,
     from_attendee: body.from_attendee as UnipileEmail["from_attendee"],
+    to_attendees: body.to_attendees as UnipileEmail["to_attendees"],
+    cc_attendees: body.cc_attendees as UnipileEmail["cc_attendees"],
   };
 
   const dealRef = await fileUnipileEmail(db, orgRef, email);
