@@ -46,8 +46,10 @@ export async function createHostedAuthLink(a: HostedAuthArgs): Promise<string> {
     method: "POST",
     body: JSON.stringify({
       type: "create",
-      // Email providers only — not the messaging channels Unipile also offers.
-      providers: ["GOOGLE", "MICROSOFT"],
+      // Email providers only (Unipile's enum: GOOGLE | OUTLOOK | MAIL) — not
+      // the messaging channels it also offers. MAIL = generic IMAP, which
+      // covers Yahoo/ISP mailboxes too.
+      providers: ["GOOGLE", "OUTLOOK", "MAIL"],
       api_url: DSN,
       expiresOn: a.expiresOn,
       success_redirect_url: a.successUrl,
