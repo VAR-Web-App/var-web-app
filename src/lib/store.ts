@@ -420,7 +420,7 @@ export async function deletePhoto(id: string): Promise<void> {
 
 // ── project RFQs (Builder vertical) ──────────────────────────────
 
-import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink, ProjectRequest, EmailMessage } from "@/types/builder";
+import type { ProjectRFQ, ProjectChangeOrder, ProjectSelection, DesignerLink, ClientPortalLink, ProjectRequest, EmailMessage, EmailAccount } from "@/types/builder";
 
 // ── project change orders (Builder vertical) ─────────────────────
 
@@ -472,6 +472,15 @@ export async function assignEmailMessage(id: string, dealRef: string): Promise<v
     { deal_ref: dealRef, status: "matched" },
     { merge: true },
   );
+}
+
+/** Mailboxes connected to this org via Unipile ("Connect your inbox"). */
+export async function listEmailAccounts(orgRef: string): Promise<EmailAccount[]> {
+  const q = query(collection(db, "email_accounts"), where("org_ref", "==", orgRef));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => d.data() as EmailAccount)
+    .sort((a, b) => (b.connected_at || "").localeCompare(a.connected_at || ""));
 }
 
 // ── project selections (Builder vertical) ──────────────────────

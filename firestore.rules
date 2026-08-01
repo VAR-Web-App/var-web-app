@@ -369,5 +369,11 @@ service cloud.firestore {
     match /email_messages/{msgId} {
       allow read, update, delete: if request.auth != null && resource.data.org_ref == callerOrgRef();
     }
+
+    // Connected mailboxes (Unipile). Written admin-only by the notify
+    // webhook; org members read/delete their own (delete = disconnect).
+    match /email_accounts/{accountId} {
+      allow read, delete: if request.auth != null && resource.data.org_ref == callerOrgRef();
+    }
   }
 }
