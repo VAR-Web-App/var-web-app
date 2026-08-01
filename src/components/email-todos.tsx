@@ -7,10 +7,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EnvelopeIcon, CheckIcon } from "@heroicons/react/24/outline";
+import {
+  EnvelopeIcon,
+  ArrowUturnLeftIcon,
+} from "@heroicons/react/24/outline";
 import { listAttentionEmails, markEmailAddressed, listDeals } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import type { EmailMessage } from "@/types/builder";
+
+// Deep-link to the actual message in Gmail so the builder can reply. Uses
+// the RFC822 Message-ID search operator (reliable across Gmail accounts).
+function gmailLink(messageId?: string): string | null {
+  if (!messageId) return null;
+  const clean = messageId.replace(/[<>]/g, "").trim();
+  if (!clean) return null;
+  return `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(clean)}`;
+}
 
 export default function EmailTodos() {
   const { profile } = useAuth();
@@ -53,31 +65,46 @@ export default function EmailTodos() {
         </span>
       </header>
       <ul className="divide-y divide-sky-100">
-        {items.map((m) => (
-          <li key={m.id} className="flex items-start justify-between gap-3 px-4 py-3">
-            <Link
-              href={`/deals/${m.deal_ref}`}
-              className="min-w-0 flex-1 hover:opacity-80"
-            >
-              <p className="truncate text-sm font-medium text-slate-900">
-                {m.subject || "(no subject)"}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-slate-500">
-                {m.from || m.from_email}
-                {m.deal_ref && dealNames[m.deal_ref]
-                  ? ` · ${dealNames[m.deal_ref]}`
-                  : ""}
-              </p>
-            </Link>
-            <button
-              onClick={() => void address(m.id)}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <CheckIcon className="h-3.5 w-3.5" />
-              Addressed
-            </button>
-          </li>
-        ))}
+        {items.map((m) => {
+          const reply = gmailLink(m.message_id);
+          return (
+            <li key={m.id} className="px-4 py-3">
+              <Link
+                href={`/deals/${m.deal_ref}`}
+                className="block hover:opacity-80"
+              >
+                <p className="truncate text-sm font-medium text-slate-900">
+                  {m.subject || "(no subject)"}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">
+                  {m.from || m.from_email}
+                  {m.deal_ref && dealNames[m.deal_ref]
+                    ? ` · ${dealNames[m.deal_ref]}`
+                    : ""}
+                </p>
+              </Link>
+              <div className="mt-2 flex items-center gap-2">
+                {reply && (
+                  <a
+                    href={reply}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                  >
+                    <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                    Reply
+                  </a>
+                )}
+                <button
+                  onClick={() => void address(m.id)}
+                  className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Mark done
+                </button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

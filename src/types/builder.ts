@@ -473,6 +473,7 @@ export interface EmailMessage {
   direction?: "in" | "out"; // "in" = received → a to-do until addressed
   addressed?: boolean; // builder marked it handled (replied / dealt with)
   addressed_at?: string | null;
+  message_id?: string; // RFC822 Message-ID — used to deep-link into Gmail
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"
