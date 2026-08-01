@@ -113,6 +113,7 @@ export default function DealOverviewPage({
         </div>
         <div className="space-y-6">
           <DealMetadataCard deal={deal} stageColor={stage?.color ?? ""} />
+          <ClientContactCard deal={deal} onUpdate={(patch) => updateDeal(patch)} />
           <DealActivityFeed deal={deal} />
           <NotesCard
             deal={deal}
@@ -195,6 +196,125 @@ function DealMetadataCard({
           </div>
         )}
       </dl>
+    </section>
+  );
+}
+
+function ClientContactCard({
+  deal,
+  onUpdate,
+}: {
+  deal: Deal;
+  onUpdate: (patch: Partial<Deal>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(deal.ship_to_poc_name ?? "");
+  const [emailDraft, setEmailDraft] = useState(deal.ship_to_poc_email ?? "");
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Re-sync from server only when not editing (don't stomp in-progress typing
+  // if the parent re-renders — same guard as NotesCard).
+  useEffect(() => {
+    if (!editing) {
+      setNameDraft(deal.ship_to_poc_name ?? "");
+      setEmailDraft(deal.ship_to_poc_email ?? "");
+    }
+  }, [deal.ship_to_poc_name, deal.ship_to_poc_email, editing]);
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onUpdate({
+        ship_to_poc_name: nameDraft.trim(),
+        ship_to_poc_email: emailDraft.trim().toLowerCase(),
+      });
+      setEditing(false);
+      setSavedAt(Date.now());
+      window.setTimeout(() => setSavedAt(null), 2200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+        <h2 className="text-sm font-semibold text-slate-900">Client Contact</h2>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void save()}
+              disabled={saving}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {savedAt && <span className="text-xs text-emerald-600">✓ Saved</span>}
+            <button
+              onClick={() => setEditing(true)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              Edit
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="p-4 text-sm sm:p-6">
+        {editing ? (
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Homeowner name"
+              className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <input
+              type="email"
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              placeholder="client@email.com"
+              className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <p className="text-xs text-slate-500">
+              Their emails auto-file onto this project.
+            </p>
+          </div>
+        ) : (
+          <dl className="space-y-3">
+            <div className="grid grid-cols-[64px_1fr] items-baseline gap-3">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Name
+              </dt>
+              <dd className="text-slate-900">
+                {deal.ship_to_poc_name || "—"}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[64px_1fr] items-baseline gap-3">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Email
+              </dt>
+              <dd className="text-slate-900">
+                {deal.ship_to_poc_email || (
+                  <span className="italic text-slate-400">Not set</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </div>
     </section>
   );
 }

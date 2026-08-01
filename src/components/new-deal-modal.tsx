@@ -28,6 +28,8 @@ export default function NewDealModal({
   const [manufacturer, setManufacturer] = useState("Custom Home");
   const [dealType, setDealType] = useState<"budgetary" | "quotation">("quotation");
   const [dueDate, setDueDate] = useState("");
+  const [clientContact, setClientContact] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -107,8 +109,8 @@ export default function NewDealModal({
         solicitation_number: solicitation.trim(),
         customer_po: "",
         ship_to_address: account?.ship_to_addresses?.[0] ?? "",
-        ship_to_poc_name: "",
-        ship_to_poc_email: "",
+        ship_to_poc_name: clientContact.trim(),
+        ship_to_poc_email: clientEmail.trim().toLowerCase(),
         lead_time: "",
         due_date: dueDate || undefined,
         award_total: 0,
@@ -242,6 +244,31 @@ export default function NewDealModal({
               </select>
             </Field>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Client contact">
+              <input
+                type="text"
+                value={clientContact}
+                onChange={(e) => setClientContact(e.target.value)}
+                placeholder="Homeowner name (optional)"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+            </Field>
+            <Field label="Client email">
+              <input
+                type="email"
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+                placeholder="name@email.com"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+            </Field>
+          </div>
+          <p className="-mt-2 text-xs text-slate-500">
+            Add the client&apos;s email and their messages auto-file onto this
+            project.
+          </p>
 
           <Field label="Job number">
             <input
