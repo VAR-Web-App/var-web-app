@@ -471,6 +471,17 @@ export interface EmailMessage {
   received_at: string;
 }
 
+/** A builder's mailbox connected via Unipile (the "Connect your inbox"
+ *  flow). Written by /api/unipile/notify; one per connected account. */
+export interface EmailAccount {
+  account_id: string;
+  org_ref: string;
+  provider: string | null; // GOOGLE | MICROSOFT | IMAP | …
+  email: string | null;
+  status: string;
+  connected_at: string;
+}
+
 export interface ProjectRFQ {
   id: string;
   deal_ref: string;

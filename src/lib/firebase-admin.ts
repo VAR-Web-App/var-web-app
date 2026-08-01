@@ -26,6 +26,7 @@ import {
 } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage, type Storage } from "firebase-admin/storage";
+import { getAuth, type Auth } from "firebase-admin/auth";
 
 let _app: App | null = null;
 
@@ -76,6 +77,12 @@ function getAdminApp(): App {
  *  service-account env var isn't set; callers can catch and degrade. */
 export function adminDb(): Firestore {
   return getFirestore(getAdminApp());
+}
+
+/** Lazy Auth handle — for verifying a caller's Firebase ID token
+ *  server-side (the uid is the org_ref). */
+export function adminAuth(): Auth {
+  return getAuth(getAdminApp());
 }
 
 /** Lazy Storage handle. Uses the default bucket from the service
