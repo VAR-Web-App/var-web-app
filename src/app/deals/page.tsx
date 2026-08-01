@@ -20,7 +20,7 @@ import {
   saveDeal,
   seedBuilderDemoData,
   resetAndSeedBuilderDemo,
-  listAttentionEmails,
+  watchAttentionEmails,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -60,16 +60,14 @@ export default function DealsPage() {
         setLoaded(true);
       }
     });
-    // Projects with unanswered client email get an attention dot.
-    listAttentionEmails(profile.org_ref)
-      .then((emails) => {
-        if (active)
-          setAttention(
-            new Set(emails.map((e) => e.deal_ref).filter((r): r is string => !!r)),
-          );
-      })
-      .catch(() => {});
-    return () => { active = false; };
+    // Projects with unanswered client email get an attention dot — live, so
+    // it appears/clears without a reload.
+    const unsub = watchAttentionEmails(profile.org_ref, (emails) => {
+      setAttention(
+        new Set(emails.map((e) => e.deal_ref).filter((r): r is string => !!r)),
+      );
+    });
+    return () => { active = false; unsub(); };
   }, [profile]);
 
   async function refresh() {

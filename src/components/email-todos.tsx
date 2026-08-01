@@ -11,7 +11,7 @@ import {
   EnvelopeIcon,
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
-import { listAttentionEmails, markEmailAddressed, listDeals } from "@/lib/store";
+import { watchAttentionEmails, markEmailAddressed, listDeals } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import type { EmailMessage } from "@/types/builder";
 
@@ -32,20 +32,17 @@ export default function EmailTodos() {
 
   useEffect(() => {
     if (!profile?.org_ref) return;
-    let active = true;
-    void (async () => {
-      const [emails, deals] = await Promise.all([
-        listAttentionEmails(profile.org_ref).catch(() => []),
-        listDeals(profile.org_ref).catch(() => []),
-      ]);
-      if (!active) return;
+    listDeals(profile.org_ref)
+      .then((deals) =>
+        setDealNames(Object.fromEntries(deals.map((d) => [d.id, d.name]))),
+      )
+      .catch(() => {});
+    // Live — new client mail shows up here without a resync or reload.
+    const unsub = watchAttentionEmails(profile.org_ref, (emails) => {
       setItems(emails);
-      setDealNames(Object.fromEntries(deals.map((d) => [d.id, d.name])));
       setLoaded(true);
-    })();
-    return () => {
-      active = false;
-    };
+    });
+    return unsub;
   }, [profile?.org_ref]);
 
   async function address(id: string) {

@@ -24,6 +24,8 @@ import {
   deleteDoc,
   updateDoc,
   serverTimestamp,
+  onSnapshot,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { deleteUploadedFile } from "./storage";
 import {
@@ -483,6 +485,36 @@ export async function listAttentionEmails(orgRef: string): Promise<EmailMessage[
     .map((d) => ({ id: d.id, ...(d.data() as Omit<EmailMessage, "id">) }))
     .filter((m) => m.deal_ref && m.direction !== "out" && !m.addressed)
     .sort((a, b) => (b.received_at || "").localeCompare(a.received_at || ""));
+}
+
+/** Live listener for all of an org's email messages (newest first). Fires on
+ *  every write — so webhook-filed mail appears without a resync/reload. */
+export function watchEmailMessages(
+  orgRef: string,
+  cb: (msgs: EmailMessage[]) => void,
+): Unsubscribe {
+  const q = query(collection(db, "email_messages"), where("org_ref", "==", orgRef));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const msgs = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<EmailMessage, "id">) }))
+        .sort((a, b) => (b.received_at || "").localeCompare(a.received_at || ""));
+      cb(msgs);
+    },
+    () => cb([]),
+  );
+}
+
+/** Live listener for the "needs reply" to-do list (received, deal-linked,
+ *  unaddressed). */
+export function watchAttentionEmails(
+  orgRef: string,
+  cb: (msgs: EmailMessage[]) => void,
+): Unsubscribe {
+  return watchEmailMessages(orgRef, (all) =>
+    cb(all.filter((m) => m.deal_ref && m.direction !== "out" && !m.addressed)),
+  );
 }
 
 /** Mark a correspondence item handled — clears it from the to-do list. */
