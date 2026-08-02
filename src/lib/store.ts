@@ -25,6 +25,7 @@ import {
   updateDoc,
   serverTimestamp,
   onSnapshot,
+  arrayUnion,
   type Unsubscribe,
 } from "firebase/firestore";
 import { deleteUploadedFile } from "./storage";
@@ -468,12 +469,29 @@ export async function listEmailMessages(orgRef: string): Promise<EmailMessage[]>
     .sort((a, b) => (b.received_at || "").localeCompare(a.received_at || ""));
 }
 
-export async function assignEmailMessage(id: string, dealRef: string): Promise<void> {
+export async function assignEmailMessage(
+  id: string,
+  dealRef: string,
+  fromEmail?: string,
+): Promise<void> {
   await setDoc(
     doc(db, "email_messages", id),
     { deal_ref: dealRef, status: "matched" },
     { merge: true },
   );
+  // Learn the sender so future mail from this address auto-files to the deal
+  // (the client's spouse/architect/lender stop landing in "unassigned").
+  const clean = (fromEmail ?? "").trim().toLowerCase();
+  if (clean) {
+    await updateDoc(doc(db, "deals", dealRef), {
+      known_emails: arrayUnion(clean),
+    }).catch(() => {});
+  }
+}
+
+/** Drop an unassigned message from the review queue (not project-related). */
+export async function dismissEmailMessage(id: string): Promise<void> {
+  await deleteDoc(doc(db, "email_messages", id));
 }
 
 /** Received, deal-linked emails the builder hasn't addressed yet — the

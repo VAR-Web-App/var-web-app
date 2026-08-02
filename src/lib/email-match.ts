@@ -45,8 +45,12 @@ export async function matchDealForOrg(
   if (parts.size) {
     for (const d of dealsSnap.docs) {
       const data = d.data() as Record<string, unknown>;
-      const contact = cleanEmail(data.ship_to_poc_email);
-      if (contact && parts.has(contact)) return d.id;
+      // Primary contact + any learned addresses (spouse/architect/lender…).
+      const contacts = [
+        data.ship_to_poc_email,
+        ...(Array.isArray(data.known_emails) ? data.known_emails : []),
+      ].map(cleanEmail);
+      if (contacts.some((c) => c && parts.has(c))) return d.id;
     }
   }
 
