@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     id: body.email_id as string | undefined,
     provider_id: body.provider_id as string | undefined,
     message_id: body.message_id as string | undefined,
+    thread_id: body.thread_id as string | undefined,
     date: body.date as string | undefined,
     subject: body.subject as string | undefined,
     body: body.body as string | undefined,

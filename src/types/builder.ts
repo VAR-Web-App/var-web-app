@@ -474,6 +474,7 @@ export interface EmailMessage {
   addressed?: boolean; // builder marked it handled (replied / dealt with)
   addressed_at?: string | null;
   message_id?: string; // RFC822 Message-ID — used to deep-link into Gmail
+  thread_id?: string; // provider thread id — for thread-continuity matching
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"

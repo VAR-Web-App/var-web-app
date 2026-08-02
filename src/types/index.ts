@@ -46,6 +46,10 @@ export interface Deal {
   ship_to_address: string;
   ship_to_poc_name: string;
   ship_to_poc_email: string;
+  /** Additional contact addresses that file to this project — the client's
+   *  spouse, architect, designer, lender. Learned when the builder assigns
+   *  an unmatched email to the deal, so the matcher improves with use. */
+  known_emails?: string[];
   lead_time: string;
   due_date?: string;        // ISO date strings — easier than Date for localStorage
   award_date?: string;

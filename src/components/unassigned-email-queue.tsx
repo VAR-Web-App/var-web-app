@@ -1,12 +1,19 @@
 "use client";
 
-// The review queue for forwarded email the matcher couldn't confidently place
-// (deal_ref = null). Cross-project, lives on the Inbox. One-tap "assign to a
-// project" files it onto the deal. Self-hides when empty.
+// Review queue for mail the matcher couldn't confidently place (deal_ref =
+// null) — forwarded mail and now real human mail from an unknown address.
+// Assigning to a project also *learns* the sender (known_emails) so their
+// next message auto-files. Dismiss drops non-project mail. Live via
+// onSnapshot; self-hides when empty.
 
 import { useEffect, useState } from "react";
-import { EnvelopeIcon } from "@heroicons/react/24/outline";
-import { listEmailMessages, assignEmailMessage, listDeals } from "@/lib/store";
+import { EnvelopeIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  watchEmailMessages,
+  assignEmailMessage,
+  dismissEmailMessage,
+  listDeals,
+} from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
@@ -19,26 +26,23 @@ export default function UnassignedEmailQueue() {
 
   useEffect(() => {
     if (!profile?.org_ref) return;
-    let active = true;
-    void (async () => {
-      const [all, ds] = await Promise.all([
-        listEmailMessages(profile.org_ref).catch(() => []),
-        listDeals(profile.org_ref).catch(() => []),
-      ]);
-      if (!active) return;
-      setMsgs(all.filter((m) => m.deal_ref === null));
-      setDeals(ds);
+    listDeals(profile.org_ref).then(setDeals).catch(() => {});
+    const unsub = watchEmailMessages(profile.org_ref, (all) => {
+      setMsgs(all.filter((m) => !m.deal_ref));
       setLoaded(true);
-    })();
-    return () => {
-      active = false;
-    };
+    });
+    return unsub;
   }, [profile?.org_ref]);
 
   async function assign(m: EmailMessage, dealId: string) {
     if (!dealId) return;
-    await assignEmailMessage(m.id, dealId);
-    setMsgs((prev) => prev.filter((x) => x.id !== m.id));
+    setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
+    await assignEmailMessage(m.id, dealId, m.from_email).catch(() => {});
+  }
+
+  async function dismiss(m: EmailMessage) {
+    setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
+    await dismissEmailMessage(m.id).catch(() => {});
   }
 
   if (!loaded || msgs.length === 0) return null;
@@ -52,7 +56,8 @@ export default function UnassignedEmailQueue() {
           {msgs.length}
         </span>
         <span className="hidden text-xs text-slate-500 sm:inline">
-          — couldn&rsquo;t auto-match; pick the project.
+          — couldn&rsquo;t auto-match; assign it (and it&rsquo;ll remember the
+          sender) or dismiss.
         </span>
       </header>
       <ul className="divide-y divide-amber-100">
@@ -66,18 +71,27 @@ export default function UnassignedEmailQueue() {
                 {m.from_email} · {m.snippet}
               </p>
             </div>
-            <select
-              defaultValue=""
-              onChange={(e) => assign(m, e.target.value)}
-              className="shrink-0 rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
-            >
-              <option value="">Assign to…</option>
-              {deals.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <select
+                defaultValue=""
+                onChange={(e) => assign(m, e.target.value)}
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+              >
+                <option value="">Assign to…</option>
+                {deals.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => void dismiss(m)}
+                title="Not a project — dismiss"
+                className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
           </li>
         ))}
       </ul>

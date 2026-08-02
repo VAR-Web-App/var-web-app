@@ -98,6 +98,7 @@ export interface UnipileEmail {
   id?: string;
   provider_id?: string;
   message_id?: string;
+  thread_id?: string;
   date?: string;
   subject?: string;
   body?: string; // HTML
