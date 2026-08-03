@@ -67,6 +67,14 @@ export default function EmailTodos() {
     await logEmailAsRequest(m).catch(() => {});
   }
 
+  // Log a single ask (from the AI breakdown) as its own request — one email
+  // can hold several unrelated asks, each of which may become its own CO.
+  const [loggedAsks, setLoggedAsks] = useState<Set<string>>(new Set());
+  async function logAsk(m: EmailMessage, ask: string, key: string) {
+    setLoggedAsks((prev) => new Set(prev).add(key));
+    await logEmailAsRequest(m, ask).catch(() => {});
+  }
+
   if (!loaded || items.length === 0) return null;
 
   return (
@@ -112,14 +120,39 @@ export default function EmailTodos() {
                   {m.ai_action_items && m.ai_action_items.length > 0 && (
                     <ul className="rounded-md bg-sky-50 p-2.5 text-xs text-slate-700 ring-1 ring-sky-100">
                       <li className="mb-1 font-semibold text-slate-500">
-                        Asks:
+                        Asks — log each as its own request:
                       </li>
-                      {m.ai_action_items.map((a, i) => (
-                        <li key={i} className="flex gap-1.5">
-                          <span className="text-sky-600">•</span>
-                          <span>{a}</span>
-                        </li>
-                      ))}
+                      {m.ai_action_items.map((a, i) => {
+                        const key = `${m.id}::${i}`;
+                        return (
+                          <li
+                            key={i}
+                            className="flex items-start justify-between gap-2 py-0.5"
+                          >
+                            <span className="flex min-w-0 gap-1.5">
+                              <span className="text-sky-600">•</span>
+                              <span>{a}</span>
+                            </span>
+                            {loggedAsks.has(key) ? (
+                              <span className="shrink-0 text-[11px] font-medium text-emerald-700">
+                                ✓ Logged
+                              </span>
+                            ) : (
+                              <Tooltip
+                                label="Log this ask as its own request"
+                                placement="left"
+                              >
+                                <button
+                                  onClick={() => void logAsk(m, a, key)}
+                                  className="shrink-0 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                                >
+                                  + Log
+                                </button>
+                              </Tooltip>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                   <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
@@ -161,7 +194,7 @@ export default function EmailTodos() {
                   </Tooltip>
                 ) : (
                   <Tooltip
-                    label="Track this email as a request on the project"
+                    label="Log the whole email as one request — or expand to log each ask separately"
                     placement="top"
                   >
                     <button

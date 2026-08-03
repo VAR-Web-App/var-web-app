@@ -498,15 +498,25 @@ export async function dismissEmailMessage(id: string): Promise<void> {
  *  client's own words, timestamped, ready to tie to a phase/sub and ride the
  *  Request → Change Order → sign-off rails. Links both directions. Returns
  *  the new request id (or null if the email isn't on a deal). */
-export async function logEmailAsRequest(msg: EmailMessage): Promise<string | null> {
+export async function logEmailAsRequest(
+  msg: EmailMessage,
+  ask?: string,
+): Promise<string | null> {
   if (!msg.deal_ref) return null;
   const now = new Date().toISOString();
+  // `ask` given → log just that one item as its own request (a single email
+  // can carry several unrelated asks, each of which may become its own CO).
+  // No `ask` → log the whole email as one request.
+  const title = ask?.trim() || msg.subject?.trim() || "Client request (email)";
+  const body = ask?.trim()
+    ? `${ask.trim()}\n\n(From "${msg.subject || "email"}" — ${msg.from || msg.from_email})`
+    : (msg.body_text || msg.snippet || "").slice(0, 4000);
   const req: ProjectRequest = {
     id: newId("req"),
     deal_ref: msg.deal_ref,
     org_ref: msg.org_ref,
-    title: msg.subject?.trim() || "Client request (email)",
-    body: (msg.body_text || msg.snippet || "").slice(0, 4000),
+    title,
+    body,
     status: "open",
     source: "email",
     source_message_id: msg.message_id || msg.id,
