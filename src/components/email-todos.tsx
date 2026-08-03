@@ -99,11 +99,31 @@ export default function EmailTodos() {
                       ? ` · ${dealNames[m.deal_ref]}`
                       : ""}
                   </span>
+                  {m.ai_summary && (
+                    <span className="mt-0.5 block truncate text-xs italic text-sky-700">
+                      {m.ai_summary}
+                    </span>
+                  )}
                 </span>
               </button>
               {openId === m.id && (
-                <div className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
-                  {m.body_text || m.snippet || "(no message body)"}
+                <div className="mt-2 space-y-2">
+                  {m.ai_action_items && m.ai_action_items.length > 0 && (
+                    <ul className="rounded-md bg-sky-50 p-2.5 text-xs text-slate-700 ring-1 ring-sky-100">
+                      <li className="mb-1 font-semibold text-slate-500">
+                        Asks:
+                      </li>
+                      {m.ai_action_items.map((a, i) => (
+                        <li key={i} className="flex gap-1.5">
+                          <span className="text-sky-600">•</span>
+                          <span>{a}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
+                    {m.body_text || m.snippet || "(no message body)"}
+                  </div>
                 </div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">

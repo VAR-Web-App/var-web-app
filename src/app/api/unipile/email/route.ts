@@ -58,6 +58,6 @@ export async function POST(req: NextRequest) {
     cc_attendees: body.cc_attendees as UnipileEmail["cc_attendees"],
   };
 
-  const dealRef = await fileUnipileEmail(db, orgRef, email, selfEmail);
+  const dealRef = await fileUnipileEmail(db, orgRef, email, selfEmail, true);
   return NextResponse.json({ ok: true, filed: !!dealRef, deal_ref: dealRef });
 }
