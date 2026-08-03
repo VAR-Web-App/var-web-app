@@ -141,8 +141,14 @@ export default function EmailTodos() {
                               <span>{a}</span>
                             </span>
                             {loggedAsks.has(key) ? (
-                              <span className="shrink-0 text-[11px] font-medium text-emerald-700">
+                              <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-emerald-700">
                                 ✓ Logged
+                                <Link
+                                  href={`/deals/${m.deal_ref}#requests`}
+                                  className="underline hover:no-underline"
+                                >
+                                  View →
+                                </Link>
                               </span>
                             ) : (
                               <Tooltip
