@@ -17,7 +17,10 @@ import {
   listDeals,
   logEmailAsRequest,
 } from "@/lib/store";
-import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
+import {
+  ClipboardDocumentCheckIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import type { EmailMessage } from "@/types/builder";
 
@@ -35,6 +38,7 @@ export default function EmailTodos() {
   const [items, setItems] = useState<EmailMessage[]>([]);
   const [dealNames, setDealNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.org_ref) return;
@@ -78,21 +82,37 @@ export default function EmailTodos() {
           const reply = gmailLink(m.message_id);
           return (
             <li key={m.id} className="px-4 py-3">
-              <Link
-                href={`/deals/${m.deal_ref}`}
-                className="block hover:opacity-80"
+              <button
+                onClick={() => setOpenId(openId === m.id ? null : m.id)}
+                className="flex w-full items-start gap-2 text-left hover:opacity-80"
               >
-                <p className="truncate text-sm font-medium text-slate-900">
-                  {m.subject || "(no subject)"}
-                </p>
-                <p className="mt-0.5 truncate text-xs text-slate-500">
-                  {m.from || m.from_email}
-                  {m.deal_ref && dealNames[m.deal_ref]
-                    ? ` · ${dealNames[m.deal_ref]}`
-                    : ""}
-                </p>
-              </Link>
-              <div className="mt-2 flex items-center gap-2">
+                <ChevronDownIcon
+                  className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${openId === m.id ? "rotate-180" : ""}`}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-slate-900">
+                    {m.subject || "(no subject)"}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    {m.from || m.from_email}
+                    {m.deal_ref && dealNames[m.deal_ref]
+                      ? ` · ${dealNames[m.deal_ref]}`
+                      : ""}
+                  </span>
+                </span>
+              </button>
+              {openId === m.id && (
+                <div className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
+                  {m.body_text || m.snippet || "(no message body)"}
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/deals/${m.deal_ref}`}
+                  className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  View project
+                </Link>
                 {reply && (
                   <a
                     href={reply}
