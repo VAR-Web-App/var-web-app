@@ -107,7 +107,35 @@ export interface UnipileEmail {
   from_attendee?: { display_name?: string; identifier?: string };
   to_attendees?: Array<{ display_name?: string; identifier?: string }>;
   cc_attendees?: Array<{ display_name?: string; identifier?: string }>;
+  attachments?: Array<{
+    id?: string;
+    name?: string;
+    filename?: string;
+    size?: number;
+    mime?: string;
+    extension?: string;
+    [k: string]: unknown;
+  }>;
   [k: string]: unknown;
+}
+
+/** Download one email attachment's raw bytes from Unipile. Best-effort. */
+export async function fetchAttachmentBytes(
+  emailId: string,
+  attachmentId: string,
+): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
+  try {
+    const res = await unipileFetch(
+      `/api/v1/emails/${encodeURIComponent(emailId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    );
+    if (!res.ok) return null;
+    return {
+      bytes: await res.arrayBuffer(),
+      contentType: res.headers.get("content-type") || "application/octet-stream",
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** List recent emails for a connected account (newest first). Best-effort. */
