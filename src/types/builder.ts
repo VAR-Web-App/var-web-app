@@ -422,6 +422,13 @@ export interface ProjectChangeOrder {
   approval_signature?: string;
   rejection_reason?: string;
   notes: string;
+  /** When this CO came from a client email/request — the client's original
+   *  words + who/when, carried through for the paper trail and so the client
+   *  sees their own request when they approve. */
+  source_message_id?: string;
+  source_from?: string;
+  source_excerpt?: string;
+  source_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -458,6 +465,11 @@ export interface ProjectRequest {
   source_message_id?: string;
   /** The change order this request was escalated into (via "→ CO"). */
   co_ref?: string;
+  /** Snapshot of the originating client email, so the request (and any CO it
+   *  becomes) carries the client's own words for the paper trail. */
+  source_from?: string;
+  source_excerpt?: string;
+  source_at?: string;
 }
 
 /** A forwarded/inbound email filed onto a deal (or left unassigned for review)

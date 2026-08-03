@@ -159,6 +159,13 @@ export default function PaperTrailPage({
                   {c.description}
                 </p>
               )}
+              {c.source_excerpt && (
+                <p className="mt-1 border-l-2 border-slate-300 pl-3 text-xs italic text-slate-500">
+                  Client&rsquo;s request: &ldquo;{c.source_excerpt}&rdquo;
+                  {c.source_from ? ` — ${c.source_from}` : ""}
+                  {c.source_at ? ` (${fmtDate(c.source_at)})` : ""}
+                </p>
+              )}
               <p className="mt-1 text-xs text-slate-500">
                 {money(c.amount_delta)}
                 {c.schedule_impact_days
