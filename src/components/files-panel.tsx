@@ -112,6 +112,23 @@ export default function FilesPanel({ deal }: { deal: Deal }) {
     }
   }
 
+  // Parse an attachment already in Storage (e.g. one that arrived by email) —
+  // fetch the bytes back into a File and run the same parser as a fresh upload.
+  async function parseExisting(att: Attachment) {
+    setError(null);
+    try {
+      const res = await fetch(att.url);
+      if (!res.ok) throw new Error("Couldn't fetch the file to parse");
+      const blob = await res.blob();
+      const file = new File([blob], att.name, {
+        type: blob.type || "application/pdf",
+      });
+      await runParse(att, file);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function runParse(att: Attachment, file: File) {
     setParsingId(att.id);
     setError(null);
@@ -271,6 +288,16 @@ export default function FilesPanel({ deal }: { deal: Deal }) {
                                 {fmtMoney(p.total)}
                               </span>
                             )}
+                            {!p &&
+                              !isParsing &&
+                              att.name.toLowerCase().endsWith(".pdf") && (
+                                <button
+                                  onClick={() => void parseExisting(att)}
+                                  className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+                                >
+                                  Parse
+                                </button>
+                              )}
                             <button
                               onClick={() => void onDeleteAttachment(att)}
                               title="Remove"
