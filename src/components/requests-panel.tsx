@@ -180,12 +180,14 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setAdding((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
-        >
-          <PlusIcon className="h-3.5 w-3.5" /> Log request
-        </button>
+        <Tooltip label="Log a new client ask on this project" placement="top">
+          <button
+            onClick={() => setAdding((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+          >
+            <PlusIcon className="h-3.5 w-3.5" /> Log request
+          </button>
+        </Tooltip>
       </header>
 
       {adding && (
@@ -227,13 +229,15 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
             <button onClick={() => setAdding(false)} className="text-xs font-medium text-slate-500 hover:text-slate-700">
               Cancel
             </button>
-            <button
-              onClick={add}
-              disabled={!title.trim()}
-              className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
-            >
-              Save request
-            </button>
+            <Tooltip label="Save this ask to the project log" placement="top">
+              <button
+                onClick={add}
+                disabled={!title.trim()}
+                className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+              >
+                Save request
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}
@@ -300,13 +304,15 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
                       <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                     ))}
                   </select>
-                  <button
-                    onClick={() => remove(r)}
-                    aria-label="Delete request"
-                    className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                  <Tooltip label="Delete this request" placement="top">
+                    <button
+                      onClick={() => remove(r)}
+                      aria-label="Delete request"
+                      className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             </li>
