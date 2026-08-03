@@ -11,6 +11,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { matchDealForOrg } from "./email-match";
 import { htmlToText, type UnipileEmail } from "./unipile";
+import { summarizeEmail } from "./email-summary";
 
 const snippetOf = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 300);
 
@@ -46,6 +47,7 @@ export async function fileUnipileEmail(
   orgRef: string,
   email: UnipileEmail,
   selfEmail?: string,
+  summarize = false,
 ): Promise<string | null> {
   const subject = email.subject ?? "";
   const text =
@@ -81,6 +83,13 @@ export async function fileUnipileEmail(
   // Mail the builder sent is just log; mail from anyone else is a to-do.
   const direction = self && fromEmail === self ? "out" : "in";
 
+  // Only summarize real-time, matched, incoming client mail — never in the
+  // bulk sync backfill (would fire an LLM call per historical message).
+  const ai =
+    summarize && dealRef && direction === "in"
+      ? await summarizeEmail(subject, text)
+      : {};
+
   await db
     .collection("email_messages")
     .doc(id)
@@ -101,6 +110,8 @@ export async function fileUnipileEmail(
         direction,
         message_id: email.message_id ?? null,
         thread_id: email.thread_id ?? null,
+        ...(ai.summary ? { ai_summary: ai.summary } : {}),
+        ...(ai.action_items?.length ? { ai_action_items: ai.action_items } : {}),
       },
       { merge: true },
     );

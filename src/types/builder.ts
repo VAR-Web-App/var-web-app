@@ -481,6 +481,8 @@ export interface EmailMessage {
   message_id?: string; // RFC822 Message-ID — used to deep-link into Gmail
   thread_id?: string; // provider thread id — for thread-continuity matching
   request_ref?: string; // set once this email has been logged as a Request
+  ai_summary?: string; // one-line "what they're asking" (Haiku)
+  ai_action_items?: string[];
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"
