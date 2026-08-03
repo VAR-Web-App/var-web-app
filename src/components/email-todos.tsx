@@ -145,7 +145,7 @@ export default function EmailTodos() {
                                 ✓ Logged
                                 <Link
                                   href={`/deals/${m.deal_ref}#requests`}
-                                  className="underline hover:no-underline"
+                                  className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700 hover:bg-emerald-100"
                                 >
                                   View →
                                 </Link>
@@ -171,7 +171,7 @@ export default function EmailTodos() {
                   {m.request_ref && (
                     <Link
                       href={`/deals/${m.deal_ref}#requests`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                      className="inline-flex items-center gap-1 self-start rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                     >
                       <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
                       View logged requests on the project →
@@ -210,19 +210,20 @@ export default function EmailTodos() {
                     placement="top"
                   >
                     <button
-                      onClick={() => setOpenId(m.id)}
+                      onClick={() => setOpenId(openId === m.id ? null : m.id)}
                       className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
                     >
                       <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                      {asks.length} asks —{" "}
-                      {openId === m.id ? "log below" : "expand to log"}
+                      {openId === m.id
+                        ? "Hide asks"
+                        : `${asks.length} asks — expand to log`}
                     </button>
                   </Tooltip>
                 ) : logged.has(m.id) || m.request_ref ? (
                   <Tooltip label="Go to the request on the project" placement="top">
                     <Link
                       href={`/deals/${m.deal_ref}#requests`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                     >
                       <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
                       View request →

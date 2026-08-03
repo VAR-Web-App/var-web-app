@@ -76,7 +76,7 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
                 <Tooltip label="Go to the request on this project" placement="top">
                   <Link
                     href={`/deals/${deal.id}#requests`}
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                    className="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                   >
                     <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
                     View request →

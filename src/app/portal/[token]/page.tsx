@@ -22,6 +22,7 @@ interface Milestone {
 interface ChangeOrder {
   id: string; number: string; title: string; description: string;
   amount_delta: number; schedule_impact_days: number; status: string; rejection_reason: string | null;
+  source_excerpt?: string | null; source_at?: string | null;
 }
 interface SelOption { id: string; label: string; description: string; cost: number; image_url: string | null; }
 interface Selection {
@@ -120,6 +121,12 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
                     </span>
                   </div>
                   {co.description && <p className="mt-1 text-sm text-slate-600">{co.description}</p>}
+                  {co.source_excerpt && (
+                    <p className="mt-1 border-l-2 border-sky-200 pl-2 text-sm italic text-slate-500">
+                      Your request: &ldquo;{co.source_excerpt}&rdquo;
+                      {co.source_at ? ` (${new Date(co.source_at).toLocaleDateString()})` : ""}
+                    </p>
+                  )}
                   {co.schedule_impact_days !== 0 && (
                     <p className="mt-1 text-xs text-slate-500">Schedule impact: {co.schedule_impact_days > 0 ? "+" : ""}{co.schedule_impact_days} days</p>
                   )}
