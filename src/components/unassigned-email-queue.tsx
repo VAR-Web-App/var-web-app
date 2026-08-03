@@ -51,6 +51,12 @@ export default function UnassignedEmailQueue() {
     await dismissEmailMessage(m.id).catch(() => {});
   }
 
+  async function clearAll() {
+    const ids = msgs.map((m) => m.id);
+    setMsgs([]); // optimistic
+    await Promise.all(ids.map((id) => dismissEmailMessage(id).catch(() => {})));
+  }
+
   if (!loaded || msgs.length === 0) return null;
 
   return (
@@ -65,6 +71,14 @@ export default function UnassignedEmailQueue() {
           — couldn&rsquo;t auto-match; assign it (and it&rsquo;ll remember the
           sender) or dismiss.
         </span>
+        <Tooltip label="Dismiss all unassigned email" placement="top">
+          <button
+            onClick={() => void clearAll()}
+            className="ml-auto rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-amber-100"
+          >
+            Clear all
+          </button>
+        </Tooltip>
       </header>
       <ul className="divide-y divide-amber-100">
         {msgs.map((m) => (

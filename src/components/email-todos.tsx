@@ -20,6 +20,7 @@ import {
 import {
   ClipboardDocumentCheckIcon,
   ChevronDownIcon,
+  PaperClipIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import Tooltip from "@/components/tooltip";
@@ -101,8 +102,13 @@ export default function EmailTodos() {
                   className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${openId === m.id ? "rotate-180" : ""}`}
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-slate-900">
-                    {m.subject || "(no subject)"}
+                  <span className="flex items-center gap-1 text-sm font-medium text-slate-900">
+                    <span className="truncate">
+                      {m.subject || "(no subject)"}
+                    </span>
+                    {m.has_attachments && (
+                      <PaperClipIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    )}
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-slate-500">
                     {m.from || m.from_email}
@@ -180,6 +186,15 @@ export default function EmailTodos() {
                   <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
                     {m.body_text || m.snippet || "(no message body)"}
                   </div>
+                  {m.has_attachments && (
+                    <Link
+                      href={`/deals/${m.deal_ref}/files`}
+                      className="inline-flex items-center gap-1 self-start rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <PaperClipIcon className="h-3.5 w-3.5" />
+                      Attachment — view in Files →
+                    </Link>
+                  )}
                 </div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">

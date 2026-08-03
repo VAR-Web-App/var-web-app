@@ -23,9 +23,10 @@ function isAutomatedSender(fromEmail: string): boolean {
   if (!e) return true;
   const local = e.split("@")[0] || "";
   const domain = e.split("@")[1] || "";
-  // Automated / marketing local-parts.
+  // Automated / marketing / company-role local-parts (a real project contact
+  // is a person, not hello@ / support@ / no_reply@).
   if (
-    /(^|[._+-])(no-?reply|do-?not-?reply|donotreply|notifications?|mailer-daemon|postmaster|bounces?|auto(mated)?|alerts?|updates?|newsletters?|newsletter|digest|noreply|recommendations?|promo(tions?)?|marketing|offers?|deals)([._+-]|$)/.test(
+    /(^|[._+-])(no[-_]?reply|do[-_]?not[-_]?reply|donotreply|notifications?|notify|mailer-daemon|postmaster|bounces?|auto(mated)?|alerts?|updates?|newsletters?|newsletter|digest|noreply|recommendations?|promo(tions?)?|marketing|offers?|deals|hello|hi|support|info|sales|team|billing|receipts?|community|members?|welcome|news)([._+-]|$)/.test(
       local,
     )
   )
