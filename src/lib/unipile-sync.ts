@@ -126,6 +126,7 @@ export async function fileUnipileEmail(
         source: "unipile",
         direction,
         message_id: email.message_id ?? null,
+        provider_id: email.provider_id ?? null,
         thread_id: email.thread_id ?? null,
         ...(ai.summary ? { ai_summary: ai.summary } : {}),
         ...(ai.action_items?.length ? { ai_action_items: ai.action_items } : {}),

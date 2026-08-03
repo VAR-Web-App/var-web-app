@@ -491,6 +491,7 @@ export interface EmailMessage {
   addressed?: boolean; // builder marked it handled (replied / dealt with)
   addressed_at?: string | null;
   message_id?: string; // RFC822 Message-ID — used to deep-link into Gmail
+  provider_id?: string; // Gmail/Outlook message id — used as reply_to on send
   thread_id?: string; // provider thread id — for thread-continuity matching
   request_ref?: string; // set once this email has been logged as a Request
   ai_summary?: string; // one-line "what they're asking" (Haiku)
