@@ -58,7 +58,7 @@ export default function AttachmentViewerModal({
   const [error, setError] = useState<string | null>(null);
   const [replying, setReplying] = useState(false);
   const [savingInvoice, setSavingInvoice] = useState(false);
-  const [savedInvoice, setSavedInvoice] = useState(false);
+  const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null);
 
   async function saveAsInvoice(res: ParseResult) {
     setSavingInvoice(true);
@@ -94,7 +94,7 @@ export default function AttachmentViewerModal({
         updated_at: now,
       };
       await saveInvoice(inv);
-      setSavedInvoice(true);
+      setSavedInvoiceId(inv.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save invoice");
     } finally {
@@ -245,12 +245,12 @@ export default function AttachmentViewerModal({
                 ))}
             </div>
             <div className="mt-2">
-              {savedInvoice ? (
+              {savedInvoiceId ? (
                 <Link
-                  href={`/deals/${dealRef}/finances`}
+                  href={`/deals/${dealRef}/finances?invoice=${savedInvoiceId}#invoices`}
                   className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 font-semibold text-white hover:bg-emerald-700"
                 >
-                  ✓ Saved as invoice — see it on Finances →
+                  ✓ Saved as invoice — open it on Finances →
                 </Link>
               ) : (
                 <button

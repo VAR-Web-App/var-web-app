@@ -32,11 +32,28 @@ export default function InvoicesPanel({ deal }: { deal: Deal }) {
   const [loaded, setLoaded] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [viewing, setViewing] = useState<Invoice | null>(null);
+  // When linked here with ?invoice=<id> (e.g. from "open it on Finances" after
+  // parsing an emailed invoice), jump straight to that invoice: expand the
+  // list, scroll it into view, and open its detail.
+  const [forceOpen, setForceOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
     listInvoices(deal.id).then((invs) => {
-      if (active) { setItems(invs); setLoaded(true); }
+      if (!active) return;
+      setItems(invs);
+      setLoaded(true);
+      const target = new URLSearchParams(window.location.search).get("invoice");
+      const match = target ? invs.find((i) => i.id === target) : undefined;
+      if (match) {
+        setForceOpen(true);
+        setViewing(match);
+        requestAnimationFrame(() =>
+          document
+            .getElementById("invoices")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        );
+      }
     });
     return () => { active = false; };
   }, [deal.id]);
@@ -69,7 +86,7 @@ export default function InvoicesPanel({ deal }: { deal: Deal }) {
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section id="invoices" className="scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Invoices</h2>
@@ -105,7 +122,7 @@ export default function InvoicesPanel({ deal }: { deal: Deal }) {
           </p>
         </div>
       ) : (
-        <CollapsibleDetail summary={`${items.length} invoice${items.length === 1 ? "" : "s"}`}>
+        <CollapsibleDetail summary={`${items.length} invoice${items.length === 1 ? "" : "s"}`} defaultOpen={forceOpen}>
           <ul className="divide-y divide-slate-100">
             {items.map((inv) => (
               <InvoiceRow
