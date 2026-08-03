@@ -197,6 +197,15 @@ function COrow({
         {co.description && (
           <p className="mt-0.5 truncate text-xs text-slate-500">{co.description}</p>
         )}
+        {co.source_excerpt && (
+          <p className="mt-1 line-clamp-2 border-l-2 border-sky-200 pl-2 text-[11px] italic text-slate-500">
+            &ldquo;{co.source_excerpt}&rdquo;
+            {co.source_from ? ` — ${co.source_from}` : ""}
+            {co.source_at
+              ? ` · ${new Date(co.source_at).toLocaleDateString()}`
+              : ""}
+          </p>
+        )}
         <p className="mt-1 text-[11px] text-slate-400">
           {CHANGE_ORDER_REASON_LABELS[co.reason]}
           {co.approved_at && co.approval_signature && (

@@ -542,6 +542,9 @@ export async function logEmailAsRequest(
     status: "open",
     source: "email",
     source_message_id: msg.message_id || msg.id,
+    source_from: msg.from || msg.from_email,
+    source_excerpt: (msg.body_text || msg.snippet || "").slice(0, 800),
+    source_at: msg.received_at,
     created_at: now,
     updated_at: now,
   };

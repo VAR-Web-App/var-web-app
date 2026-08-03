@@ -148,6 +148,12 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
       reason: "client_request",
       status: "draft",
       notes: `Created from a logged request (${new Date(r.created_at).toLocaleDateString()}).`,
+      // Carry the client's original words through so the CO — and its client
+      // approval — shows what they actually asked for.
+      source_message_id: r.source_message_id,
+      source_from: r.source_from,
+      source_excerpt: r.source_excerpt,
+      source_at: r.source_at,
       created_at: now,
       updated_at: now,
     });
