@@ -45,15 +45,20 @@ export async function POST(req: NextRequest) {
   }
 
   const db = adminDb();
-  const acc = await db
+  const accSnap = await db
     .collection("email_accounts")
     .where("org_ref", "==", orgRef)
-    .limit(1)
     .get();
-  if (acc.empty) {
+  if (accSnap.empty) {
     return NextResponse.json({ ok: false, error: "no_inbox" }, { status: 400 });
   }
-  const account = acc.docs[0].data();
+  // Use the most-recently-connected account — after a read-only→send
+  // reconnect there may be two, and the newer one has the send scope.
+  const account = accSnap.docs
+    .map((d) => d.data())
+    .sort((a, b) =>
+      String(b.connected_at ?? "").localeCompare(String(a.connected_at ?? "")),
+    )[0];
   const accountId = account.account_id as string;
   const self = (account.email as string) || "";
 
