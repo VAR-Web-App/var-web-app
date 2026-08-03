@@ -15,6 +15,7 @@ import {
   ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import Tooltip from "@/components/tooltip";
 import { watchEmailMessages, logEmailAsRequest } from "@/lib/store";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
@@ -72,22 +73,29 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
                 </p>
               )}
               {m.request_ref ? (
-                <Link
-                  href={`/deals/${deal.id}#requests`}
-                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
-                >
-                  <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                  View request →
-                </Link>
-              ) : (
-                m.direction !== "out" && (
-                  <button
-                    onClick={() => void logEmailAsRequest(m)}
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+                <Tooltip label="Go to the request on this project" placement="top">
+                  <Link
+                    href={`/deals/${deal.id}#requests`}
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
                   >
                     <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                    Log as request
-                  </button>
+                    View request →
+                  </Link>
+                </Tooltip>
+              ) : (
+                m.direction !== "out" && (
+                  <Tooltip
+                    label="Track this email as a request on the project"
+                    placement="top"
+                  >
+                    <button
+                      onClick={() => void logEmailAsRequest(m)}
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+                    >
+                      <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                      Log as request
+                    </button>
+                  </Tooltip>
                 )
               )}
             </li>

@@ -8,6 +8,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import Tooltip from "@/components/tooltip";
 import { useDeal } from "@/lib/use-deal";
 import {
   listEmailMessages,
@@ -82,12 +83,17 @@ export default function PaperTrailPage({
         >
           ← Back to project
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+        <Tooltip
+          label="Print or save this record as a PDF"
+          placement="bottom"
         >
-          Print / Save as PDF
-        </button>
+          <button
+            onClick={() => window.print()}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+          >
+            Print / Save as PDF
+          </button>
+        </Tooltip>
       </div>
 
       <header className="border-b-2 border-slate-800 pb-4">
