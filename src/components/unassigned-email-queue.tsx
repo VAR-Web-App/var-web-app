@@ -7,7 +7,11 @@
 // onSnapshot; self-hides when empty.
 
 import { useEffect, useState } from "react";
-import { EnvelopeIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  EnvelopeIcon,
+  XMarkIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 import {
   watchEmailMessages,
   assignEmailMessage,
@@ -23,6 +27,7 @@ export default function UnassignedEmailQueue() {
   const [msgs, setMsgs] = useState<EmailMessage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.org_ref) return;
@@ -62,36 +67,51 @@ export default function UnassignedEmailQueue() {
       </header>
       <ul className="divide-y divide-amber-100">
         {msgs.map((m) => (
-          <li key={m.id} className="flex items-start justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-900">
-                {m.subject || "(no subject)"}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-slate-500">
-                {m.from_email} · {m.snippet}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <select
-                defaultValue=""
-                onChange={(e) => assign(m, e.target.value)}
-                className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
-              >
-                <option value="">Assign to…</option>
-                {deals.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+          <li key={m.id} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
               <button
-                onClick={() => void dismiss(m)}
-                title="Not a project — dismiss"
-                className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700"
+                onClick={() => setOpenId(openId === m.id ? null : m.id)}
+                className="flex min-w-0 items-start gap-1.5 text-left hover:opacity-80"
               >
-                <XMarkIcon className="h-4 w-4" />
+                <ChevronDownIcon
+                  className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${openId === m.id ? "rotate-180" : ""}`}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-slate-900">
+                    {m.subject || "(no subject)"}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    {m.from_email} · {m.snippet}
+                  </span>
+                </span>
               </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <select
+                  defaultValue=""
+                  onChange={(e) => assign(m, e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                >
+                  <option value="">Assign to…</option>
+                  {deals.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => void dismiss(m)}
+                  title="Not a project — dismiss"
+                  className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              </div>
             </div>
+            {openId === m.id && (
+              <div className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-amber-100">
+                {m.body_text || m.snippet || "(no message body)"}
+              </div>
+            )}
           </li>
         ))}
       </ul>

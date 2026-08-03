@@ -15,13 +15,28 @@ import { summarizeEmail } from "./email-summary";
 
 const snippetOf = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 300);
 
-/** noreply@ / notifications@ / newsletters / bounces … — never queue these. */
+/** noreply@ / notifications / newsletters / social-media blasts … — never
+ *  queue these; a real project contact is a person, not a platform. */
 function isAutomatedSender(fromEmail: string): boolean {
-  const e = fromEmail.toLowerCase();
+  const e = fromEmail.toLowerCase().trim();
   if (!e) return true;
-  return /(^|[._+-])(no-?reply|do-?not-?reply|donotreply|notifications?|mailer-daemon|postmaster|bounces?|auto(mated)?|alerts?|updates?|newsletters?|digest|noreply)([._+-]|@)/.test(
-    e,
-  );
+  const local = e.split("@")[0] || "";
+  const domain = e.split("@")[1] || "";
+  // Automated / marketing local-parts.
+  if (
+    /(^|[._+-])(no-?reply|do-?not-?reply|donotreply|notifications?|mailer-daemon|postmaster|bounces?|auto(mated)?|alerts?|updates?|newsletters?|newsletter|digest|noreply|recommendations?|promo(tions?)?|marketing|offers?|deals)([._+-]|$)/.test(
+      local,
+    )
+  )
+    return true;
+  // Social / marketing platforms — never a client, architect, or lender.
+  if (
+    /(^|\.)(pinterest|facebook|instagram|linkedin|twitter|tiktok|reddit|youtube|snapchat|nextdoor|yelp|meetup|eventbrite|mailchimp|substack|medium|quora)\.[a-z.]+$/.test(
+      domain,
+    )
+  )
+    return true;
+  return false;
 }
 
 /** Deal that this thread has already been filed to, if any. */
