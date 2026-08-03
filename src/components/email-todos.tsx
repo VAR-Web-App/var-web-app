@@ -78,7 +78,7 @@ export default function EmailTodos() {
   if (!loaded || items.length === 0) return null;
 
   return (
-    <section className="mb-6 overflow-hidden rounded-xl border border-sky-200 bg-sky-50/50 shadow-sm">
+    <section className="mb-6 rounded-xl border border-sky-200 bg-sky-50/50 shadow-sm">
       <header className="flex items-center gap-2 border-b border-sky-200 px-4 py-3">
         <EnvelopeIcon className="h-4 w-4 text-sky-700" />
         <h2 className="text-sm font-semibold text-slate-900">Needs reply</h2>

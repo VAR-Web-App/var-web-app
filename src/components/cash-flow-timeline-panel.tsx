@@ -454,7 +454,13 @@ function BalanceChart({
               y={H - 6}
               fontSize="9"
               fill="#94a3b8"
-              textAnchor="middle"
+              textAnchor={
+                i === 0
+                  ? "start"
+                  : i === series.length - 1
+                    ? "end"
+                    : "middle"
+              }
             >
               {s.label}
             </text>
