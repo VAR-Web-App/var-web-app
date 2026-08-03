@@ -481,12 +481,13 @@ export interface EmailMessage {
   status: "matched" | "unassigned";
   from: string;
   from_email: string;
+  from_phone?: string; // set on inbound SMS (source "sms")
   subject: string;
   snippet: string;
   body_text?: string;
   has_attachments?: boolean;
   received_at: string;
-  source?: "forward" | "unipile";
+  source?: "forward" | "unipile" | "sms";
   direction?: "in" | "out"; // "in" = received → a to-do until addressed
   addressed?: boolean; // builder marked it handled (replied / dealt with)
   addressed_at?: string | null;

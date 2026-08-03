@@ -240,6 +240,7 @@ function ClientContactCard({
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(deal.ship_to_poc_name ?? "");
   const [emailDraft, setEmailDraft] = useState(deal.ship_to_poc_email ?? "");
+  const [phoneDraft, setPhoneDraft] = useState(deal.ship_to_poc_phone ?? "");
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
@@ -249,8 +250,14 @@ function ClientContactCard({
     if (!editing) {
       setNameDraft(deal.ship_to_poc_name ?? "");
       setEmailDraft(deal.ship_to_poc_email ?? "");
+      setPhoneDraft(deal.ship_to_poc_phone ?? "");
     }
-  }, [deal.ship_to_poc_name, deal.ship_to_poc_email, editing]);
+  }, [
+    deal.ship_to_poc_name,
+    deal.ship_to_poc_email,
+    deal.ship_to_poc_phone,
+    editing,
+  ]);
 
   async function save() {
     if (saving) return;
@@ -259,6 +266,7 @@ function ClientContactCard({
       await onUpdate({
         ship_to_poc_name: nameDraft.trim(),
         ship_to_poc_email: emailDraft.trim().toLowerCase(),
+        ship_to_poc_phone: phoneDraft.trim(),
       });
       setEditing(false);
       setSavedAt(Date.now());
@@ -318,8 +326,15 @@ function ClientContactCard({
               placeholder="client@email.com"
               className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+            <input
+              type="tel"
+              value={phoneDraft}
+              onChange={(e) => setPhoneDraft(e.target.value)}
+              placeholder="(210) 555-0142"
+              className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
             <p className="text-xs text-slate-500">
-              Their emails auto-file onto this project.
+              Their emails and texts auto-file onto this project.
             </p>
           </div>
         ) : (
@@ -338,6 +353,16 @@ function ClientContactCard({
               </dt>
               <dd className="text-slate-900">
                 {deal.ship_to_poc_email || (
+                  <span className="italic text-slate-400">Not set</span>
+                )}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[64px_1fr] items-baseline gap-3">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Phone
+              </dt>
+              <dd className="text-slate-900">
+                {deal.ship_to_poc_phone || (
                   <span className="italic text-slate-400">Not set</span>
                 )}
               </dd>

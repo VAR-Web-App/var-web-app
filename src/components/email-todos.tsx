@@ -179,8 +179,16 @@ export default function EmailTodos() {
                 />
                 <span className="min-w-0">
                   <span className="flex items-center gap-1 text-sm font-medium text-slate-900">
+                    {m.source === "sms" && (
+                      <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
+                        Text
+                      </span>
+                    )}
                     <span className="truncate">
-                      {m.subject || "(no subject)"}
+                      {m.subject ||
+                        (m.source === "sms"
+                          ? m.snippet || "Text message"
+                          : "(no subject)")}
                     </span>
                     {m.has_attachments && (
                       <PaperClipIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
