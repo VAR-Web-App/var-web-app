@@ -456,6 +456,8 @@ export interface ProjectRequest {
   /** If this request was logged from a filed email — the source message id,
    *  so the paper trail can show the client's original words. */
   source_message_id?: string;
+  /** The change order this request was escalated into (via "→ CO"). */
+  co_ref?: string;
 }
 
 /** A forwarded/inbound email filed onto a deal (or left unassigned for review)

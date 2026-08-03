@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listDeals, listMilestones, listRFQs, listChangeOrders } from "@/lib/store";
+import {
+  listDeals,
+  listMilestones,
+  listRFQs,
+  listChangeOrders,
+  listAttentionEmails,
+} from "@/lib/store";
 
 // Same localStorage key the /inbox page writes. We read it here so
 // dismissed weather watches don't keep inflating the sidebar badge.
@@ -78,6 +84,11 @@ export function useInboxCount(orgRef: string | undefined): number {
           .flat()
           .filter((c) => c.status === "sent").length;
 
+        // Unanswered client email (the "Needs reply" list) — one org query.
+        const emailsToReply = (
+          await safeList(() => listAttentionEmails(orgRef!))
+        ).length;
+
         // Weather watches counted from each deal's demo_weather_alert
         // override. Live-forecast alerts could be added here later.
         // Dismissed ones are filtered out so the badge respects the
@@ -90,7 +101,13 @@ export function useInboxCount(orgRef: string | undefined): number {
         }).length;
 
         if (active) {
-          setCount(drawsPending + bidsToAward + cosPending + weatherCount);
+          setCount(
+            drawsPending +
+              bidsToAward +
+              cosPending +
+              weatherCount +
+              emailsToReply,
+          );
         }
       } catch (e) {
         console.warn("[inbox-count] refresh failed", e);

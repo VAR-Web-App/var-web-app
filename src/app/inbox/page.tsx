@@ -36,6 +36,7 @@ import {
   listMilestones,
   listRFQs,
   listChangeOrders,
+  watchAttentionEmails,
 } from "@/lib/store";
 import type { Deal } from "@/types";
 import type {
@@ -99,6 +100,14 @@ export default function InboxPage() {
   useEffect(() => {
     setDismissed(loadDismissed());
   }, []);
+
+  // Unanswered client email counts as an inbox item too — keep the header
+  // total in sync with the "Needs reply" section (and the sidebar badge).
+  const [emailCount, setEmailCount] = useState(0);
+  useEffect(() => {
+    if (!profile?.org_ref) return;
+    return watchAttentionEmails(profile.org_ref, (e) => setEmailCount(e.length));
+  }, [profile?.org_ref]);
 
   function dismiss(id: string) {
     setDismissed((prev) => {
@@ -288,14 +297,16 @@ export default function InboxPage() {
               decision per row.
             </p>
           </div>
-          {loaded && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              {items.filter((i) => !dismissed.has(i.id)).length}{" "}
-              {items.filter((i) => !dismissed.has(i.id)).length === 1
-                ? "item"
-                : "items"}
-            </span>
-          )}
+          {loaded &&
+            (() => {
+              const total =
+                items.filter((i) => !dismissed.has(i.id)).length + emailCount;
+              return (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {total} {total === 1 ? "item" : "items"}
+                </span>
+              );
+            })()}
         </header>
 
         <EmailTodos />
