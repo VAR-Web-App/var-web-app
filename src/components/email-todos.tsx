@@ -39,6 +39,14 @@ export default function EmailTodos() {
   const [viewing, setViewing] = useState<EmailMessage | null>(null);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [attByMsg, setAttByMsg] = useState<Record<string, Attachment[]>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // When an email with attachments is expanded, load the files that were
   // pulled onto its deal from that message, so they show inline.
@@ -94,6 +102,31 @@ export default function EmailTodos() {
 
   if (!loaded || items.length === 0) return null;
 
+  // Group the flat "needs reply" list by project so the Inbox reads as one
+  // section per job (matches the deal-centric mental model). Projects are
+  // ordered by most-recent unanswered email; anything not yet tied to a
+  // project falls into an "Unassigned" section pinned to the bottom.
+  const UNASSIGNED = "__unassigned__";
+  const byProject = new Map<string, EmailMessage[]>();
+  for (const m of items) {
+    const key = m.deal_ref && dealNames[m.deal_ref] ? m.deal_ref : UNASSIGNED;
+    const arr = byProject.get(key);
+    if (arr) arr.push(m);
+    else byProject.set(key, [m]);
+  }
+  const groups = Array.from(byProject.entries())
+    .map(([key, msgs]) => ({
+      key,
+      name: key === UNASSIGNED ? "Unassigned" : dealNames[key],
+      msgs,
+      latest: msgs.reduce((max, m) => (m.received_at > max ? m.received_at : max), ""),
+    }))
+    .sort((a, b) => {
+      if (a.key === UNASSIGNED) return 1;
+      if (b.key === UNASSIGNED) return -1;
+      return b.latest.localeCompare(a.latest);
+    });
+
   return (
     <section className="mb-6 rounded-xl border border-sky-200 bg-sky-50/50 shadow-sm">
       <header className="flex items-center gap-2 border-b border-sky-200 px-4 py-3">
@@ -111,12 +144,32 @@ export default function EmailTodos() {
           Open Gmail ↗
         </a>
       </header>
-      <ul className="divide-y divide-sky-100">
-        {items.map((m) => {
-          const asks = m.ai_action_items ?? [];
-          const multiAsk = asks.length > 1;
+      <div className="divide-y divide-sky-200">
+        {groups.map((g) => {
+          const open = !collapsedGroups.has(g.key);
           return (
-            <li key={m.id} className="px-4 py-3">
+            <div key={g.key}>
+              <button
+                onClick={() => toggleGroup(g.key)}
+                className="flex w-full items-center gap-2 bg-sky-100/40 px-4 py-2 text-left hover:bg-sky-100/70"
+              >
+                <ChevronDownIcon
+                  className={`h-4 w-4 shrink-0 text-sky-700 transition-transform ${open ? "" : "-rotate-90"}`}
+                />
+                <span className="truncate text-xs font-bold uppercase tracking-wider text-slate-600">
+                  {g.name}
+                </span>
+                <span className="rounded-full bg-sky-200 px-1.5 py-0.5 text-[10px] font-bold text-sky-800">
+                  {g.msgs.length}
+                </span>
+              </button>
+              {open && (
+                <ul className="divide-y divide-sky-100">
+                  {g.msgs.map((m) => {
+                    const asks = m.ai_action_items ?? [];
+                    const multiAsk = asks.length > 1;
+                    return (
+                      <li key={m.id} className="px-4 py-3">
               <button
                 onClick={() => setOpenId(openId === m.id ? null : m.id)}
                 className="flex w-full items-start gap-2 text-left hover:opacity-80"
@@ -339,10 +392,15 @@ export default function EmailTodos() {
                   />
                 </div>
               )}
-            </li>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           );
         })}
-      </ul>
+      </div>
       {viewing && (
         <AttachmentViewerModal
           dealRef={viewing.deal_ref ?? ""}
