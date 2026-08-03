@@ -25,7 +25,6 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
-import EmailDigester from "@/components/email-digester";
 import PhoneSummarizer from "@/components/phone-summarizer";
 import UnassignedEmailQueue from "@/components/unassigned-email-queue";
 import ConnectInbox from "@/components/connect-inbox";
@@ -312,7 +311,6 @@ export default function InboxPage() {
         <EmailTodos />
         <UnassignedEmailQueue />
         <ConnectInbox />
-        <EmailDigester />
         <PhoneSummarizer />
 
         {!loaded && (

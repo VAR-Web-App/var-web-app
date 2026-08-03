@@ -16,7 +16,9 @@ import {
   markEmailAddressed,
   listDeals,
   logEmailAsRequest,
+  listAttachments,
 } from "@/lib/store";
+import type { Attachment } from "@/types";
 import {
   ClipboardDocumentCheckIcon,
   ChevronDownIcon,
@@ -41,6 +43,25 @@ export default function EmailTodos() {
   const [dealNames, setDealNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [attByMsg, setAttByMsg] = useState<Record<string, Attachment[]>>({});
+
+  // When an email with attachments is expanded, load the files that were
+  // pulled onto its deal from that message, so they show inline.
+  useEffect(() => {
+    const m = items.find((x) => x.id === openId);
+    if (!m || !m.has_attachments || !m.deal_ref || attByMsg[m.id]) return;
+    const key = m.message_id || m.id;
+    listAttachments(m.deal_ref)
+      .then((all) =>
+        setAttByMsg((prev) => ({
+          ...prev,
+          [m.id]: all.filter(
+            (a) => a.category === "email" && a.source_message_id === key,
+          ),
+        })),
+      )
+      .catch(() => {});
+  }, [openId, items, attByMsg]);
 
   useEffect(() => {
     if (!profile?.org_ref) return;
@@ -187,13 +208,38 @@ export default function EmailTodos() {
                     {m.body_text || m.snippet || "(no message body)"}
                   </div>
                   {m.has_attachments && (
-                    <Link
-                      href={`/deals/${m.deal_ref}/files`}
-                      className="inline-flex items-center gap-1 self-start rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      <PaperClipIcon className="h-3.5 w-3.5" />
-                      Attachment — view in Files →
-                    </Link>
+                    <div className="rounded-md border border-slate-200 bg-white p-2.5 text-xs">
+                      <p className="mb-1 flex items-center gap-1 font-semibold text-slate-500">
+                        <PaperClipIcon className="h-3.5 w-3.5" />
+                        Attachments
+                      </p>
+                      {(attByMsg[m.id] ?? []).map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex items-center justify-between gap-2 py-0.5"
+                        >
+                          <a
+                            href={a.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="truncate font-medium text-slate-800 hover:underline"
+                          >
+                            {a.name}
+                          </a>
+                          <span className="shrink-0 text-slate-400">
+                            {(a.size / 1024).toFixed(0)} KB
+                          </span>
+                        </div>
+                      ))}
+                      <Link
+                        href={`/deals/${m.deal_ref}/files`}
+                        className="mt-1 inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline"
+                      >
+                        {attByMsg[m.id] === undefined
+                          ? "Saving to Files…"
+                          : "Open / parse in Files →"}
+                      </Link>
+                    </div>
                   )}
                 </div>
               )}

@@ -618,6 +618,9 @@ export interface Attachment {
    *  When set, deleteAttachment also removes the Storage object. Absent
    *  on legacy records that never went through the Storage pipeline. */
   storage_path?: string;
+  /** Set on attachments pulled in from an email — the source message id,
+   *  so the Inbox to-do can show the file inline on that email. */
+  source_message_id?: string;
 }
 
 /**

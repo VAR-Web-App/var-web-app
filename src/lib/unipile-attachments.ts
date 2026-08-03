@@ -58,6 +58,8 @@ export async function storeEmailAttachments(
       size: fetched.bytes.byteLength,
       storage_path: path,
       uploaded_at: new Date().toISOString(),
+      // Link back to the email so the Inbox to-do can show it inline.
+      source_message_id: email.message_id || email.id || null,
     });
     stored += 1;
   }
