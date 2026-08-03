@@ -27,6 +27,26 @@ export default function DealOverviewPage({
   const { id } = use(params);
   const { deal, loaded, updateDeal } = useDeal(id);
 
+  // Deep-link support: after the deal loads, scroll to a #section hash
+  // (e.g. #requests from an email's "View request" link). Runs post-load
+  // because the target panel doesn't exist until the deal resolves.
+  useEffect(() => {
+    if (!deal) return;
+    const scroll = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+      document
+        .getElementById(hash.slice(1))
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    const t = window.setTimeout(scroll, 150);
+    window.addEventListener("hashchange", scroll);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("hashchange", scroll);
+    };
+  }, [deal]);
+
   // Auto-advance the stage Estimate Sent → Contract Signed when a client
   // signs the proposal via the public sign link. Runs once on each visit
   // to the Overview, closing the loop without any GC action.
