@@ -346,6 +346,10 @@ export default function EmailTodos() {
       {viewing && (
         <AttachmentViewerModal
           dealRef={viewing.deal_ref ?? ""}
+          orgRef={profile?.org_ref ?? ""}
+          dealName={
+            (viewing.deal_ref && dealNames[viewing.deal_ref]) || "this project"
+          }
           sourceKey={viewing.message_id || viewing.id}
           subject={viewing.subject}
           fromLabel={viewing.from || viewing.from_email}

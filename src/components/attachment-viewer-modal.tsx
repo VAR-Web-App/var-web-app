@@ -5,13 +5,15 @@
 // Inbox. Opened from the "View" button on an email to-do that has attachments.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeftIcon,
   ArrowUturnLeftIcon,
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
-import { listAttachments } from "@/lib/store";
+import { listAttachments, saveInvoice } from "@/lib/store";
 import ReplyBox from "@/components/reply-box";
+import { newId, type Invoice, type InvoiceLineItem } from "@/types";
 import type { Attachment } from "@/types";
 
 interface ParseResult {
@@ -28,6 +30,8 @@ const fmtMoney = (n: number) =>
 
 export default function AttachmentViewerModal({
   dealRef,
+  orgRef,
+  dealName,
   sourceKey,
   subject,
   fromLabel,
@@ -37,6 +41,8 @@ export default function AttachmentViewerModal({
   onClose,
 }: {
   dealRef: string;
+  orgRef: string;
+  dealName: string;
   sourceKey: string;
   subject: string;
   fromLabel: string;
@@ -51,6 +57,50 @@ export default function AttachmentViewerModal({
   const [result, setResult] = useState<Record<string, ParseResult>>({});
   const [error, setError] = useState<string | null>(null);
   const [replying, setReplying] = useState(false);
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [savedInvoice, setSavedInvoice] = useState(false);
+
+  async function saveAsInvoice(res: ParseResult) {
+    setSavingInvoice(true);
+    setError(null);
+    try {
+      const now = new Date().toISOString();
+      const md = res.metadata;
+      const num = (v: unknown) =>
+        v == null ? undefined : Number(String(v).replace(/[^0-9.-]/g, ""));
+      const line_items: InvoiceLineItem[] = res.bom.map((b) => ({
+        id: newId("li"),
+        description:
+          [b.part_number, b.description].filter(Boolean).join(" — ") || "Item",
+        quantity: num(b.qty),
+        unit: b.unit ? String(b.unit) : undefined,
+        unit_price: num(b.unit_price),
+        extended: num(b.extended_price) ?? 0,
+      }));
+      const inv: Invoice = {
+        id: newId("inv"),
+        org_ref: orgRef,
+        deal_ref: dealRef,
+        vendor_name: md.vendor_name ? String(md.vendor_name) : "",
+        invoice_number: md.document_number ? String(md.document_number) : undefined,
+        invoice_date: md.document_date ? String(md.document_date) : undefined,
+        total: num(md.total_amount) ?? res.total ?? 0,
+        line_items,
+        po_number: md.po_number ? String(md.po_number) : undefined,
+        status: "matched",
+        source: "email",
+        parse_confidence: line_items.length > 0 ? "high" : "low",
+        created_at: now,
+        updated_at: now,
+      };
+      await saveInvoice(inv);
+      setSavedInvoice(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save invoice");
+    } finally {
+      setSavingInvoice(false);
+    }
+  }
 
   useEffect(() => {
     listAttachments(dealRef)
@@ -175,19 +225,45 @@ export default function AttachmentViewerModal({
         )}
 
         {r && (
-          <div className="border-b border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
-            <span className="font-semibold text-emerald-800">
-              Parsed: {r.bom.length} line{r.bom.length === 1 ? "" : "s"} ·{" "}
-              {fmtMoney(r.total)}
-            </span>
-            {Object.entries(r.metadata)
-              .filter(([, v]) => v != null && v !== "")
-              .slice(0, 6)
-              .map(([k, v]) => (
-                <span key={k} className="ml-3 text-emerald-700">
-                  {k.replace(/_/g, " ")}: <b>{String(v)}</b>
-                </span>
-              ))}
+          <div className="border-b border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs">
+            <p className="font-semibold text-emerald-800">
+              ✓ Read {r.bom.length} line item{r.bom.length === 1 ? "" : "s"}
+              {r.total ? ` · ${fmtMoney(r.total)}` : ""} from this document.
+            </p>
+            <p className="mt-0.5 text-emerald-700">
+              The file is filed on <b>{dealName}</b>&rsquo;s Files. Save it as an
+              invoice to track the cost on the Finances tab.
+            </p>
+            <div className="mt-1">
+              {Object.entries(r.metadata)
+                .filter(([, v]) => v != null && v !== "")
+                .slice(0, 6)
+                .map(([k, v]) => (
+                  <span key={k} className="mr-3 text-emerald-700">
+                    {k.replace(/_/g, " ")}: <b>{String(v)}</b>
+                  </span>
+                ))}
+            </div>
+            <div className="mt-2">
+              {savedInvoice ? (
+                <Link
+                  href={`/deals/${dealRef}/finances`}
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 font-semibold text-white hover:bg-emerald-700"
+                >
+                  ✓ Saved as invoice — see it on Finances →
+                </Link>
+              ) : (
+                <button
+                  onClick={() => void saveAsInvoice(r)}
+                  disabled={savingInvoice}
+                  className="rounded-md bg-emerald-600 px-2.5 py-1 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {savingInvoice
+                    ? "Saving…"
+                    : `Save as invoice on ${dealName}`}
+                </button>
+              )}
+            </div>
           </div>
         )}
         {error && (
