@@ -56,13 +56,12 @@ export async function createHostedAuthLink(a: HostedAuthArgs): Promise<string> {
       failure_redirect_url: a.failureUrl,
       notify_url: a.notifyUrl,
       name: a.orgRef,
-      // Request READ-ONLY mail scope so the consent screen reads "view your
-      // email" instead of "read, compose, send, and delete all your email".
-      // We only read to file correspondence onto deals. When we add
-      // reply-from-your-inbox, escalate to gmail.send / Mail.Send here (a
-      // one-time reconnect). Unipile adds its own identity scopes.
-      google_scopes: "https://www.googleapis.com/auth/gmail.readonly",
-      microsoft_scopes: "Mail.Read",
+      // Read to file correspondence + send to reply inline. Comma-separated
+      // (space fails Unipile's validator). Send scope makes the consent
+      // screen mention sending — the tradeoff for reply-from-the-app.
+      google_scopes:
+        "https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.send",
+      microsoft_scopes: "Mail.Read,Mail.Send",
     }),
   });
   if (!res.ok) {
@@ -117,6 +116,33 @@ export interface UnipileEmail {
     [k: string]: unknown;
   }>;
   [k: string]: unknown;
+}
+
+/** Send an email (or a reply) from a connected account. `replyTo` is the
+ *  provider_id of the message being replied to (threads it in Gmail/Outlook).
+ *  Returns { ok, error } — ok:false with a 403-ish error means the account
+ *  was connected read-only and needs a reconnect to grant send. */
+export async function sendEmail(
+  accountId: string,
+  args: { to: string; subject: string; body: string; replyTo?: string },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await unipileFetch("/api/v1/emails", {
+      method: "POST",
+      body: JSON.stringify({
+        account_id: accountId,
+        to: [{ identifier: args.to }],
+        subject: args.subject,
+        body: args.body,
+        ...(args.replyTo ? { reply_to: args.replyTo } : {}),
+      }),
+    });
+    if (res.ok) return { ok: true };
+    const text = await res.text();
+    return { ok: false, error: `${res.status}: ${text.slice(0, 200)}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "send failed" };
+  }
 }
 
 /** Download one email attachment's raw bytes from Unipile. Best-effort. */

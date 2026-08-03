@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import Tooltip from "@/components/tooltip";
 import AttachmentViewerModal from "@/components/attachment-viewer-modal";
+import ReplyBox from "@/components/reply-box";
 import type { EmailMessage } from "@/types/builder";
 
 // Deep-link to the actual message in Gmail so the builder can reply. Uses
@@ -45,6 +46,7 @@ export default function EmailTodos() {
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<EmailMessage | null>(null);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
   const [attByMsg, setAttByMsg] = useState<Record<string, Attachment[]>>({});
 
   // When an email with attachments is expanded, load the files that were
@@ -265,18 +267,26 @@ export default function EmailTodos() {
                     </button>
                   </Tooltip>
                 )}
+                <Tooltip label="Reply from here (sends from your inbox)" placement="top">
+                  <button
+                    onClick={() =>
+                      setReplyingId(replyingId === m.id ? null : m.id)
+                    }
+                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                  >
+                    <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                    Reply
+                  </button>
+                </Tooltip>
                 {reply && (
-                  <Tooltip label="Open this email in Gmail to reply" placement="top">
-                    <a
-                      href={reply}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
-                    >
-                      <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                      Reply
-                    </a>
-                  </Tooltip>
+                  <a
+                    href={reply}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-slate-500 hover:underline"
+                  >
+                    Gmail ↗
+                  </a>
                 )}
                 {multiAsk ? (
                   <Tooltip
@@ -329,6 +339,18 @@ export default function EmailTodos() {
                   </button>
                 </Tooltip>
               </div>
+              {replyingId === m.id && (
+                <div className="mt-2 rounded-md border border-sky-200 bg-white p-2.5">
+                  <ReplyBox
+                    to={m.from_email}
+                    subject={m.subject}
+                    replyTo={m.provider_id}
+                    dealRef={m.deal_ref}
+                    threadId={m.thread_id}
+                    onSent={() => setReplyingId(null)}
+                  />
+                </div>
+              )}
             </li>
           );
         })}
@@ -339,7 +361,9 @@ export default function EmailTodos() {
           sourceKey={viewing.message_id || viewing.id}
           subject={viewing.subject}
           fromLabel={viewing.from || viewing.from_email}
-          replyUrl={gmailLink(viewing.message_id)}
+          toEmail={viewing.from_email}
+          replyTo={viewing.provider_id}
+          threadId={viewing.thread_id}
           onClose={() => setViewing(null)}
         />
       )}

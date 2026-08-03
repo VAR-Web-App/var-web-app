@@ -11,6 +11,7 @@ import {
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { listAttachments } from "@/lib/store";
+import ReplyBox from "@/components/reply-box";
 import type { Attachment } from "@/types";
 
 interface ParseResult {
@@ -30,14 +31,18 @@ export default function AttachmentViewerModal({
   sourceKey,
   subject,
   fromLabel,
-  replyUrl,
+  toEmail,
+  replyTo,
+  threadId,
   onClose,
 }: {
   dealRef: string;
   sourceKey: string;
   subject: string;
   fromLabel: string;
-  replyUrl?: string | null;
+  toEmail: string;
+  replyTo?: string;
+  threadId?: string;
   onClose: () => void;
 }) {
   const [atts, setAtts] = useState<Attachment[]>([]);
@@ -45,6 +50,7 @@ export default function AttachmentViewerModal({
   const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState<Record<string, ParseResult>>({});
   const [error, setError] = useState<string | null>(null);
+  const [replying, setReplying] = useState(false);
 
   useEffect(() => {
     listAttachments(dealRef)
@@ -137,17 +143,13 @@ export default function AttachmentViewerModal({
             </p>
             <p className="truncate text-xs text-slate-500">{fromLabel}</p>
           </div>
-          {replyUrl && (
-            <a
-              href={replyUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
-            >
-              <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-              Reply
-            </a>
-          )}
+          <button
+            onClick={() => setReplying((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+          >
+            <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+            Reply
+          </button>
           <button
             onClick={() => void parse()}
             disabled={parsing || !selected}
@@ -191,6 +193,19 @@ export default function AttachmentViewerModal({
         {error && (
           <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
+          </div>
+        )}
+
+        {replying && (
+          <div className="border-b border-sky-200 bg-sky-50/60 p-3">
+            <ReplyBox
+              to={toEmail}
+              subject={subject}
+              replyTo={replyTo}
+              dealRef={dealRef}
+              threadId={threadId}
+              onSent={() => setReplying(false)}
+            />
           </div>
         )}
 
