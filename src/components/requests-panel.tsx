@@ -12,6 +12,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import Tooltip from "@/components/tooltip";
+import Link from "next/link";
 import {
   listRequests,
   saveRequest,
@@ -129,8 +130,9 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
       .filter(Number.isFinite);
     const number = `CO-${String((used.length ? Math.max(...used) : 0) + 1).padStart(3, "0")}`;
     const now = new Date().toISOString();
+    const coId = newId("co");
     await saveChangeOrder({
-      id: newId("co"),
+      id: coId,
       deal_ref: deal.id,
       org_ref: deal.org_ref,
       number,
@@ -144,7 +146,7 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
       created_at: now,
       updated_at: now,
     });
-    await saveRequest({ ...r, status: "scheduled", updated_at: now });
+    await saveRequest({ ...r, status: "scheduled", co_ref: coId, updated_at: now });
     setToast(`${number} created (draft) — price & send it on the Finances tab.`);
     setTimeout(() => setToast(null), 3500);
     await refresh();
@@ -264,18 +266,27 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  {ACTIVE.has(r.status) && (
-                    <Tooltip
-                      label="Turn this ask into a priced change order"
-                      placement="top"
+                  {r.co_ref ? (
+                    <Link
+                      href={`/deals/${deal.id}/finances`}
+                      className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
                     >
-                      <button
-                        onClick={() => convertToCO(r)}
-                        className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                      View CO →
+                    </Link>
+                  ) : (
+                    ACTIVE.has(r.status) && (
+                      <Tooltip
+                        label="Turn this ask into a priced change order"
+                        placement="top"
                       >
-                        → CO
-                      </button>
-                    </Tooltip>
+                        <button
+                          onClick={() => convertToCO(r)}
+                          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                        >
+                          → CO
+                        </button>
+                      </Tooltip>
+                    )
                   )}
                   <select
                     value={r.status}
