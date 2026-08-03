@@ -11,7 +11,13 @@ import {
   EnvelopeIcon,
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
-import { watchAttentionEmails, markEmailAddressed, listDeals } from "@/lib/store";
+import {
+  watchAttentionEmails,
+  markEmailAddressed,
+  listDeals,
+  logEmailAsRequest,
+} from "@/lib/store";
+import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import type { EmailMessage } from "@/types/builder";
 
@@ -48,6 +54,12 @@ export default function EmailTodos() {
   async function address(id: string) {
     setItems((prev) => prev.filter((m) => m.id !== id)); // optimistic
     await markEmailAddressed(id).catch(() => {});
+  }
+
+  const [logged, setLogged] = useState<Set<string>>(new Set());
+  async function logReq(m: EmailMessage) {
+    setLogged((prev) => new Set(prev).add(m.id));
+    await logEmailAsRequest(m).catch(() => {});
   }
 
   if (!loaded || items.length === 0) return null;
@@ -91,6 +103,20 @@ export default function EmailTodos() {
                     <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
                     Reply
                   </a>
+                )}
+                {logged.has(m.id) || m.request_ref ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                    <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                    Logged as request
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => void logReq(m)}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                    Log request
+                  </button>
                 )}
                 <button
                   onClick={() => void address(m.id)}

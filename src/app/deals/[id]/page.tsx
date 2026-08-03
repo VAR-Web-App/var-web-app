@@ -104,6 +104,16 @@ export default function DealOverviewPage({
         </div>
         <span className="shrink-0 text-sm font-semibold text-sky-700">→</span>
       </Link>
+      <Link
+        href={`/deals/${deal.id}/paper-trail`}
+        className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+      >
+        <span className="text-slate-700">
+          <span className="font-semibold text-slate-900">Paper trail</span> —
+          export correspondence, requests &amp; change orders as a PDF
+        </span>
+        <span className="shrink-0 font-semibold text-slate-400">→</span>
+      </Link>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <NextActionCard deal={deal} />

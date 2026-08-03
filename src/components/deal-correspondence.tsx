@@ -9,8 +9,12 @@
 // resync or reload. Self-hides until there's mail.
 
 import { useEffect, useState } from "react";
-import { EnvelopeIcon, PaperClipIcon } from "@heroicons/react/24/outline";
-import { watchEmailMessages } from "@/lib/store";
+import {
+  EnvelopeIcon,
+  PaperClipIcon,
+  ClipboardDocumentCheckIcon,
+} from "@heroicons/react/24/outline";
+import { watchEmailMessages, logEmailAsRequest } from "@/lib/store";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
 
@@ -65,6 +69,22 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
                 <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">
                   {m.snippet}
                 </p>
+              )}
+              {m.request_ref ? (
+                <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                  <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                  Logged as request
+                </span>
+              ) : (
+                m.direction !== "out" && (
+                  <button
+                    onClick={() => void logEmailAsRequest(m)}
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+                  >
+                    <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                    Log as request
+                  </button>
+                )
               )}
             </li>
           ))}
