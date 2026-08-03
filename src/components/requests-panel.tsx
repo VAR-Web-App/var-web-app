@@ -17,6 +17,7 @@ import {
   listRequests,
   saveRequest,
   deleteRequest,
+  unlinkEmailsFromRequest,
   newId,
   listMilestones,
   listDistributors,
@@ -52,6 +53,7 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
   const [subs, setSubs] = useState<Distributor[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [source, setSource] = useState<RequestSource>("verbal");
@@ -117,8 +119,11 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
   }
 
   async function remove(r: ProjectRequest) {
-    if (!confirm("Delete this request?")) return;
+    setConfirmDeleteId(null);
     await deleteRequest(r.id);
+    // Clear the link on the source email so it doesn't show a dead
+    // "View request" and can be re-logged.
+    await unlinkEmailsFromRequest(r.id, r.org_ref);
     await refresh();
   }
 
@@ -304,15 +309,33 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
                       <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                     ))}
                   </select>
-                  <Tooltip label="Delete this request" placement="top">
-                    <button
-                      onClick={() => remove(r)}
-                      aria-label="Delete request"
-                      className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+                  {confirmDeleteId === r.id ? (
+                    <span className="inline-flex items-center gap-1 text-[11px]">
+                      <span className="text-slate-500">Delete?</span>
+                      <button
+                        onClick={() => void remove(r)}
+                        className="rounded bg-red-600 px-1.5 py-0.5 font-medium text-white hover:bg-red-700"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="rounded border border-slate-300 px-1.5 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <Tooltip label="Delete this request" placement="top">
+                      <button
+                        onClick={() => setConfirmDeleteId(r.id)}
+                        aria-label="Delete request"
+                        className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </Tooltip>
+                  )}
                 </div>
               </div>
             </li>
