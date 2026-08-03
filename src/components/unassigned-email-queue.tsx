@@ -19,6 +19,7 @@ import {
   listDeals,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import Tooltip from "@/components/tooltip";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
 
@@ -71,6 +72,7 @@ export default function UnassignedEmailQueue() {
             <div className="flex items-start justify-between gap-3">
               <button
                 onClick={() => setOpenId(openId === m.id ? null : m.id)}
+                title="Read the email"
                 className="flex min-w-0 items-start gap-1.5 text-left hover:opacity-80"
               >
                 <ChevronDownIcon
@@ -86,25 +88,28 @@ export default function UnassignedEmailQueue() {
                 </span>
               </button>
               <div className="flex shrink-0 items-center gap-1.5">
-                <select
-                  defaultValue=""
-                  onChange={(e) => assign(m, e.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
-                >
-                  <option value="">Assign to…</option>
-                  {deals.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => void dismiss(m)}
-                  title="Not a project — dismiss"
-                  className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
+                <Tooltip label="File this email onto a project" placement="top">
+                  <select
+                    defaultValue=""
+                    onChange={(e) => assign(m, e.target.value)}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                  >
+                    <option value="">Assign to…</option>
+                    {deals.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </Tooltip>
+                <Tooltip label="Not a project — remove it" placement="top">
+                  <button
+                    onClick={() => void dismiss(m)}
+                    className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
             {openId === m.id && (

@@ -25,6 +25,12 @@ const fmtDate = (s?: string) => (s ? new Date(s).toLocaleDateString() : "—");
 const money = (n: number) =>
   `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 const byAsc = (a: string, b: string) => (a || "").localeCompare(b || "");
+const REQ_STATUS: Record<string, string> = {
+  open: "Open",
+  scheduled: "In progress",
+  done: "Done",
+  wont_do: "Won't do",
+};
 
 export default function PaperTrailPage({
   params,
@@ -112,7 +118,7 @@ export default function PaperTrailPage({
             <div key={r.id} className="pt-item border-b border-slate-100 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-semibold">{r.title}</span>
-                <Badge>{r.status.replace("_", " ")}</Badge>
+                <Badge>{REQ_STATUS[r.status] ?? r.status}</Badge>
               </div>
               {r.body && (
                 <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">

@@ -22,6 +22,7 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
+import Tooltip from "@/components/tooltip";
 import type { EmailMessage } from "@/types/builder";
 
 // Deep-link to the actual message in Gmail so the builder can reply. Uses
@@ -127,43 +128,62 @@ export default function EmailTodos() {
                 </div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/deals/${m.deal_ref}`}
-                  className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  View project
-                </Link>
-                {reply && (
-                  <a
-                    href={reply}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                <Tooltip label="Open the project" placement="top">
+                  <Link
+                    href={`/deals/${m.deal_ref}`}
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                   >
-                    <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                    Reply
-                  </a>
+                    View project
+                  </Link>
+                </Tooltip>
+                {reply && (
+                  <Tooltip label="Open this email in Gmail to reply" placement="top">
+                    <a
+                      href={reply}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+                    >
+                      <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                      Reply
+                    </a>
+                  </Tooltip>
                 )}
                 {logged.has(m.id) || m.request_ref ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                    <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                    Logged as request
-                  </span>
+                  <Tooltip label="Go to the request on the project" placement="top">
+                    <Link
+                      href={`/deals/${m.deal_ref}#requests`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                    >
+                      <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                      View request →
+                    </Link>
+                  </Tooltip>
                 ) : (
-                  <button
-                    onClick={() => void logReq(m)}
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  <Tooltip
+                    label="Track this email as a request on the project"
+                    placement="top"
                   >
-                    <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                    Log request
-                  </button>
+                    <button
+                      onClick={() => void logReq(m)}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                      Log request
+                    </button>
+                  </Tooltip>
                 )}
-                <button
-                  onClick={() => void address(m.id)}
-                  className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                <Tooltip
+                  label="Clear it from your to-do list — the email stays on the project record"
+                  placement="top"
                 >
-                  Mark done
-                </button>
+                  <button
+                    onClick={() => void address(m.id)}
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Mark handled
+                  </button>
+                </Tooltip>
               </div>
             </li>
           );
