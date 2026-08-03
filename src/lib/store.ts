@@ -458,6 +458,28 @@ export async function deleteRequest(id: string): Promise<void> {
   await removeFromCollection("project_requests", id);
 }
 
+/** Clear the request link on any email that pointed to this request, so a
+ *  deleted request doesn't leave a dead "View request" on the correspondence.
+ *  Query by org (rule-safe), match request_ref in memory. */
+export async function unlinkEmailsFromRequest(
+  requestId: string,
+  orgRef: string,
+): Promise<void> {
+  const q = query(collection(db, "email_messages"), where("org_ref", "==", orgRef));
+  const snap = await getDocs(q);
+  await Promise.all(
+    snap.docs
+      .filter((d) => (d.data() as EmailMessage).request_ref === requestId)
+      .map((d) =>
+        setDoc(
+          doc(db, "email_messages", d.id),
+          { request_ref: null },
+          { merge: true },
+        ),
+      ),
+  );
+}
+
 // ── Inbound email (forward-in) ───────────────────────────────────
 // Query by org_ref (the rule scopes on org_ref; keeps the list satisfiable
 // without a composite index) and filter deal_ref in memory at the call site.
