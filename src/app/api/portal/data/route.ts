@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
       id: c.id, number: c.number, title: c.title, description: c.description,
       amount_delta: c.amount_delta, schedule_impact_days: c.schedule_impact_days,
       status: c.status, rejection_reason: c.rejection_reason ?? null,
+      source_excerpt: c.source_excerpt ?? null,
+      source_at: c.source_at ?? null,
     }));
 
   // Selections the client can act on (sent) or has decided (approved/over).
