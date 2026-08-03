@@ -26,6 +26,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import Tooltip from "@/components/tooltip";
+import AttachmentViewerModal from "@/components/attachment-viewer-modal";
 import type { EmailMessage } from "@/types/builder";
 
 // Deep-link to the actual message in Gmail so the builder can reply. Uses
@@ -43,6 +44,7 @@ export default function EmailTodos() {
   const [dealNames, setDealNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<EmailMessage | null>(null);
   const [attByMsg, setAttByMsg] = useState<Record<string, Attachment[]>>({});
 
   // When an email with attachments is expanded, load the files that were
@@ -252,6 +254,17 @@ export default function EmailTodos() {
                     View project
                   </Link>
                 </Tooltip>
+                {m.has_attachments && (
+                  <Tooltip label="View & parse the attachment" placement="top">
+                    <button
+                      onClick={() => setViewing(m)}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <PaperClipIcon className="h-3.5 w-3.5" />
+                      View attachment
+                    </button>
+                  </Tooltip>
+                )}
                 {reply && (
                   <Tooltip label="Open this email in Gmail to reply" placement="top">
                     <a
@@ -320,6 +333,16 @@ export default function EmailTodos() {
           );
         })}
       </ul>
+      {viewing && (
+        <AttachmentViewerModal
+          dealRef={viewing.deal_ref ?? ""}
+          sourceKey={viewing.message_id || viewing.id}
+          subject={viewing.subject}
+          fromLabel={viewing.from || viewing.from_email}
+          replyUrl={gmailLink(viewing.message_id)}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </section>
   );
 }
