@@ -89,6 +89,8 @@ export default function EmailTodos() {
       <ul className="divide-y divide-sky-100">
         {items.map((m) => {
           const reply = gmailLink(m.message_id);
+          const asks = m.ai_action_items ?? [];
+          const multiAsk = asks.length > 1;
           return (
             <li key={m.id} className="px-4 py-3">
               <button
@@ -111,6 +113,11 @@ export default function EmailTodos() {
                   {m.ai_summary && (
                     <span className="mt-0.5 block truncate text-xs italic text-sky-700">
                       {m.ai_summary}
+                    </span>
+                  )}
+                  {multiAsk && openId !== m.id && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                      {asks.length} separate asks — expand to log each
                     </span>
                   )}
                 </span>
@@ -155,6 +162,15 @@ export default function EmailTodos() {
                       })}
                     </ul>
                   )}
+                  {m.request_ref && (
+                    <Link
+                      href={`/deals/${m.deal_ref}#requests`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                    >
+                      <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                      View logged requests on the project →
+                    </Link>
+                  )}
                   <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white p-3 text-xs leading-relaxed text-slate-700 ring-1 ring-sky-100">
                     {m.body_text || m.snippet || "(no message body)"}
                   </div>
@@ -182,7 +198,21 @@ export default function EmailTodos() {
                     </a>
                   </Tooltip>
                 )}
-                {logged.has(m.id) || m.request_ref ? (
+                {multiAsk ? (
+                  <Tooltip
+                    label={`This email has ${asks.length} separate asks — expand and log each as its own request`}
+                    placement="top"
+                  >
+                    <button
+                      onClick={() => setOpenId(m.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                    >
+                      <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
+                      {asks.length} asks —{" "}
+                      {openId === m.id ? "log below" : "expand to log"}
+                    </button>
+                  </Tooltip>
+                ) : logged.has(m.id) || m.request_ref ? (
                   <Tooltip label="Go to the request on the project" placement="top">
                     <Link
                       href={`/deals/${m.deal_ref}#requests`}
@@ -194,7 +224,7 @@ export default function EmailTodos() {
                   </Tooltip>
                 ) : (
                   <Tooltip
-                    label="Log the whole email as one request — or expand to log each ask separately"
+                    label="Log the whole email as one request"
                     placement="top"
                   >
                     <button
