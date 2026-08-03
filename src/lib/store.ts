@@ -494,6 +494,34 @@ export async function dismissEmailMessage(id: string): Promise<void> {
   await deleteDoc(doc(db, "email_messages", id));
 }
 
+/** Turn a filed client email into a tracked Request on its deal — the
+ *  client's own words, timestamped, ready to tie to a phase/sub and ride the
+ *  Request → Change Order → sign-off rails. Links both directions. Returns
+ *  the new request id (or null if the email isn't on a deal). */
+export async function logEmailAsRequest(msg: EmailMessage): Promise<string | null> {
+  if (!msg.deal_ref) return null;
+  const now = new Date().toISOString();
+  const req: ProjectRequest = {
+    id: newId("req"),
+    deal_ref: msg.deal_ref,
+    org_ref: msg.org_ref,
+    title: msg.subject?.trim() || "Client request (email)",
+    body: (msg.body_text || msg.snippet || "").slice(0, 4000),
+    status: "open",
+    source: "email",
+    source_message_id: msg.message_id || msg.id,
+    created_at: now,
+    updated_at: now,
+  };
+  await saveRequest(req);
+  await setDoc(
+    doc(db, "email_messages", msg.id),
+    { request_ref: req.id },
+    { merge: true },
+  );
+  return req.id;
+}
+
 /** Received, deal-linked emails the builder hasn't addressed yet — the
  *  "needs reply" to-do list. Query by org (rule), filter in memory. */
 export async function listAttentionEmails(orgRef: string): Promise<EmailMessage[]> {

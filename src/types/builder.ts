@@ -453,6 +453,9 @@ export interface ProjectRequest {
   created_at: string;
   updated_at: string;
   resolved_at?: string;
+  /** If this request was logged from a filed email — the source message id,
+   *  so the paper trail can show the client's original words. */
+  source_message_id?: string;
 }
 
 /** A forwarded/inbound email filed onto a deal (or left unassigned for review)
@@ -475,6 +478,7 @@ export interface EmailMessage {
   addressed_at?: string | null;
   message_id?: string; // RFC822 Message-ID — used to deep-link into Gmail
   thread_id?: string; // provider thread id — for thread-continuity matching
+  request_ref?: string; // set once this email has been logged as a Request
 }
 
 /** A builder's mailbox connected via Unipile (the "Connect your inbox"
