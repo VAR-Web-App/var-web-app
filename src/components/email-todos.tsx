@@ -30,15 +30,6 @@ import AttachmentViewerModal from "@/components/attachment-viewer-modal";
 import ReplyBox from "@/components/reply-box";
 import type { EmailMessage } from "@/types/builder";
 
-// Deep-link to the actual message in Gmail so the builder can reply. Uses
-// the RFC822 Message-ID search operator (reliable across Gmail accounts).
-function gmailLink(messageId?: string): string | null {
-  if (!messageId) return null;
-  const clean = messageId.replace(/[<>]/g, "").trim();
-  if (!clean) return null;
-  return `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(clean)}`;
-}
-
 export default function EmailTodos() {
   const { profile } = useAuth();
   const [items, setItems] = useState<EmailMessage[]>([]);
@@ -111,10 +102,17 @@ export default function EmailTodos() {
         <span className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
           {items.length}
         </span>
+        <a
+          href="https://mail.google.com/mail/u/0/"
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700 hover:underline"
+        >
+          Open Gmail ↗
+        </a>
       </header>
       <ul className="divide-y divide-sky-100">
         {items.map((m) => {
-          const reply = gmailLink(m.message_id);
           const asks = m.ai_action_items ?? [];
           const multiAsk = asks.length > 1;
           return (
@@ -278,16 +276,6 @@ export default function EmailTodos() {
                     Reply
                   </button>
                 </Tooltip>
-                {reply && (
-                  <a
-                    href={reply}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-slate-500 hover:underline"
-                  >
-                    Gmail ↗
-                  </a>
-                )}
                 {multiAsk ? (
                   <Tooltip
                     label={`This email has ${asks.length} separate asks — expand and log each as its own request`}
