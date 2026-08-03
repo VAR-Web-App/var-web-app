@@ -11,6 +11,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import Tooltip from "@/components/tooltip";
 import {
   listRequests,
   saveRequest,
@@ -264,13 +265,17 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {ACTIVE.has(r.status) && (
-                    <button
-                      onClick={() => convertToCO(r)}
-                      title="Create a change order from this request"
-                      className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                    <Tooltip
+                      label="Turn this ask into a priced change order"
+                      placement="top"
                     >
-                      → CO
-                    </button>
+                      <button
+                        onClick={() => convertToCO(r)}
+                        className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                      >
+                        → CO
+                      </button>
+                    </Tooltip>
                   )}
                   <select
                     value={r.status}
