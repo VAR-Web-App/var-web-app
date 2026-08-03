@@ -12,6 +12,7 @@ import type { Firestore } from "firebase-admin/firestore";
 import { matchDealForOrg } from "./email-match";
 import { htmlToText, type UnipileEmail } from "./unipile";
 import { summarizeEmail } from "./email-summary";
+import { storeEmailAttachments } from "./unipile-attachments";
 
 const snippetOf = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 300);
 
@@ -130,5 +131,14 @@ export async function fileUnipileEmail(
       },
       { merge: true },
     );
+
+  // Pull attachments into the deal's Files tab (real-time mail only, matched).
+  if (summarize && dealRef && email.has_attachments) {
+    try {
+      await storeEmailAttachments(db, dealRef, email);
+    } catch {
+      // best-effort — never block filing on an attachment fetch
+    }
+  }
   return dealRef;
 }
