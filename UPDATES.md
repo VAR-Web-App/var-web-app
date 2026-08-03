@@ -4,11 +4,25 @@ A plain-language running list of the major additions and improvements, newest
 at the top. Built for Barry — no jargon, just what's new and what it does for
 you on a real project.
 
-_Last updated: 2026-08-02._
+_Last updated: 2026-08-03._
 
 ---
 
-## 📥 Email that files itself — _newest, still polishing_
+## 🧾 Read a supplier invoice from an email — _newest_
+
+When a vendor emails you a PDF invoice or material list, open the attachment
+right in the app (the **View** button on the email) and hit **Parse**. It now
+tells you plainly what happened instead of leaving you guessing:
+
+- **A clear result.** "Read 14 line items · $6,849.52 from this document,"
+  plus the invoice number, date, and vendor it pulled out.
+- **You know where it went.** The attachment is filed on that project's
+  **Files** — the note says so.
+- **One tap to track the cost.** **Save as invoice** drops the line items and
+  total onto the project and links you straight to the **Finances** tab to see
+  it against your budget — no re-typing.
+
+## 📥 Email that files itself — _still polishing_
 
 Your client email now lands on the right project on its own.
 
