@@ -33,7 +33,7 @@ import type { Deal, Distributor } from "@/types";
 
 const STATUS_LABEL: Record<RequestStatus, string> = {
   open: "Open",
-  scheduled: "Scheduled",
+  scheduled: "In progress",
   done: "Done",
   wont_do: "Won't do",
 };
@@ -166,7 +166,10 @@ export default function RequestsPanel({ deal }: { deal: Deal }) {
     "rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section
+      id="requests"
+      className="scroll-mt-20 rounded-xl border border-slate-200 bg-white shadow-sm"
+    >
       <header className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-2">
           <ChatBubbleLeftRightIcon className="h-4 w-4 text-slate-500" />

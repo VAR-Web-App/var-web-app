@@ -14,6 +14,7 @@ import {
   PaperClipIcon,
   ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import { watchEmailMessages, logEmailAsRequest } from "@/lib/store";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
@@ -71,10 +72,13 @@ export default function DealCorrespondence({ deal }: { deal: Deal }) {
                 </p>
               )}
               {m.request_ref ? (
-                <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                <Link
+                  href={`/deals/${deal.id}#requests`}
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                >
                   <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
-                  Logged as request
-                </span>
+                  View request →
+                </Link>
               ) : (
                 m.direction !== "out" && (
                   <button
