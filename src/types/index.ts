@@ -46,10 +46,16 @@ export interface Deal {
   ship_to_address: string;
   ship_to_poc_name: string;
   ship_to_poc_email: string;
+  /** Client's mobile number (E.164 or as typed). Texts from this number
+   *  auto-file onto this project, same as email. */
+  ship_to_poc_phone?: string;
   /** Additional contact addresses that file to this project — the client's
    *  spouse, architect, designer, lender. Learned when the builder assigns
    *  an unmatched email to the deal, so the matcher improves with use. */
   known_emails?: string[];
+  /** Additional phone numbers that file to this project (spouse, etc.).
+   *  Learned when the builder assigns an unmatched text to the deal. */
+  known_phones?: string[];
   lead_time: string;
   due_date?: string;        // ISO date strings — easier than Date for localStorage
   award_date?: string;

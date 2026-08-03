@@ -495,18 +495,25 @@ export async function assignEmailMessage(
   id: string,
   dealRef: string,
   fromEmail?: string,
+  fromPhone?: string,
 ): Promise<void> {
   await setDoc(
     doc(db, "email_messages", id),
     { deal_ref: dealRef, status: "matched" },
     { merge: true },
   );
-  // Learn the sender so future mail from this address auto-files to the deal
+  // Learn the sender so future mail/texts from them auto-file to the deal
   // (the client's spouse/architect/lender stop landing in "unassigned").
   const clean = (fromEmail ?? "").trim().toLowerCase();
   if (clean) {
     await updateDoc(doc(db, "deals", dealRef), {
       known_emails: arrayUnion(clean),
+    }).catch(() => {});
+  }
+  const phone = (fromPhone ?? "").trim();
+  if (phone) {
+    await updateDoc(doc(db, "deals", dealRef), {
+      known_phones: arrayUnion(phone),
     }).catch(() => {});
   }
 }

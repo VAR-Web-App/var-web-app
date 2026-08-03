@@ -43,7 +43,9 @@ export default function UnassignedEmailQueue() {
   async function assign(m: EmailMessage, dealId: string) {
     if (!dealId) return;
     setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
-    await assignEmailMessage(m.id, dealId, m.from_email).catch(() => {});
+    await assignEmailMessage(m.id, dealId, m.from_email, m.from_phone).catch(
+      () => {},
+    );
   }
 
   async function dismiss(m: EmailMessage) {
@@ -94,10 +96,11 @@ export default function UnassignedEmailQueue() {
                 />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-slate-900">
-                    {m.subject || "(no subject)"}
+                    {m.subject ||
+                      (m.source === "sms" ? "Text message" : "(no subject)")}
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-slate-500">
-                    {m.from_email} · {m.snippet}
+                    {m.from_email || m.from_phone} · {m.snippet}
                   </span>
                 </span>
               </button>

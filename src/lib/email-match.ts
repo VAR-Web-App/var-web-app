@@ -4,6 +4,7 @@
 // Used by both the SendGrid forward-in route and the Unipile inbox sync.
 
 import type { Firestore } from "firebase-admin/firestore";
+import { toE164 } from "./sms";
 
 // Normalize for tolerant matching: lowercase, fold all dash variants
 // (em/en dash etc.) + underscores/slashes to spaces, collapse whitespace.
@@ -23,10 +24,23 @@ export interface MatchInput {
   text: string;
   /** Participant addresses (from/to/cc), any case — used for client match. */
   emails?: string[];
+  /** Participant phone numbers (any format) — used for client match on
+   *  inbound SMS. The strongest signal for texts, which rarely name the
+   *  project in the body. */
+  phones?: string[];
 }
 
 const cleanEmail = (s: unknown): string =>
   typeof s === "string" ? s.trim().toLowerCase() : "";
+
+/** E.164-normalize for tolerant phone matching — a deal's "(210) 555-0142"
+ *  and an inbound "+12105550142" must compare equal. Non-US / unparseable
+ *  numbers fall back to a digits-only form so they can still match a like
+ *  entry rather than silently dropping. */
+const cleanPhone = (s: unknown): string => {
+  if (typeof s !== "string") return "";
+  return toE164(s) ?? s.replace(/\D/g, "");
+};
 
 export async function matchDealForOrg(
   db: Firestore,
@@ -51,6 +65,22 @@ export async function matchDealForOrg(
         ...(Array.isArray(data.known_emails) ? data.known_emails : []),
       ].map(cleanEmail);
       if (contacts.some((c) => c && parts.has(c))) return d.id;
+    }
+  }
+
+  // 1b) Same idea for inbound texts: the sender's phone identifies the deal.
+  //     This is the *primary* signal for SMS (texts seldom name the project).
+  const phoneParts = new Set(
+    (input.phones ?? []).map(cleanPhone).filter(Boolean),
+  );
+  if (phoneParts.size) {
+    for (const d of dealsSnap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const contactPhones = [
+        data.ship_to_poc_phone,
+        ...(Array.isArray(data.known_phones) ? data.known_phones : []),
+      ].map(cleanPhone);
+      if (contactPhones.some((c) => c && phoneParts.has(c))) return d.id;
     }
   }
 
