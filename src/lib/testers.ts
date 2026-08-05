@@ -8,6 +8,7 @@ const TESTERS = new Set(
     "collinjmaddox@gmail.com",
     "cmadd.vesel@gmail.com",
     "aaron3902@gmail.com", // Aaron — testing + AI SEO
+    "aaronmaddox3902@gmail.com", // Aaron (Maddox) — testing
     // Add other testers here (e.g. Barry's email) as they join the run.
   ].map((e) => e.toLowerCase()),
 );
