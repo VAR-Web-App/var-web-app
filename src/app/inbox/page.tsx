@@ -100,6 +100,20 @@ export default function InboxPage() {
     setDismissed(loadDismissed());
   }, []);
 
+  // After the Unipile "connect your inbox" flow redirects back here
+  // (?connected=1|0), confirm it in-app so the builder lands somewhere that
+  // acknowledges the connection instead of on Unipile's generic page.
+  const [connectNote, setConnectNote] = useState<"ok" | "fail" | null>(null);
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("connected");
+    if (v === "1") setConnectNote("ok");
+    else if (v === "0") setConnectNote("fail");
+    if (v !== null) {
+      // Clean the param so a refresh doesn't re-show the banner.
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   // Unanswered client email counts as an inbox item too — keep the header
   // total in sync with the "Needs reply" section (and the sidebar badge).
   const [emailCount, setEmailCount] = useState(0);
@@ -308,6 +322,39 @@ export default function InboxPage() {
             })()}
         </header>
 
+        {connectNote && (
+          <div
+            className={`mb-5 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${
+              connectNote === "ok"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            {connectNote === "ok" ? (
+              <>
+                <CheckCircleIcon className="h-5 w-5 shrink-0 text-emerald-600" />
+                <span>
+                  <b>Inbox connected.</b> Client email will now file onto your
+                  projects automatically.
+                </span>
+              </>
+            ) : (
+              <>
+                <XMarkIcon className="h-5 w-5 shrink-0 text-red-600" />
+                <span>
+                  <b>Inbox not connected.</b> The connection didn&rsquo;t finish
+                  — try connecting again below.
+                </span>
+              </>
+            )}
+            <button
+              onClick={() => setConnectNote(null)}
+              className="ml-auto text-xs font-medium underline-offset-2 hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <EmailTodos />
         <UnassignedEmailQueue />
         <ConnectInbox />

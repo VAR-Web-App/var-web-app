@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  EnvelopeIcon,
+  ChatBubbleLeftRightIcon,
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -107,6 +107,7 @@ export default function EmailTodos() {
   // ordered by most-recent unanswered email; anything not yet tied to a
   // project falls into an "Unassigned" section pinned to the bottom.
   const UNASSIGNED = "__unassigned__";
+  const hasEmail = items.some((m) => m.source !== "sms");
   const byProject = new Map<string, EmailMessage[]>();
   for (const m of items) {
     const key = m.deal_ref && dealNames[m.deal_ref] ? m.deal_ref : UNASSIGNED;
@@ -130,19 +131,21 @@ export default function EmailTodos() {
   return (
     <section className="mb-6 rounded-xl border border-sky-200 bg-sky-50/50 shadow-sm">
       <header className="flex items-center gap-2 border-b border-sky-200 px-4 py-3">
-        <EnvelopeIcon className="h-4 w-4 text-sky-700" />
+        <ChatBubbleLeftRightIcon className="h-4 w-4 text-sky-700" />
         <h2 className="text-sm font-semibold text-slate-900">Needs reply</h2>
         <span className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
           {items.length}
         </span>
-        <a
-          href="https://mail.google.com/mail/u/0/"
-          target="_blank"
-          rel="noreferrer"
-          className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700 hover:underline"
-        >
-          Open Gmail ↗
-        </a>
+        {hasEmail && (
+          <a
+            href="https://mail.google.com/mail/u/0/"
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700 hover:underline"
+          >
+            Open Gmail ↗
+          </a>
+        )}
       </header>
       <div className="divide-y divide-sky-200">
         {groups.map((g) => {
@@ -179,9 +182,13 @@ export default function EmailTodos() {
                 />
                 <span className="min-w-0">
                   <span className="flex items-center gap-1 text-sm font-medium text-slate-900">
-                    {m.source === "sms" && (
+                    {m.source === "sms" ? (
                       <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
                         Text
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-700">
+                        Email
                       </span>
                     )}
                     <span className="truncate">
@@ -326,7 +333,14 @@ export default function EmailTodos() {
                     </button>
                   </Tooltip>
                 )}
-                <Tooltip label="Reply from here (sends from your inbox)" placement="top">
+                <Tooltip
+                  label={
+                    m.source === "sms"
+                      ? "Text back (sends from your business line)"
+                      : "Reply from here (sends from your inbox)"
+                  }
+                  placement="top"
+                >
                   <button
                     onClick={() =>
                       setReplyingId(replyingId === m.id ? null : m.id)
@@ -334,7 +348,7 @@ export default function EmailTodos() {
                     className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700"
                   >
                     <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                    Reply
+                    {m.source === "sms" ? "Text back" : "Reply"}
                   </button>
                 </Tooltip>
                 {multiAsk ? (
