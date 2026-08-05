@@ -4,13 +4,16 @@
 // project, recaps it, and pulls out action items you can save to the project
 // notes in one click. Lives on the Inbox alongside the Email Digester.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   PhoneIcon,
   SparklesIcon,
   CheckIcon,
   DocumentPlusIcon,
+  MicrophoneIcon,
+  StopIcon,
+  ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { listDeals, saveDeal } from "@/lib/store";
@@ -36,6 +39,53 @@ export default function PhoneSummarizer() {
   // When Claude can't confidently match a project, the user picks one here so
   // the summary is never a dead end.
   const [chosenId, setChosenId] = useState("");
+  // Audio → transcript (record a voice memo or upload a call recording).
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  async function transcribe(file: Blob, name: string) {
+    setTranscribing(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, name);
+      const res = await fetch("/api/phone/transcribe", { method: "POST", body: fd });
+      const data = (await res.json()) as { ok: boolean; text?: string; error?: string };
+      if (!data.ok) setError(data.error || "Couldn't transcribe that audio.");
+      else setTranscript((prev) => (prev ? `${prev}\n${data.text ?? ""}` : data.text ?? ""));
+    } catch {
+      setError("Couldn't reach the transcription service.");
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        void transcribe(blob, "recording.webm");
+        setRecording(false);
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setRecording(true);
+      setError(null);
+    } catch {
+      setError("Couldn't access the microphone — check browser permissions.");
+    }
+  }
 
   async function run() {
     if (!transcript.trim() || busy) return;
@@ -109,14 +159,57 @@ export default function PhoneSummarizer() {
       {open && (
         <div className="space-y-4 border-t border-slate-100 p-4">
           <p className="text-xs text-slate-500">
-            Paste a call transcript (or notes). Claude routes it to the right
-            project, recaps it, and pulls out action items to save to the log.
+            Record the call, upload a recording, or paste a transcript. Claude
+            routes it to the right project, recaps it, and pulls out action
+            items to save to the log.
           </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => void toggleRecording()}
+              disabled={transcribing}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                recording
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {recording ? (
+                <>
+                  <StopIcon className="h-3.5 w-3.5" />
+                  Stop &amp; transcribe
+                </>
+              ) : (
+                <>
+                  <MicrophoneIcon className="h-3.5 w-3.5" />
+                  Record call
+                </>
+              )}
+            </button>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+              <ArrowUpTrayIcon className="h-3.5 w-3.5" />
+              Upload recording
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void transcribe(f, f.name);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {(recording || transcribing) && (
+              <span className="text-xs text-slate-500">
+                {recording ? "Recording…" : "Transcribing…"}
+              </span>
+            )}
+          </div>
           <textarea
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             rows={6}
-            placeholder="Paste the call transcript or your notes here…"
+            placeholder="Record or upload above, or paste the call transcript / your notes here…"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
           {error && (
