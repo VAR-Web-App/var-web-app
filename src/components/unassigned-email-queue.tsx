@@ -65,7 +65,9 @@ export default function UnassignedEmailQueue() {
     <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50/60 shadow-sm">
       <header className="flex items-center gap-2 border-b border-amber-200 px-4 py-3">
         <EnvelopeIcon className="h-4 w-4 text-amber-700" />
-        <h2 className="text-sm font-semibold text-slate-900">Unassigned email</h2>
+        <h2 className="text-sm font-semibold text-slate-900">
+          Unassigned messages
+        </h2>
         <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
           {msgs.length}
         </span>
@@ -73,7 +75,7 @@ export default function UnassignedEmailQueue() {
           — couldn&rsquo;t auto-match; assign it (and it&rsquo;ll remember the
           sender) or dismiss.
         </span>
-        <Tooltip label="Dismiss all unassigned email" placement="top">
+        <Tooltip label="Dismiss all unassigned messages" placement="top">
           <button
             onClick={() => void clearAll()}
             className="ml-auto rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-amber-100"
@@ -88,7 +90,7 @@ export default function UnassignedEmailQueue() {
             <div className="flex items-start justify-between gap-3">
               <button
                 onClick={() => setOpenId(openId === m.id ? null : m.id)}
-                title="Read the email"
+                title="Read the message"
                 className="flex min-w-0 items-start gap-1.5 text-left hover:opacity-80"
               >
                 <ChevronDownIcon
@@ -105,7 +107,7 @@ export default function UnassignedEmailQueue() {
                 </span>
               </button>
               <div className="flex shrink-0 items-center gap-1.5">
-                <Tooltip label="File this email onto a project" placement="top">
+                <Tooltip label="File this message onto a project" placement="top">
                   <select
                     defaultValue=""
                     onChange={(e) => assign(m, e.target.value)}
