@@ -24,8 +24,8 @@ const db = getFirestore();
 const pubB64 = process.argv[2] || "CzU0p0rmOUf+TUAByet3IBioZc7VjHetj5wNZ6dJJgU=";
 const snap = await db.collection("_debug_telnyx").doc("last").get();
 if (!snap.exists) { console.log("no _debug_telnyx/last captured yet"); process.exit(0); }
-const { rawBody, sig, ts, at } = snap.data();
-console.log(`captured at ${at}  ts=${ts}  sigLen=${sig.length}  bodyLen=${rawBody.length}`);
+const { rawBody, sig, ts, at, verified } = snap.data();
+console.log(`captured at ${at}  ts=${ts}  sigLen=${sig.length}  bodyLen=${rawBody.length}  route.verified=${verified}`);
 
 function keyFromRaw(b64) {
   const raw = Buffer.from(b64, "base64");

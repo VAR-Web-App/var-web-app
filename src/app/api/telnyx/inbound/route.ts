@@ -27,17 +27,10 @@ export async function POST(req: NextRequest) {
   if (publicKey) {
     const sig = req.headers.get("telnyx-signature-ed25519") ?? "";
     const ts = req.headers.get("telnyx-timestamp") ?? "";
-    const verified = verifyTelnyxSignature(rawBody, sig, ts, publicKey);
-    // TEMP DEBUG (2026-08-05): capture EVERY request + the verify result so
-    // the verifier can be validated/fixed offline. Proceed regardless.
-    // Revert to strict `if (!verified) return 403` after.
-    try {
-      await adminDb()
-        .collection("_debug_telnyx")
-        .doc("last")
-        .set({ rawBody, sig, ts, verified, keyLen: publicKey.length, at: new Date().toISOString() });
-    } catch {}
-    if (!verified) console.warn("[telnyx/inbound] SIGDEBUG mismatch — proceeding");
+    if (!verifyTelnyxSignature(rawBody, sig, ts, publicKey)) {
+      console.warn("[telnyx/inbound] signature mismatch — rejecting");
+      return new NextResponse("Forbidden", { status: 403 });
+    }
   } else {
     console.warn(
       "[telnyx/inbound] TELNYX_PUBLIC_KEY not set — skipping signature check",
