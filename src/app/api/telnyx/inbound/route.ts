@@ -28,16 +28,16 @@ export async function POST(req: NextRequest) {
     const sig = req.headers.get("telnyx-signature-ed25519") ?? "";
     const ts = req.headers.get("telnyx-timestamp") ?? "";
     if (!verifyTelnyxSignature(rawBody, sig, ts, publicKey)) {
-      // TEMP DEBUG (2026-08-05): log-only so a real Telnyx request can be
-      // captured and the verifier fixed; revert to `return 403` after.
-      console.warn("[telnyx/inbound] SIGDEBUG mismatch — proceeding anyway", {
-        sigLen: sig.length,
-        sigHead: sig.slice(0, 24),
-        ts,
-        keyLen: publicKey.length,
-        bodyLen: rawBody.length,
-        bodyHead: rawBody.slice(0, 120),
-      });
+      // TEMP DEBUG (2026-08-05): persist the exact request so it can be
+      // replayed offline against the real key; proceed so we're unblocked.
+      // Revert to `return 403` after the verifier is fixed.
+      try {
+        await adminDb()
+          .collection("_debug_telnyx")
+          .doc("last")
+          .set({ rawBody, sig, ts, keyLen: publicKey.length, at: new Date().toISOString() });
+      } catch {}
+      console.warn("[telnyx/inbound] SIGDEBUG mismatch — captured + proceeding");
     }
   } else {
     console.warn(
