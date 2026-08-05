@@ -26,4 +26,10 @@ const snap = await db.collection("email_messages").where("org_ref", "==", orgRef
 const bySource = {};
 for (const d of snap.docs) { const s = d.data().source || "?"; bySource[s] = (bySource[s] || 0) + 1; }
 console.log(`email_messages for org_ref ${orgRef}: ${snap.size}`, bySource);
+const accs = await db.collection("email_accounts").where("org_ref", "==", orgRef).get();
+console.log(`email_accounts (connected inboxes): ${accs.size}`);
+for (const d of accs.docs) {
+  const a = d.data();
+  console.log(`  ${d.id}  ${a.email || "?"}  provider=${a.provider}  connected=${a.connected_at}`);
+}
 process.exit(0);

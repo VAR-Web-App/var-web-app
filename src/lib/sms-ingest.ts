@@ -89,6 +89,21 @@ export async function ingestInboundSms(
   const id = `sms_${msg.providerId}`.replace(/[^A-Za-z0-9_]/g, "").slice(0, 120);
   const hasMedia = msg.media.length > 0;
 
+  // Show the client's name, not the raw number, when the sender is the deal's
+  // known contact. Falls back to the E.164 number if we don't have a name.
+  let displayFrom = fromE164;
+  if (dealRef) {
+    try {
+      const dd = (await db.collection("deals").doc(dealRef).get()).data();
+      const name = dd?.ship_to_poc_name as string | undefined;
+      if (name && toE164(String(dd?.ship_to_poc_phone ?? "")) === fromE164) {
+        displayFrom = name;
+      }
+    } catch {
+      /* fall back to the number */
+    }
+  }
+
   // Only summarize real, matched, incoming client mail (never spend an LLM
   // call on an unassigned stray). SMS has no subject line.
   const ai =
@@ -103,7 +118,7 @@ export async function ingestInboundSms(
         org_ref: orgRef,
         deal_ref: dealRef, // null → unassigned review queue
         status: dealRef ? "matched" : "unassigned",
-        from: fromE164,
+        from: displayFrom,
         from_email: "", // SMS has no email address
         from_phone: fromE164,
         subject: "", // texts have no subject
