@@ -39,7 +39,7 @@ const rows = snap.docs
   .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)));
 for (const m of rows) {
   console.log(
-    `  ${m.received_at}  from=${m.from_phone}  deal=${m.deal_ref || "UNASSIGNED"}  media=${m.has_attachments ? "yes" : "no"}  "${(m.body_text || "").slice(0, 60)}"`,
+    `  ${m.received_at}  dir=${m.direction} status=${m.status} addressed=${m.addressed ?? false}  deal=${m.deal_ref || "UNASSIGNED"}  media=${m.has_attachments ? "yes" : "no"}  "${(m.body_text || "").slice(0, 45)}"`,
   );
   console.log(`      ai_summary: ${m.ai_summary || "(none)"}`);
   if (m.ai_action_items?.length)

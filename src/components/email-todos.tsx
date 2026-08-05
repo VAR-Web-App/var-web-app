@@ -391,11 +391,12 @@ export default function EmailTodos() {
               {replyingId === m.id && (
                 <div className="mt-2 rounded-md border border-sky-200 bg-white p-2.5">
                   <ReplyBox
-                    to={m.from_email}
+                    to={m.source === "sms" ? m.from_phone || "" : m.from_email}
                     subject={m.subject}
                     replyTo={m.provider_id}
                     dealRef={m.deal_ref}
                     threadId={m.thread_id}
+                    channel={m.source === "sms" ? "sms" : "email"}
                     onSent={() => setReplyingId(null)}
                   />
                 </div>
@@ -419,9 +420,14 @@ export default function EmailTodos() {
           sourceKey={viewing.message_id || viewing.id}
           subject={viewing.subject}
           fromLabel={viewing.from || viewing.from_email}
-          toEmail={viewing.from_email}
+          toEmail={
+            viewing.source === "sms"
+              ? viewing.from_phone || ""
+              : viewing.from_email
+          }
           replyTo={viewing.provider_id}
           threadId={viewing.thread_id}
+          channel={viewing.source === "sms" ? "sms" : "email"}
           onClose={() => setViewing(null)}
         />
       )}

@@ -1,8 +1,10 @@
 "use client";
 
-// Inline reply composer — sends from the builder's connected inbox via
-// /api/unipile/send (threads the reply, records it on the deal). If the inbox
-// was connected read-only, the send fails with a reconnect prompt.
+// Inline reply composer. Email threads send from the builder's connected
+// inbox via /api/unipile/send; SMS threads send from the org's business line
+// via /api/telnyx/send. Either way the reply is threaded and recorded on the
+// deal. Email: a read-only inbox prompts a reconnect. SMS: a not-yet-approved
+// A2P campaign explains the wait.
 
 import { useState } from "react";
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
@@ -14,6 +16,7 @@ export default function ReplyBox({
   replyTo,
   dealRef,
   threadId,
+  channel = "email",
   onSent,
 }: {
   to: string;
@@ -21,12 +24,14 @@ export default function ReplyBox({
   replyTo?: string;
   dealRef?: string | null;
   threadId?: string;
+  channel?: "email" | "sms";
   onSent?: () => void;
 }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isSms = channel === "sms";
 
   async function send() {
     if (!body.trim() || sending) return;
@@ -34,22 +39,35 @@ export default function ReplyBox({
     setError(null);
     try {
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/unipile/send", {
+      const endpoint = isSms ? "/api/telnyx/send" : "/api/unipile/send";
+      const payload = isSms
+        ? { to, body, dealRef, threadId }
+        : { to, subject, body, replyTo, dealRef, threadId };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           authorization: `Bearer ${token}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ to, subject, body, replyTo, dealRef, threadId }),
+        body: JSON.stringify(payload),
       });
       const d = (await res.json()) as {
         ok: boolean;
         error?: string;
         needsReconnect?: boolean;
+        pendingA2p?: boolean;
       };
       if (d.ok) {
         setSent(true);
         onSent?.();
+      } else if (isSms) {
+        setError(
+          d.pendingA2p
+            ? "Texting isn't live yet — your carrier registration (A2P) is still being approved. Inbound texts work now; replies will send once it clears."
+            : d.error === "no_business_line"
+              ? "No business text line is set up for your account yet."
+              : d.error || "Couldn't send the text",
+        );
       } else {
         setError(
           d.needsReconnect
@@ -58,7 +76,7 @@ export default function ReplyBox({
         );
       }
     } catch {
-      setError("Couldn't send the reply");
+      setError(isSms ? "Couldn't send the text" : "Couldn't send the reply");
     } finally {
       setSending(false);
     }

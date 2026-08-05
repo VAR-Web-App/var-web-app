@@ -38,6 +38,7 @@ export default function AttachmentViewerModal({
   toEmail,
   replyTo,
   threadId,
+  channel = "email",
   onClose,
 }: {
   dealRef: string;
@@ -49,6 +50,7 @@ export default function AttachmentViewerModal({
   toEmail: string;
   replyTo?: string;
   threadId?: string;
+  channel?: "email" | "sms";
   onClose: () => void;
 }) {
   const [atts, setAtts] = useState<Attachment[]>([]);
@@ -280,6 +282,7 @@ export default function AttachmentViewerModal({
               replyTo={replyTo}
               dealRef={dealRef}
               threadId={threadId}
+              channel={channel}
               onSent={() => setReplying(false)}
             />
           </div>
