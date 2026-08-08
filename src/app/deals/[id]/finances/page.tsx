@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import type { FinanceSignal } from "@/lib/finance-signal";
 import RFQPanel from "@/components/rfq-panel";
 import BidIntelligencePanel from "@/components/bid-intelligence-panel";
@@ -18,7 +19,7 @@ import DealPageShell, {
 } from "@/components/deal-page-shell";
 import { useDeal } from "@/lib/use-deal";
 import { listQuoteLines } from "@/lib/store";
-import type { QuoteLine } from "@/types";
+import type { Deal, QuoteLine } from "@/types";
 
 export default function DealFinancesPage({
   params,
@@ -52,17 +53,16 @@ export default function DealFinancesPage({
 
   return (
     <DealPageShell deal={deal} active="finances">
-      {/* Grouped into three bands so the tab reads as 3 areas, not 10 flat
-          peers (UX_PRINCIPLES: group past ~4–5 co-equal panels). Phase 2:
-          a top attention strip aggregating the red/amber signals + collapsing
-          the deep tables. */}
-      <div className="space-y-8">
-        <FinancesAttentionStrip signals={signals} />
+      {/* One headline KPI strip owns the top-line numbers + alerts, so the
+          rest of the tab stops reading as several co-equal "dashboard stat"
+          rows (Brennan's note). Forecast stays open (summaries/alerts); the
+          deep transactional bands collapse by default (UX_PRINCIPLES). */}
+      <div className="space-y-6">
+        <FinancesGlanceStrip deal={deal} lines={lines} signals={signals} />
         <FinanceGroup
           title="Forecast"
-          subtitle="Estimate, budget, margin, cash flow & sub overruns"
+          subtitle="Budget, margin, cash flow & sub overruns"
         >
-          <EstimateSummary dealId={deal.id} lines={lines} />
           <BudgetPanel dealId={deal.id} onSignal={(s) => emit("budget", s)} />
           <FinanceForecastPanel dealId={deal.id} onSignal={(s) => emit("margin", s)} />
           <CashFlowTimelinePanel dealId={deal.id} onSignal={(s) => emit("cash", s)} />
@@ -72,13 +72,20 @@ export default function DealFinancesPage({
         <FinanceGroup
           title="Ledger"
           subtitle="Change orders, invoices & payments"
+          collapsible
+          defaultOpen={false}
         >
           <ChangeOrdersPanel deal={deal} />
           <InvoicesPanel deal={deal} />
           <PaymentsSection deal={deal} />
         </FinanceGroup>
 
-        <FinanceGroup title="Sourcing" subtitle="Sub RFQs & bid benchmarking">
+        <FinanceGroup
+          title="Sourcing"
+          subtitle="Sub RFQs & bid benchmarking"
+          collapsible
+          defaultOpen={false}
+        >
           <RFQPanel deal={deal} />
           <BidIntelligencePanel deal={deal} />
         </FinanceGroup>
@@ -91,135 +98,140 @@ function FinanceGroup({
   title,
   subtitle,
   children,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const showBody = !collapsible || open;
+  const Header = collapsible ? "button" : "div";
   return (
     <section>
-      <div className="mb-3 flex items-baseline gap-2 border-b border-slate-200 pb-1.5">
+      <Header
+        {...(collapsible
+          ? { onClick: () => setOpen((v) => !v), type: "button" as const }
+          : {})}
+        className={`mb-3 flex w-full items-baseline gap-2 border-b border-slate-200 pb-1.5 text-left ${
+          collapsible ? "hover:border-slate-300" : ""
+        }`}
+      >
+        {collapsible && (
+          <ChevronDownIcon
+            className={`h-3.5 w-3.5 self-center text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`}
+          />
+        )}
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
           {title}
         </h2>
         <span className="hidden truncate text-xs text-slate-400 sm:inline">
           {subtitle}
         </span>
-      </div>
-      <div className="space-y-6">{children}</div>
+        {collapsible && !open && (
+          <span className="ml-auto text-xs font-medium text-sky-700">Show</span>
+        )}
+      </Header>
+      {showBody && <div className="space-y-6">{children}</div>}
     </section>
   );
 }
 
-// Aggregates the red/amber signals the Forecast panels emit into one row at
-// the top of the tab. Self-hides when everything's clear (never shows a
-// "nothing wrong" banner). Red first.
-function FinancesAttentionStrip({
+// The single headline for the whole tab: the top-line KPIs always visible,
+// with the red/amber alerts folded in underneath. This is what makes the tab
+// read as consolidated — one dashboard row, not several competing stat rows.
+function FinancesGlanceStrip({
+  deal,
+  lines,
   signals,
 }: {
+  deal: Deal;
+  lines: QuoteLine[];
   signals: Record<string, FinanceSignal | null>;
 }) {
-  const active = Object.values(signals).filter((s): s is FinanceSignal => !!s);
-  if (active.length === 0) return null;
-  active.sort((a, b) =>
-    a.severity === b.severity ? 0 : a.severity === "red" ? -1 : 1,
-  );
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <span className="mr-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-        Needs attention
-      </span>
-      {active.map((s, i) => (
-        <span
-          key={i}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-            s.severity === "red"
-              ? "bg-rose-100 text-rose-800"
-              : "bg-amber-100 text-amber-800"
-          }`}
-        >
-          {s.label}
-          <span className="font-normal opacity-80">· {s.detail}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function EstimateSummary({
-  dealId,
-  lines,
-}: {
-  dealId: string;
-  lines: QuoteLine[];
-}) {
   const fmtMoney = (n: number) =>
-    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const customerTotal = lines.reduce(
-    (s, l) => s + (l.customer_extended || 0),
-    0,
-  );
+    `$${Math.round(n).toLocaleString("en-US")}`;
+  const customerTotal = lines.reduce((s, l) => s + (l.customer_extended || 0), 0);
   const costTotal = lines.reduce((s, l) => s + (l.cost_extended || 0), 0);
   const margin =
     customerTotal > 0 ? ((customerTotal - costTotal) / customerTotal) * 100 : 0;
 
+  const alerts = Object.values(signals)
+    .filter((s): s is FinanceSignal => !!s)
+    .sort((a, b) =>
+      a.severity === b.severity ? 0 : a.severity === "red" ? -1 : 1,
+    );
+
+  const marginTone =
+    margin >= 15
+      ? "text-emerald-700"
+      : margin >= 5
+        ? "text-sky-700"
+        : "text-red-700";
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">
-            Project Estimate
-          </h2>
-          <p className="mt-0.5 hidden text-xs text-slate-500 md:block">
-            {lines.length === 0
-              ? "No line items yet — open the quote editor to build it out."
-              : `${lines.length} line item${lines.length === 1 ? "" : "s"} · saved`}
-          </p>
-        </div>
+      <div className="flex items-baseline justify-between border-b border-slate-200 px-4 py-3 sm:px-6">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Finances at a glance
+        </h2>
         <Link
-          href={`/deals/${dealId}/quote`}
-          className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 sm:px-4"
+          href={`/deals/${deal.id}/quote`}
+          className="text-xs font-semibold text-sky-700 hover:text-sky-800"
         >
           {lines.length === 0 ? "Build estimate →" : "Edit estimate →"}
         </Link>
       </div>
-      {lines.length > 0 ? (
-        <div className="grid grid-cols-3 divide-x divide-slate-200">
-          <div className="px-3 py-3 sm:px-6 sm:py-4">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
-              Cost
-            </div>
-            <div className="mt-1 text-sm font-semibold tabular-nums text-slate-900 sm:text-lg">
-              {fmtMoney(costTotal)}
-            </div>
-          </div>
-          <div className="px-3 py-3 sm:px-6 sm:py-4">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
-              <span className="sm:hidden">Client</span>
-              <span className="hidden sm:inline">Estimate to Client</span>
-            </div>
-            <div className="mt-1 text-sm font-semibold tabular-nums text-emerald-700 sm:text-lg">
-              {fmtMoney(customerTotal)}
-            </div>
-          </div>
-          <div className="px-3 py-3 sm:px-6 sm:py-4">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
-              Margin
-            </div>
-            <div
-              className={`mt-1 text-sm font-semibold tabular-nums sm:text-lg ${
-                margin >= 15
-                  ? "text-emerald-700"
-                  : margin >= 5
-                    ? "text-sky-700"
-                    : "text-red-700"
+      <div className="grid grid-cols-3 divide-x divide-slate-200">
+        <Kpi label="Estimate to Client" value={fmtMoney(customerTotal)} />
+        <Kpi label="Cost" value={fmtMoney(costTotal)} />
+        <Kpi label="Margin" value={`${margin.toFixed(1)}%`} tone={marginTone} />
+      </div>
+      {alerts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-2.5 sm:px-6">
+          <span className="mr-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Needs attention
+          </span>
+          {alerts.map((s, i) => (
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                s.severity === "red"
+                  ? "bg-rose-100 text-rose-800"
+                  : "bg-amber-100 text-amber-800"
               }`}
             >
-              {margin.toFixed(1)}%
-            </div>
-          </div>
+              {s.label}
+              <span className="font-normal opacity-80">· {s.detail}</span>
+            </span>
+          ))}
         </div>
-      ) : null}
+      )}
     </section>
   );
 }
+
+function Kpi({
+  label,
+  value,
+  tone = "text-slate-900",
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className="px-3 py-3 sm:px-6 sm:py-4">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
+        {label}
+      </div>
+      <div className={`mt-1 text-sm font-semibold tabular-nums sm:text-lg ${tone}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
