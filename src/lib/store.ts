@@ -1428,6 +1428,12 @@ export async function wipeOrgData(orgRef: string): Promise<void> {
   for (const c of contacts) await deleteContact(c.id);
   const distributors = await listDistributors(orgRef);
   for (const d of distributors) await deleteDistributor(d.id);
+  // Correspondence (texts + emails) is org-scoped, not a deal child — clear it
+  // too so re-seeding the demo conversation doesn't pile up across resets.
+  const msgs = await getDocs(
+    query(collection(db, "email_messages"), where("org_ref", "==", orgRef)),
+  );
+  for (const m of msgs.docs) await deleteDoc(doc(db, "email_messages", m.id));
 }
 
 export async function resetAndSeedBuilderDemo(orgRef: string): Promise<SeedResult> {
@@ -1640,6 +1646,7 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       ship_to_address: "1428 Lee Rd\nBoerne, TX 78006",
       ship_to_poc_name: "Brennan Maddox",
       ship_to_poc_email: "brennan@maddoxfam.com",
+      ship_to_poc_phone: "+15125550142",
       lead_time: "32 weeks",
       due_date: isoDaysAgo(60).slice(0, 10),
       award_date: isoDaysAgo(55),
@@ -2173,6 +2180,14 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
         responded_at: isoDaysAgo(2),
         notified_at: isoDaysAgo(11),
       },
+      {
+        // Invited, hasn't bid yet — powers the sub portal's "Submit your bid"
+        // open-request CTA so that surface isn't empty in a demo.
+        sub_ref: subs[3].id,
+        sub_name: subs[3].name,
+        status: "sent",
+        notified_at: isoDaysAgo(9),
+      },
     ],
     notes: "Hard deadline: pick winner by next Friday to keep schedule.",
     sent_at: isoDaysAgo(11),
@@ -2412,6 +2427,89 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     },
   ];
   for (const s of maddoxSelections) await saveSelection(s);
+
+  // ── Maddox correspondence (texts + email) ────────────────────
+  // Populates the deal's Messages thread, the Inbox "Needs reply" list, and
+  // the Unassigned queue so none of the messaging surfaces are empty in a
+  // demo. One inbound text is left unaddressed (the live to-do); one message
+  // isn't tied to a project (the unassigned-review case).
+  const clientPhone = "+15125550142"; // matches Maddox ship_to_poc_phone
+  const bizLine = "+15125550100"; // the builder's demo business line
+  const hoursAgo = (h: number) =>
+    new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+  const demoMessages = [
+    {
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "Brennan Maddox", from_email: "", from_phone: clientPhone,
+      subject: "", snippet: "Are we still on to walk the framing this week?",
+      body_text: "Are we still on to walk the framing this week?",
+      has_attachments: false, received_at: hoursAgo(53), source: "sms",
+      direction: "in", addressed: true, addressed_at: hoursAgo(52),
+      ai_summary: "Client wants to confirm a framing walkthrough this week.",
+      ai_action_items: ["Confirm the framing walkthrough time"],
+    },
+    {
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "You", from_email: "", from_phone: bizLine,
+      subject: "", snippet: "Yes — Thursday 9am work? I'll meet you on site.",
+      body_text: "Yes — Thursday 9am work? I'll meet you on site.",
+      has_attachments: false, received_at: hoursAgo(52), source: "sms",
+      direction: "out",
+    },
+    {
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "Brennan Maddox", from_email: "", from_phone: clientPhone,
+      subject: "",
+      snippet:
+        "Thursday's good. Two things — can we move the island 6\" toward the sink, and add a pot filler over the range?",
+      body_text:
+        "Thursday's good. Two things — can we move the island 6\" toward the sink, and add a pot filler over the range?",
+      has_attachments: false, received_at: hoursAgo(50), source: "sms",
+      direction: "in", addressed: true, addressed_at: hoursAgo(48),
+      ai_summary: "Client requested two kitchen changes.",
+      ai_action_items: [
+        "Move kitchen island 6\" toward the sink",
+        "Add a pot filler over the range",
+      ],
+    },
+    {
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "Brennan Maddox", from_email: "brennan@maddoxfam.com",
+      subject: "Draw #3 timing",
+      snippet:
+        "Quick question on the next draw — does the bank need the inspection report before or after you submit?",
+      body_text:
+        "Quick question on the next draw — does the bank need the inspection report before or after you submit? Want to make sure I don't hold anything up on my end.",
+      has_attachments: false, received_at: hoursAgo(28), source: "unipile",
+      direction: "in", addressed: true, addressed_at: hoursAgo(26),
+      ai_summary: "Client asks whether the bank needs the inspection report before draw #3 is submitted.",
+      ai_action_items: ["Clarify inspection-report timing for draw #3"],
+    },
+    {
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "Brennan Maddox", from_email: "", from_phone: clientPhone,
+      subject: "",
+      snippet: "Did the windows get ordered yet? My wife keeps asking 🙂",
+      body_text: "Did the windows get ordered yet? My wife keeps asking 🙂",
+      has_attachments: false, received_at: hoursAgo(3), source: "sms",
+      direction: "in",
+      ai_summary: "Client is asking whether the windows have been ordered.",
+      ai_action_items: ["Confirm the window order status"],
+    },
+    {
+      // Not tied to a project — drives the Unassigned review queue.
+      id: newId("emsg"), org_ref: orgRef, deal_ref: null, status: "unassigned",
+      from: "+15129990147", from_email: "", from_phone: "+15129990147",
+      subject: "",
+      snippet: "Hi, is this the builder doing the Oak Street remodel? Dana gave me your number.",
+      body_text: "Hi, is this the builder doing the Oak Street remodel? Dana gave me your number.",
+      has_attachments: false, received_at: hoursAgo(6), source: "sms",
+      direction: "in",
+    },
+  ];
+  for (const m of demoMessages) {
+    await setDoc(doc(db, "email_messages", m.id), m);
+  }
 
   // ── End-to-end test coverage ─────────────────────────────────
   const nowIso = new Date().toISOString();
