@@ -78,6 +78,16 @@ export async function sendEmail(args: {
       subject: args.subject.slice(0, 200),
       text: args.text,
       ...(args.html ? { html: args.html } : {}),
+      // Transactional mail only — never let SendGrid rewrite our links through
+      // its click-tracking domain. A broken/unprovisioned cert on that vanity
+      // subdomain (e.g. url1022.keystonepro.app) hard-fails every link, and
+      // because .app is HSTS-preloaded there's no browser bypass. Click
+      // analytics on a bid/draw/portal link has no product value anyway.
+      // Set per-message so an account-level default can't reintroduce it.
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false },
+        openTracking: { enable: false },
+      },
     });
     return { ok: true, delivered: true };
   } catch (e) {
