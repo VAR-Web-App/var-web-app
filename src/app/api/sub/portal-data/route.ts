@@ -36,9 +36,24 @@ interface AwardedRfqView {
   awarded_at?: string;
 }
 
+interface OpenRfqView {
+  id: string;
+  deal_id: string;
+  scope_title: string;
+  scope_description: string;
+  phase: string;
+  project_name: string;
+  /** "sent" = invited, hasn't bid yet; "responded" = bid submitted, pending. */
+  invitee_status: "sent" | "responded";
+  bid_amount?: number;
+  notified_at?: string;
+}
+
 interface PortalData {
   payments: PaymentView[];
   awarded_rfqs: AwardedRfqView[];
+  /** Outstanding bid requests, so the emailed link isn't the only way in. */
+  open_rfqs: OpenRfqView[];
   totals: { paid: number; awarded: number; pending: number };
 }
 
@@ -95,12 +110,31 @@ export async function GET(req: NextRequest) {
       ),
     );
 
+  // Open bid requests for this sub — RFQs still accepting bids where the sub
+  // was invited and hasn't been passed over or awarded. This is the recovery
+  // path so a lost/broken invite email isn't the only way to the bid form.
+  const openRfqsSnap = await db
+    .collection("project_rfqs")
+    .where("org_ref", "==", link.org_ref)
+    .where("status", "in", ["sent", "comparing"])
+    .get();
+  const rawOpenRfqs = openRfqsSnap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<ProjectRFQ, "id">) }))
+    .filter((r) =>
+      r.invitees.some(
+        (i) =>
+          i.sub_ref === link.sub_ref &&
+          (i.status === "sent" || i.status === "responded"),
+      ),
+    );
+
   // Resolve every deal we need in one batch — payments may live across
-  // many deals, awarded RFQs add a few more. Build a unique id set so
+  // many deals, awarded + open RFQs add a few more. Build a unique id set so
   // we don't re-read the same deal.
   const dealIds = new Set<string>([
     ...rawPayments.map((p) => p.deal_ref),
     ...rawRfqs.map((r) => r.deal_ref),
+    ...rawOpenRfqs.map((r) => r.deal_ref),
   ]);
   const dealCache = new Map<string, Deal>();
   await Promise.all(
@@ -170,6 +204,38 @@ export async function GET(req: NextRequest) {
     })
     .filter((r): r is AwardedRfqView => r !== null);
 
+  const open_rfqs: OpenRfqView[] = rawOpenRfqs
+    .map((r) => {
+      const deal = dealCache.get(r.deal_ref);
+      if (!deal || deal.org_ref !== link.org_ref) return null;
+      const inv = r.invitees.find(
+        (i) =>
+          i.sub_ref === link.sub_ref &&
+          (i.status === "sent" || i.status === "responded"),
+      );
+      if (!inv) return null;
+      return {
+        id: r.id,
+        deal_id: r.deal_ref,
+        scope_title: r.scope_title,
+        scope_description: r.scope_description,
+        phase: r.phase,
+        project_name: deal.name,
+        invitee_status: inv.status as "sent" | "responded",
+        ...(inv.bid_amount ? { bid_amount: inv.bid_amount } : {}),
+        ...(inv.notified_at ? { notified_at: inv.notified_at } : {}),
+      } as OpenRfqView;
+    })
+    .filter((r): r is OpenRfqView => r !== null)
+    // Ones that still need a bid first, then bids awaiting a decision.
+    .sort((a, b) =>
+      a.invitee_status === b.invitee_status
+        ? 0
+        : a.invitee_status === "sent"
+          ? -1
+          : 1,
+    );
+
   const paid = payments.reduce((s, p) => s + p.amount, 0);
   const awarded = awarded_rfqs.reduce((s, r) => s + r.bid_amount, 0);
   const pending = Math.max(0, awarded - paid);
@@ -177,6 +243,7 @@ export async function GET(req: NextRequest) {
   const data: PortalData = {
     payments,
     awarded_rfqs,
+    open_rfqs,
     totals: { paid, awarded, pending },
   };
   return NextResponse.json({ ok: true, data });
