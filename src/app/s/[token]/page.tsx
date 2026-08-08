@@ -46,9 +46,22 @@ interface AwardedRfqView {
   awarded_at?: string;
 }
 
+interface OpenRfqView {
+  id: string;
+  deal_id: string;
+  scope_title: string;
+  scope_description: string;
+  phase: string;
+  project_name: string;
+  invitee_status: "sent" | "responded";
+  bid_amount?: number;
+  notified_at?: string;
+}
+
 interface PortalData {
   payments: PaymentView[];
   awarded_rfqs: AwardedRfqView[];
+  open_rfqs: OpenRfqView[];
   totals: { paid: number; awarded: number; pending: number };
 }
 
@@ -110,6 +123,7 @@ export default function SubSchedulePage({
           setPortal({
             payments: [],
             awarded_rfqs: [],
+            open_rfqs: [],
             totals: { paid: 0, awarded: 0, pending: 0 },
           });
         }
@@ -219,6 +233,9 @@ export default function SubSchedulePage({
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
         <PushOptIn token={token} />
         <LocationPing token={token} />
+        {/* Always-visible on every tab: outstanding bid requests, so a lost or
+            broken invite email is never the only way to reach the bid form. */}
+        <OpenBidRequests portal={portal} token={token} />
         {tab === "schedule" && (
           <ScheduleTab link={link} token={token} onPatch={patchAssignment} />
         )}
@@ -410,6 +427,78 @@ function PaymentsTab({ portal }: { portal: PortalData | null }) {
         )}
       </section>
     </>
+  );
+}
+
+// Outstanding bid requests, shown above the tabs on every view so the emailed
+// invite link is never the only way in. "sent" = still needs a bid (amber CTA);
+// "responded" = bid already in, awaiting the builder's decision.
+function OpenBidRequests({
+  portal,
+  token,
+}: {
+  portal: PortalData | null;
+  token: string;
+}) {
+  if (!portal || portal.open_rfqs.length === 0) return null;
+  return (
+    <section className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+      <h2 className="mb-2.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-800">
+        Bid requests for you
+        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {portal.open_rfqs.length}
+        </span>
+      </h2>
+      <ul className="space-y-2.5">
+        {portal.open_rfqs.map((r) => {
+          const needsBid = r.invitee_status === "sent";
+          return (
+            <li
+              key={r.id}
+              className="rounded-lg border border-amber-200 bg-white p-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {r.scope_title}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {r.project_name} · {r.phase}
+                  </p>
+                </div>
+                {!needsBid && r.bid_amount && (
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                    Bid in: {fmtMoney(r.bid_amount)}
+                  </span>
+                )}
+              </div>
+              {r.scope_description && (
+                <p className="mt-1.5 line-clamp-2 text-xs text-slate-600">
+                  {r.scope_description}
+                </p>
+              )}
+              <div className="mt-2.5 flex items-center gap-2">
+                <a
+                  href={`/s/${token}/bid/${r.id}`}
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-white ${
+                    needsBid
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-sky-600 hover:bg-sky-700"
+                  }`}
+                >
+                  {needsBid ? "Submit your bid →" : "Review / update bid →"}
+                </a>
+                {needsBid && r.notified_at && (
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                    invited {new Date(r.notified_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
