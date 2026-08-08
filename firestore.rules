@@ -368,6 +368,10 @@ service cloud.firestore {
     // org-scoped reads for the app. org_ref is on the doc directly.
     match /email_messages/{msgId} {
       allow read, update, delete: if request.auth != null && resource.data.org_ref == callerOrgRef();
+      // Create is normally the admin webhook's job, but allow an org member to
+      // create records in their OWN org (used by the demo-data seeder, which
+      // runs client-side). Scoped to the caller's org, so no cross-tenant risk.
+      allow create: if request.auth != null && request.resource.data.org_ref == callerOrgRef();
     }
 
     // Connected mailboxes (Unipile). Written admin-only by the notify
