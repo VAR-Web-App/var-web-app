@@ -425,10 +425,10 @@ function ImportInvoiceModal({
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-2 py-1.5 text-left font-medium text-slate-600">Description</th>
-                          <th className="px-2 py-1.5 text-right font-medium text-slate-600">Qty</th>
-                          <th className="px-2 py-1.5 text-right font-medium text-slate-600">Unit $</th>
-                          <th className="px-2 py-1.5 text-right font-medium text-slate-600">Extended</th>
+                          <th title="What the line item is" className="px-2 py-1.5 text-left font-medium text-slate-600">Description</th>
+                          <th title="Quantity" className="px-2 py-1.5 text-right font-medium text-slate-600">Qty</th>
+                          <th title="Price per unit" className="px-2 py-1.5 text-right font-medium text-slate-600">Unit $</th>
+                          <th title="Line total — quantity × unit price" className="px-2 py-1.5 text-right font-medium text-slate-600">Extended</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -539,11 +539,11 @@ function InvoiceDetailModal({
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
-                      <th className="px-3 py-2 text-right font-medium text-slate-600">Qty</th>
-                      <th className="px-3 py-2 text-right font-medium text-slate-600">Unit $</th>
-                      <th className="px-3 py-2 text-right font-medium text-slate-600">Extended</th>
-                      <th className="px-3 py-2 text-left font-medium text-slate-600">Category</th>
+                      <th title="What the line item is" className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
+                      <th title="Quantity" className="px-3 py-2 text-right font-medium text-slate-600">Qty</th>
+                      <th title="Price per unit" className="px-3 py-2 text-right font-medium text-slate-600">Unit $</th>
+                      <th title="Line total — quantity × unit price" className="px-3 py-2 text-right font-medium text-slate-600">Extended</th>
+                      <th title="Cost category this maps to" className="px-3 py-2 text-left font-medium text-slate-600">Category</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

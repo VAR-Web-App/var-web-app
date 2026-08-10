@@ -491,11 +491,11 @@ export default function DrawRequestPage({
               <table className="mt-3 min-w-full text-xs">
                 <thead className="border-y border-slate-300 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
                   <tr>
-                    <th className="px-2 py-2 text-left">CO #</th>
-                    <th className="px-2 py-2 text-left">Description</th>
-                    <th className="px-2 py-2 text-right">Schedule Δ</th>
-                    <th className="px-2 py-2 text-right">Amount Δ</th>
-                    <th className="px-2 py-2 text-left">Approved</th>
+                    <th title="Change order number" className="px-2 py-2 text-left">CO #</th>
+                    <th title="What the line item is" className="px-2 py-2 text-left">Description</th>
+                    <th title="Change vs. the scheduled/budgeted amount" className="px-2 py-2 text-right">Schedule Δ</th>
+                    <th title="Change in amount vs. the prior/base figure" className="px-2 py-2 text-right">Amount Δ</th>
+                    <th title="Approved amount / date" className="px-2 py-2 text-left">Approved</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -534,13 +534,13 @@ export default function DrawRequestPage({
             <table className="mt-3 min-w-full text-xs">
               <thead className="border-y-2 border-slate-900 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
                 <tr>
-                  <th className="px-2 py-2 text-left">#</th>
-                  <th className="px-2 py-2 text-left">Phase / Description</th>
-                  <th className="px-2 py-2 text-right">Scheduled Value</th>
-                  <th className="px-2 py-2 text-right">% of Contract</th>
-                  <th className="px-2 py-2 text-right">Work Completed</th>
-                  <th className="px-2 py-2 text-right">% Complete</th>
-                  <th className="px-2 py-2 text-right">Balance to Finish</th>
+                  <th title="Row number" className="px-2 py-2 text-left">#</th>
+                  <th title="Construction phase and description" className="px-2 py-2 text-left">Phase / Description</th>
+                  <th title="Contract value budgeted to this line" className="px-2 py-2 text-right">Scheduled Value</th>
+                  <th title="This line as a percent of the total contract" className="px-2 py-2 text-right">% of Contract</th>
+                  <th title="Value of work completed to date" className="px-2 py-2 text-right">Work Completed</th>
+                  <th title="Percent of this line completed" className="px-2 py-2 text-right">% Complete</th>
+                  <th title="Amount left to bill on this line" className="px-2 py-2 text-right">Balance to Finish</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -600,8 +600,8 @@ export default function DrawRequestPage({
               <table className="min-w-full text-sm">
                 <thead className="border-y-2 border-slate-900 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
                   <tr>
-                    <th className="px-3 py-2 text-left">Description</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th title="What the line item is" className="px-3 py-2 text-left">Description</th>
+                    <th title="Amount" className="px-3 py-2 text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">

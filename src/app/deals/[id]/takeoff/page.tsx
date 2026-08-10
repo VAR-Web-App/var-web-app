@@ -283,12 +283,12 @@ function PhaseSection({
       <table className="mt-2 w-full text-xs">
         <thead className="text-[10px] uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="py-1 pr-2 text-left">Description</th>
-            <th className="py-1 px-2 text-right">Qty</th>
-            <th className="py-1 px-2 text-right">Unit Cost</th>
-            <th className="py-1 px-2 text-right">Markup</th>
-            <th className="py-1 px-2 text-right">Unit Price</th>
-            <th className="py-1 pl-2 text-right">Line Total</th>
+            <th title="What the line item is" className="py-1 pr-2 text-left">Description</th>
+            <th title="Quantity" className="py-1 px-2 text-right">Qty</th>
+            <th title="Your cost per unit" className="py-1 px-2 text-right">Unit Cost</th>
+            <th title="Markup applied over cost" className="py-1 px-2 text-right">Markup</th>
+            <th title="Price per unit" className="py-1 px-2 text-right">Unit Price</th>
+            <th title="Line total — quantity × unit price" className="py-1 pl-2 text-right">Line Total</th>
           </tr>
         </thead>
         <tbody>

@@ -692,10 +692,10 @@ export function RFQModal({
                 <table className="min-w-full text-xs">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      <th className="px-3 py-2">Sub</th>
-                      <th className="px-3 py-2 text-right">Bid amount</th>
-                      <th className="px-3 py-2">Notes</th>
-                      <th className="px-3 py-2">Status</th>
+                      <th title="The sub / supplier" className="px-3 py-2">Sub</th>
+                      <th title="What the sub bid for this scope" className="px-3 py-2 text-right">Bid amount</th>
+                      <th title="Notes" className="px-3 py-2">Notes</th>
+                      <th title="Current status" className="px-3 py-2">Status</th>
                       <th className="px-3 py-2"></th>
                     </tr>
                   </thead>

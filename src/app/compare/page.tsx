@@ -484,10 +484,10 @@ function MatchedRows({ rows }: { rows: ReturnType<typeof compareBoms>["matched"]
       <table className="min-w-full text-sm">
         <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="px-4 py-3 text-left">Part &amp; Description</th>
-            <th className="px-4 py-3 text-right">Quote</th>
-            <th className="px-4 py-3 text-right">Award</th>
-            <th className="px-4 py-3 text-left">Status</th>
+            <th title="Part number and description" className="px-4 py-3 text-left">Part &amp; Description</th>
+            <th title="Amount quoted to the client" className="px-4 py-3 text-right">Quote</th>
+            <th title="Awarded amount" className="px-4 py-3 text-right">Award</th>
+            <th title="Current status" className="px-4 py-3 text-left">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -650,11 +650,11 @@ function SidedTable({
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Part #</th>
-              <th className="px-4 py-3 text-left">Description</th>
-              <th className="px-4 py-3 text-right">Qty</th>
-              <th className="px-4 py-3 text-right">Unit Price</th>
-              <th className="px-4 py-3 text-right">Extended</th>
+              <th title="Manufacturer / supplier part number" className="px-4 py-3 text-left">Part #</th>
+              <th title="What the line item is" className="px-4 py-3 text-left">Description</th>
+              <th title="Quantity" className="px-4 py-3 text-right">Qty</th>
+              <th title="Price per unit" className="px-4 py-3 text-right">Unit Price</th>
+              <th title="Line total — quantity × unit price" className="px-4 py-3 text-right">Extended</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
