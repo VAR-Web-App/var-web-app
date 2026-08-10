@@ -17,6 +17,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import PageGuide from "@/components/page-guide";
 import SchedulingInsights from "@/components/scheduling-insights";
 import Tooltip from "@/components/tooltip";
 import { Deal, Distributor } from "@/types";
@@ -297,6 +298,16 @@ export default function SchedulePage() {
 
   return (
     <AppShell>
+      <PageGuide
+        id="schedule"
+        title="Schedule"
+        what="Who's on which job and when, across every active project at once."
+        steps={[
+          "Assign a sub to a phase; they get a text and a login-free schedule link.",
+          "Conflicts show in red when a sub is booked on two jobs at overlapping times.",
+          "Weather alerts flag phases that upcoming rain would affect.",
+        ]}
+      />
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">

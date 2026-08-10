@@ -5,6 +5,7 @@ import HeaderHint from "@/components/header-hint";
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import PageGuide from "@/components/page-guide";
 import Tooltip from "@/components/tooltip";
 import { Account } from "@/types";
 import { listAccounts, saveAccount, deleteAccount, newId } from "@/lib/store";
@@ -54,6 +55,16 @@ export default function AccountsPage() {
 
   return (
     <AppShell>
+      <PageGuide
+        id="accounts"
+        title="Clients"
+        what="Your client roster — the homeowners and developers who own your projects."
+        steps={[
+          "“New Client” adds someone you can then attach to a project.",
+          "Click a client to see their contact info and the projects tied to them.",
+          "Client emails/texts file to the project, and their contact details flow into the portal and proposals.",
+        ]}
+      />
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">

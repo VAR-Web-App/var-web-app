@@ -3,6 +3,7 @@
 import RequestsPanel from "@/components/requests-panel";
 import DealActivityFeed from "@/components/deal-activity-feed";
 import DealCorrespondence from "@/components/deal-correspondence";
+import PageGuide from "@/components/page-guide";
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
@@ -134,6 +135,16 @@ export default function DealOverviewPage({
         </span>
         <span className="shrink-0 font-semibold text-slate-400">→</span>
       </Link>
+      <PageGuide
+        id="deal-overview"
+        title="Project"
+        what="Everything for one job in one place — use the tabs (Overview · Schedule · Finances · Selections · Files) to move between areas."
+        steps={[
+          "Overview shows what's next, open client requests, and the message thread with the client.",
+          "Text or email the client from Messages; log any ask as a tracked request → change order.",
+          "Finances has the money picture; Schedule the phases + subs; Selections the client's picks; Files the docs & photos.",
+        ]}
+      />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <NextActionCard deal={deal} />

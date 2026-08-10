@@ -29,6 +29,7 @@ import PhoneSummarizer from "@/components/phone-summarizer";
 import UnassignedEmailQueue from "@/components/unassigned-email-queue";
 import ConnectInbox from "@/components/connect-inbox";
 import EmailTodos from "@/components/email-todos";
+import PageGuide from "@/components/page-guide";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
@@ -322,6 +323,16 @@ export default function InboxPage() {
             })()}
         </header>
 
+        <PageGuide
+          id="inbox"
+          title="Inbox"
+          what="Your action center — everything across every project that needs a decision or a reply, in one place."
+          steps={[
+            "Work top to bottom: award a bid, approve a draw, or reply to a client message right from the row.",
+            "Client email and texts show under “Needs reply,” grouped by project and labeled Text or Email — reply, log as a request, or mark handled.",
+            "Connect your inbox or a text line (buttons below) so client messages file themselves onto the right project.",
+          ]}
+        />
         {connectNote && (
           <div
             className={`mb-5 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${

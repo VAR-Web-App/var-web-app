@@ -11,6 +11,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import PageGuide from "@/components/page-guide";
 import NewDealModal from "@/components/new-deal-modal";
 import Tooltip from "@/components/tooltip";
 import { Deal, DealStage } from "@/types";
@@ -185,6 +186,16 @@ export default function DealsPage() {
         </div>
       </div>
 
+      <PageGuide
+        id="deals"
+        title="Projects"
+        what="Your whole pipeline as a board — every job from new lead through closeout."
+        steps={[
+          "Drag a card between columns to move a project to a new stage.",
+          "Click any card to open the project — estimate, schedule, finances, selections, files, and the client conversation.",
+          "“New Project” starts one from the client + scope basics; add the plan and estimate from inside.",
+        ]}
+      />
       {loaded && deals.length === 0 && (
         <EmptyPipeline
           onNew={() => setShowNewDeal(true)}

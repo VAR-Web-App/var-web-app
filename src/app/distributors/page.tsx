@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
+import PageGuide from "@/components/page-guide";
 import Tooltip from "@/components/tooltip";
 import { Distributor, Deal, OrgSettings } from "@/types";
 import { ProjectRFQ, RFQ_STATUS_LABELS, RFQ_STATUS_STYLES } from "@/types/builder";
@@ -146,6 +147,16 @@ export default function DistributorsPage() {
 
   return (
     <AppShell>
+      <PageGuide
+        id="distributors"
+        title="Subs & Suppliers"
+        what="Your trade roster — framers, plumbers, electricians, lumberyards — that RFQs and schedule assignments draw from."
+        steps={[
+          "Add a sub/supplier with their contact info and text-consent so you can invite them to bid and notify them.",
+          "Used when you send an RFQ or assign a sub to a milestone phase.",
+          "Each sub gets a login-free portal link for their schedule, bids, and payments.",
+        ]}
+      />
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
