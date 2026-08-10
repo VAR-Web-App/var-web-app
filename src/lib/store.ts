@@ -1968,7 +1968,11 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + ramDurations[i]);
     const amount = Math.round((920000 * phase.percent) / 100);
-    const assignedSubIds = phaseSubAssignments[i].map((idx) => subs[idx].id);
+    // Ramirez runs its schedule unassigned. With only 6 subs shared with
+    // Maddox, putting the same crews on a second concurrent build generated a
+    // dozen false "double-booked" conflicts. The one intentional conflict is
+    // seeded on its own below (Hunter × Webb framing).
+    const assignedSubIds: string[] = [];
     const m: Parameters<typeof saveMilestone>[0] = {
       id: newId("ms"),
       deal_ref: ramirezId,
