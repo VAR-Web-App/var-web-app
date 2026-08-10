@@ -5,6 +5,7 @@ import HeaderHint from "@/components/header-hint";
 import { useEffect, useState } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
+import PageGuide from "@/components/page-guide";
 import Tooltip from "@/components/tooltip";
 import { Account, Contact, Distributor } from "@/types";
 import {
@@ -72,6 +73,16 @@ export default function ContactsPage() {
 
   return (
     <AppShell>
+      <PageGuide
+        id="contacts"
+        title="Contacts"
+        what="Your directory of the people around a job — architects, lenders, inspectors, designers, and client family."
+        steps={[
+          "Add anyone you coordinate with; attach them to the relevant client or sub.",
+          "Search to find a person fast when you need their number or email.",
+          "These are the extra people whose emails can also be taught to file onto a project.",
+        ]}
+      />
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">

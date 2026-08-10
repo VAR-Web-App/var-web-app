@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import PageGuide from "@/components/page-guide";
 import type { FinanceSignal } from "@/lib/finance-signal";
 import RFQPanel from "@/components/rfq-panel";
 import BidIntelligencePanel from "@/components/bid-intelligence-panel";
@@ -58,6 +59,16 @@ export default function DealFinancesPage({
           rows (Brennan's note). Forecast stays open (summaries/alerts); the
           deep transactional bands collapse by default (UX_PRINCIPLES). */}
       <div className="space-y-6">
+        <PageGuide
+          id="deal-finances"
+          title="Finances"
+          what="The money picture for this job — what you'll make, when you'll be short, and where costs are drifting."
+          steps={[
+            "“Finances at a glance” up top is the headline: contract, cost, margin, and any red/amber alerts.",
+            "Forecast covers budget, margin, cash-flow timing, and sub overruns; Ledger (change orders, invoices, payments) and Sourcing collapse — tap to expand.",
+            "Emailed supplier invoices can be parsed straight into costs from the Inbox.",
+          ]}
+        />
         <FinancesGlanceStrip deal={deal} lines={lines} signals={signals} />
         <FinanceGroup
           title="Forecast"

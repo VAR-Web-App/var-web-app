@@ -15,6 +15,7 @@ import {
   ArrowRightOnRectangleIcon,
   XMarkIcon,
   InboxIcon,
+  MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
@@ -74,6 +75,12 @@ const NAV: NavItem[] = [
     label: "Subs & Suppliers",
     icon: WrenchScrewdriverIcon,
     hint: "Your trade roster — framers, plumbers, electricians, lumberyards. Used by RFQs and milestone sub assignments.",
+  },
+  {
+    href: "/whats-new",
+    label: "What's New",
+    icon: MegaphoneIcon,
+    hint: "A tour of everything added since your last look — two-way client texting & email, money forecasting, requests & change orders, scheduling, and more. Links to try each one.",
   },
   {
     href: "/roadmap",
