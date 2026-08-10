@@ -397,10 +397,21 @@ export default function SchedulePage() {
                       const conflict = conflicts.has(`${a.sub_id}|${a.milestone_id}`);
                       const d = (s: string) => new Date(s + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
                       return (
-                        <li key={a.milestone_id} className={`rounded-lg border p-2 text-sm ${conflict ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
+                        <li
+                          key={a.milestone_id}
+                          title={`${a.deal_name} — ${a.milestone_name}\n${a.start_date} → ${a.end_date}${conflict ? "\n⚠ Conflict: this sub is booked on another project during these dates" : ""}`}
+                          className={`rounded-lg border p-2 text-sm ${conflict ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}
+                        >
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="min-w-0 truncate font-medium text-slate-800">{a.deal_name}</span>
-                            {conflict && <span className="flex-shrink-0 text-[10px] font-semibold uppercase text-red-600">conflict</span>}
+                            {conflict && (
+                              <span
+                                className="flex-shrink-0 text-[10px] font-semibold uppercase text-red-600"
+                                title="This sub is booked on another project at the same time"
+                              >
+                                conflict
+                              </span>
+                            )}
                           </div>
                           <div className="mt-0.5 text-xs text-slate-500">
                             {a.milestone_name} · {d(a.start_date)}–{d(a.end_date)}
