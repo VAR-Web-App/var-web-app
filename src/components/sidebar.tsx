@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,11 +16,17 @@ import {
   XMarkIcon,
   InboxIcon,
   MegaphoneIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import Tooltip from "@/components/tooltip";
 import { useInboxCount } from "@/lib/use-inbox-count";
+import {
+  getPageGuidesOn,
+  setPageGuidesOn,
+  onPageGuidesChange,
+} from "@/lib/page-guides";
 
 interface NavItem {
   href: string;
@@ -106,6 +112,14 @@ export default function Sidebar({
   // pill on the Inbox nav row. Hook re-queries every couple minutes,
   // so the badge stays roughly current without manual refresh.
   const inboxCount = useInboxCount(profile?.org_ref);
+
+  // Global "how to use this page" guides toggle (default on).
+  const [guidesOn, setGuidesOn] = useState(true);
+  useEffect(() => {
+    const sync = () => setGuidesOn(getPageGuidesOn());
+    sync();
+    return onPageGuidesChange(sync);
+  }, []);
 
   // Auto-close the mobile drawer on route change. Without this, tapping
   // a nav item navigates but leaves the drawer covering the new page.
@@ -221,6 +235,30 @@ export default function Sidebar({
       </nav>
 
       <div className="space-y-1 border-t border-slate-700 px-3 py-4">
+        <Tooltip
+          label="Show or hide the “how to use this page” guide at the top of each page. On by default."
+          placement="right"
+          block
+        >
+          <button
+            onClick={() => setPageGuidesOn(!guidesOn)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <InformationCircleIcon className="h-5 w-5" />
+            <span className="flex-1 text-left">Page guides</span>
+            <span
+              className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                guidesOn ? "bg-sky-500" : "bg-slate-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  guidesOn ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+          </button>
+        </Tooltip>
         <Tooltip
           label="Your business profile, branding, default markup, payment terms, integrations (QuickBooks, Stripe). Sets the defaults that flow into every new project."
           placement="right"

@@ -1,26 +1,26 @@
 "use client";
 
-// "How to use this page" — a dismissible guide card at the top of each
-// builder-facing action page. Explains what the page does and the key moves,
-// so a first-time user (or Barry on a walkthrough) always has orientation.
-// Dismissal is remembered per-page in localStorage; once dismissed it collapses
-// to a small "How to use this page" reopener so it's never gone for good.
+// "How to use this page" — a guide card at the top of each builder-facing
+// action page. Explains what the page does and the key moves. Visibility is
+// controlled by ONE global toggle (default on) — see lib/page-guides + the
+// sidebar switch — so a user turns them all on/off in one place.
 //
 // Builder pages only — client/sub/designer portal views don't get it.
 
 import { useEffect, useState } from "react";
+import { InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import {
-  InformationCircleIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+  getPageGuidesOn,
+  setPageGuidesOn,
+  onPageGuidesChange,
+} from "@/lib/page-guides";
 
 export default function PageGuide({
-  id,
   title,
   what,
   steps,
 }: {
-  /** Stable per-page key for remembering dismissal. */
+  /** Stable per-page key (kept for call-site clarity; not used for storage). */
   id: string;
   /** Page name, e.g. "Inbox". */
   title: string;
@@ -29,30 +29,17 @@ export default function PageGuide({
   /** The key things you can do here. */
   steps: string[];
 }) {
-  const key = `pageguide.${id}`;
-  // Start collapsed to avoid a flash before we read localStorage; the effect
-  // opens it on first visit (when nothing's stored yet).
-  const [open, setOpen] = useState(false);
+  const [on, setOn] = useState(false); // hidden until we read the pref
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setOpen(localStorage.getItem(key) !== "1");
+    const sync = () => setOn(getPageGuidesOn());
+    sync();
     setReady(true);
-  }, [key]);
+    return onPageGuidesChange(sync);
+  }, []);
 
-  if (!ready) return null;
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-sky-700"
-      >
-        <InformationCircleIcon className="h-4 w-4" />
-        How to use this page
-      </button>
-    );
-  }
+  if (!ready || !on) return null;
 
   return (
     <div className="mb-5 rounded-xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm">
@@ -78,12 +65,9 @@ export default function PageGuide({
           )}
         </div>
         <button
-          onClick={() => {
-            localStorage.setItem(key, "1");
-            setOpen(false);
-          }}
+          onClick={() => setPageGuidesOn(false)}
           className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-white hover:text-slate-600"
-          title="Got it — hide this"
+          title="Hide page guides (turn back on from the sidebar)"
         >
           <XMarkIcon className="h-4 w-4" />
         </button>
