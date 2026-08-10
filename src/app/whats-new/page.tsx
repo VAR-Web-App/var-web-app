@@ -22,7 +22,7 @@ interface Item {
 
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
   ready: { label: "Ready", cls: "bg-emerald-100 text-emerald-800" },
-  beta: { label: "Working — one thing left", cls: "bg-amber-100 text-amber-800" },
+  beta: { label: "In progress", cls: "bg-amber-100 text-amber-800" },
   preview: { label: "Preview — in progress", cls: "bg-slate-200 text-slate-700" },
 };
 
@@ -101,16 +101,6 @@ const ITEMS: Item[] = [
     href: "/deals",
     cta: "See it on any page",
     status: "ready",
-  },
-  {
-    emoji: "📐",
-    title: "3D scale model & AR",
-    blurb:
-      "An early look at generating a 3D model of the build from the plan, with an eye toward an augmented-reality view on-site.",
-    href: "/deals",
-    cta: "Open a project → Takeoff",
-    status: "preview",
-    note: "Early scaffold only — it produces a rough massing model (blocks + a roof), not plan-accurate walls/openings yet. AR is a spike. Not for the client's eyes; treat as a direction, not a finished feature.",
   },
 ];
 

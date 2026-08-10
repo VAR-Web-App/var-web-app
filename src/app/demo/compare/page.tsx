@@ -157,10 +157,10 @@ export default function DemoComparePage() {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 text-left">Part &amp; Description</th>
-                  <th className="px-4 py-3 text-right">Quote</th>
-                  <th className="px-4 py-3 text-right">Award</th>
-                  <th className="px-4 py-3 text-left">Status</th>
+                  <th title="Part number and description" className="px-4 py-3 text-left">Part &amp; Description</th>
+                  <th title="Amount quoted to the client" className="px-4 py-3 text-right">Quote</th>
+                  <th title="Awarded amount" className="px-4 py-3 text-right">Award</th>
+                  <th title="Current status" className="px-4 py-3 text-left">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

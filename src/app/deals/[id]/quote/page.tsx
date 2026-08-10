@@ -1593,14 +1593,14 @@ function LineEditor({
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500 shadow-sm">
             <tr>
-              <th className="px-3 py-3 text-left">#</th>
+              <th title="Row number" className="px-3 py-3 text-left">#</th>
               <th className="px-3 py-3 text-left">
                 <Tooltip label="Group lines by construction phase (Foundation, Framing, Finishes, etc). Phases roll up into milestones on the project schedule.">
                   <span>Phase</span>
                 </Tooltip>
               </th>
-              <th className="px-3 py-3 text-left">Description</th>
-              <th className="px-3 py-3 text-right">Qty</th>
+              <th title="What the line item is" className="px-3 py-3 text-left">Description</th>
+              <th title="Quantity" className="px-3 py-3 text-right">Qty</th>
               {!clientMode && (
                 <>
                   <th className="px-3 py-3 text-right">
@@ -1620,7 +1620,7 @@ function LineEditor({
                   <span>Unit Price</span>
                 </Tooltip>
               </th>
-              <th className="px-3 py-3 text-right">Line Total</th>
+              <th title="Line total — quantity × unit price" className="px-3 py-3 text-right">Line Total</th>
               {!clientMode && (
                 <th className="px-3 py-3 text-right">
                   <Tooltip label="Profit margin on this line as a percentage of the client price. Green ≥ 15%, sky ≥ 5%, red below 5%.">

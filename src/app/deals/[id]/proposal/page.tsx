@@ -549,11 +549,11 @@ export default function ProposalPage({
               <table className="mt-3 min-w-full text-xs">
                 <thead className="border-y-2 border-slate-900 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
                   <tr>
-                    <th className="px-2 py-2 text-left">#</th>
-                    <th className="px-2 py-2 text-left">Phase</th>
-                    <th className="px-2 py-2 text-left">When</th>
-                    <th className="px-2 py-2 text-right">% of Contract</th>
-                    <th className="px-2 py-2 text-right">Amount</th>
+                    <th title="Row number" className="px-2 py-2 text-left">#</th>
+                    <th title="Construction phase" className="px-2 py-2 text-left">Phase</th>
+                    <th title="Date / time" className="px-2 py-2 text-left">When</th>
+                    <th title="This line as a percent of the total contract" className="px-2 py-2 text-right">% of Contract</th>
+                    <th title="Amount" className="px-2 py-2 text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">

@@ -114,11 +114,11 @@ export default function ContactsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Title</th>
-              <th className="px-4 py-3 text-left">Linked To</th>
-              <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">Phone</th>
+              <th title="Name" className="px-4 py-3 text-left">Name</th>
+              <th title="Title" className="px-4 py-3 text-left">Title</th>
+              <th title="What this record is linked to" className="px-4 py-3 text-left">Linked To</th>
+              <th title="Email address" className="px-4 py-3 text-left">Email</th>
+              <th title="Phone number" className="px-4 py-3 text-left">Phone</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>

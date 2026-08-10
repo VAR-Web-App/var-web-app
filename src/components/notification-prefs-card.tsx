@@ -71,7 +71,7 @@ export default function NotificationPrefsCard({
         <table className="w-full min-w-[420px] text-sm">
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500">
-              <th className="pb-2 font-medium">Notify me when…</th>
+              <th title="The event that triggers a notification" className="pb-2 font-medium">Notify me when…</th>
               {CHANNELS.map((c) => (
                 <th key={c.key} className="w-16 pb-2 text-center font-medium">
                   {c.label}

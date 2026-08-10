@@ -96,10 +96,10 @@ export default function AccountsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Type</th>
-              <th className="px-4 py-3 text-left">Notes</th>
-              <th className="px-4 py-3 text-left">Payment Terms</th>
+              <th title="Name" className="px-4 py-3 text-left">Name</th>
+              <th title="Type" className="px-4 py-3 text-left">Type</th>
+              <th title="Notes" className="px-4 py-3 text-left">Notes</th>
+              <th title="Agreed payment terms" className="px-4 py-3 text-left">Payment Terms</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>

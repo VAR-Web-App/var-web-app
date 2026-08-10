@@ -265,11 +265,11 @@ export default function PaymentsSection({ deal }: { deal: Deal }) {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2 text-left">Date</th>
-                <th className="px-3 py-2 text-left">Direction</th>
-                <th className="px-3 py-2 text-left">Party</th>
-                <th className="px-3 py-2 text-left">Method</th>
-                <th className="px-3 py-2 text-right">Amount</th>
+                <th title="Date" className="px-3 py-2 text-left">Date</th>
+                <th title="Money in (from a client) or out (to a sub/supplier)" className="px-3 py-2 text-left">Direction</th>
+                <th title="Who was paid, or who paid you" className="px-3 py-2 text-left">Party</th>
+                <th title="How it was paid — check, ACH, card, or cash" className="px-3 py-2 text-left">Method</th>
+                <th title="Amount" className="px-3 py-2 text-right">Amount</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>

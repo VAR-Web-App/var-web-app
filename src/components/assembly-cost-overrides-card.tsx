@@ -309,9 +309,9 @@ function TradeGroup({
           <table className="min-w-full text-xs">
             <thead className="bg-slate-50">
               <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-3 py-2">Assembly</th>
-                <th className="px-3 py-2 text-right">Material ×</th>
-                <th className="px-3 py-2 text-right">Labor ×</th>
+                <th title="The assembly being adjusted" className="px-3 py-2">Assembly</th>
+                <th title="Multiplier applied to material cost" className="px-3 py-2 text-right">Material ×</th>
+                <th title="Multiplier applied to labor cost" className="px-3 py-2 text-right">Labor ×</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>

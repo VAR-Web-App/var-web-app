@@ -626,12 +626,12 @@ function SectionCard({
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-3 py-2 text-left">ID</th>
-                <th className="px-3 py-2 text-left">Item</th>
-                <th className="px-3 py-2 text-right">Qty</th>
-                <th className="px-3 py-2 text-left">Unit</th>
-                <th className="px-3 py-2 text-right">Unit Cost</th>
-                <th className="px-3 py-2 text-right">Total</th>
+                <th title="Identifier" className="px-3 py-2 text-left">ID</th>
+                <th title="Line item number" className="px-3 py-2 text-left">Item</th>
+                <th title="Quantity" className="px-3 py-2 text-right">Qty</th>
+                <th title="Unit of measure" className="px-3 py-2 text-left">Unit</th>
+                <th title="Your cost per unit" className="px-3 py-2 text-right">Unit Cost</th>
+                <th title="Total" className="px-3 py-2 text-right">Total</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>

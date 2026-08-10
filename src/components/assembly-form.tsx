@@ -184,12 +184,12 @@ export default function AssemblyForm({
           <table className="w-full text-sm">
             <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-2">Material</th>
-                <th className="px-2 py-2">UoM</th>
-                <th className="px-2 py-2 text-right">Qty</th>
-                <th className="px-2 py-2 text-right">Mat $</th>
-                <th className="px-2 py-2 text-right">Labor $</th>
-                <th className="px-4 py-2 text-right">Total</th>
+                <th title="Material" className="px-4 py-2">Material</th>
+                <th title="Unit of measure (e.g., ea, sf, lf)" className="px-2 py-2">UoM</th>
+                <th title="Quantity" className="px-2 py-2 text-right">Qty</th>
+                <th title="Material cost per unit" className="px-2 py-2 text-right">Mat $</th>
+                <th title="Labor cost per unit" className="px-2 py-2 text-right">Labor $</th>
+                <th title="Total" className="px-4 py-2 text-right">Total</th>
               </tr>
             </thead>
             <tbody>

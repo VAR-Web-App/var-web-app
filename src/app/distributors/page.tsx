@@ -286,11 +286,11 @@ export default function DistributorsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Trade / Account #</th>
-              <th className="px-4 py-3 text-left">Primary Contact</th>
-              <th className="px-4 py-3 text-left">Mobile</th>
-              <th className="px-4 py-3 text-left">Address</th>
+              <th title="Name" className="px-4 py-3 text-left">Name</th>
+              <th title="Trade and the supplier account number" className="px-4 py-3 text-left">Trade / Account #</th>
+              <th title="Main point of contact" className="px-4 py-3 text-left">Primary Contact</th>
+              <th title="Mobile number" className="px-4 py-3 text-left">Mobile</th>
+              <th title="Address" className="px-4 py-3 text-left">Address</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -589,11 +589,11 @@ function BulkImportModal({
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-slate-50">
                     <tr>
-                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Name</th>
-                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Phone</th>
-                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Email</th>
-                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Trade</th>
-                      <th className="px-2 py-1.5 text-left font-medium text-slate-600">Status</th>
+                      <th title="Name" className="px-2 py-1.5 text-left font-medium text-slate-600">Name</th>
+                      <th title="Phone number" className="px-2 py-1.5 text-left font-medium text-slate-600">Phone</th>
+                      <th title="Email address" className="px-2 py-1.5 text-left font-medium text-slate-600">Email</th>
+                      <th title="Trade / specialty" className="px-2 py-1.5 text-left font-medium text-slate-600">Trade</th>
+                      <th title="Current status" className="px-2 py-1.5 text-left font-medium text-slate-600">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
