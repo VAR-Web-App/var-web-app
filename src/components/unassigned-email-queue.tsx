@@ -17,11 +17,11 @@ import {
   watchEmailMessages,
   assignEmailMessage,
   dismissEmailMessage,
-  createLeadFromMessage,
   listDeals,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import Tooltip from "@/components/tooltip";
+import NewDealModal from "@/components/new-deal-modal";
 import type { EmailMessage } from "@/types/builder";
 import type { Deal } from "@/types";
 
@@ -32,6 +32,8 @@ export default function UnassignedEmailQueue() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  // When set, opens the New Project modal prefilled from this message.
+  const [newLeadMsg, setNewLeadMsg] = useState<EmailMessage | null>(null);
 
   useEffect(() => {
     if (!profile?.org_ref) return;
@@ -56,23 +58,24 @@ export default function UnassignedEmailQueue() {
     await dismissEmailMessage(m.id).catch(() => {});
   }
 
-  // Someone's asking about a project you don't have yet — spin up a new lead
-  // from the message (sender becomes the client contact) and open it.
-  async function createLead(m: EmailMessage) {
-    if (!profile?.org_ref) return;
+  // Someone's asking about a project you don't have yet — open the New Project
+  // flow prefilled from the message; on create, file the message onto it.
+  async function onLeadCreated(dealId: string) {
+    const m = newLeadMsg;
+    setNewLeadMsg(null);
+    if (!m) return;
     setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
-    const dealId = await createLeadFromMessage(profile.org_ref, m).catch(
-      () => null,
+    await assignEmailMessage(m.id, dealId, m.from_email, m.from_phone).catch(
+      () => {},
     );
-    if (dealId) {
-      await assignEmailMessage(
-        m.id,
-        dealId,
-        m.from_email,
-        m.from_phone,
-      ).catch(() => {});
-      router.push(`/deals/${dealId}`);
-    }
+    router.push(`/deals/${dealId}`);
+  }
+
+  // Sender name for prefill: for SMS, `from` is a raw number — only use it as a
+  // contact name when it isn't an address or a phone number.
+  function contactName(m: EmailMessage): string {
+    const looksLikePhone = /^\+?[\d\s()-]{7,}$/.test(m.from || "");
+    return m.from && !m.from.includes("@") && !looksLikePhone ? m.from : "";
   }
 
   async function clearAll() {
@@ -137,7 +140,7 @@ export default function UnassignedEmailQueue() {
                     value=""
                     onChange={(e) => {
                       const v = e.target.value;
-                      if (v === "__new__") void createLead(m);
+                      if (v === "__new__") setNewLeadMsg(m);
                       else if (v) void assign(m, v);
                     }}
                     className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
@@ -173,6 +176,18 @@ export default function UnassignedEmailQueue() {
           </li>
         ))}
       </ul>
+
+      {newLeadMsg && (
+        <NewDealModal
+          initialName={`${contactName(newLeadMsg) || newLeadMsg.from_email || newLeadMsg.from_phone || "New contact"} — new lead`}
+          initialClientContact={contactName(newLeadMsg)}
+          initialClientEmail={newLeadMsg.from_email || ""}
+          initialClientPhone={newLeadMsg.from_phone || ""}
+          initialNotes={`New lead from a ${newLeadMsg.source === "sms" ? "text" : "email"}:\n"${(newLeadMsg.body_text || newLeadMsg.snippet || "").slice(0, 500)}"`}
+          onClose={() => setNewLeadMsg(null)}
+          onCreated={(dealId) => void onLeadCreated(dealId)}
+        />
+      )}
     </section>
   );
 }

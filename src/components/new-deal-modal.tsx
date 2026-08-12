@@ -9,13 +9,23 @@ import { useAuth } from "@/lib/auth-context";
 export default function NewDealModal({
   onClose,
   onCreated,
+  initialName = "",
+  initialClientContact = "",
+  initialClientEmail = "",
+  initialClientPhone = "",
+  initialNotes = "",
 }: {
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (dealId: string) => void;
+  initialName?: string;
+  initialClientContact?: string;
+  initialClientEmail?: string;
+  initialClientPhone?: string;
+  initialNotes?: string;
 }) {
   const { profile } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [accountRef, setAccountRef] = useState("");
   // Inline-create state for the client dropdown. The select has a sentinel
   // "__new__" option that flips the field into a name-input + save button.
@@ -28,8 +38,8 @@ export default function NewDealModal({
   const [manufacturer, setManufacturer] = useState("Custom Home");
   const [dealType, setDealType] = useState<"budgetary" | "quotation">("quotation");
   const [dueDate, setDueDate] = useState("");
-  const [clientContact, setClientContact] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [clientContact, setClientContact] = useState(initialClientContact);
+  const [clientEmail, setClientEmail] = useState(initialClientEmail);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -111,19 +121,20 @@ export default function NewDealModal({
         ship_to_address: account?.ship_to_addresses?.[0] ?? "",
         ship_to_poc_name: clientContact.trim(),
         ship_to_poc_email: clientEmail.trim().toLowerCase(),
+        ship_to_poc_phone: initialClientPhone || undefined,
         lead_time: "",
         due_date: dueDate || undefined,
         award_total: 0,
         total_quote_value: 0,
         total_cost: 0,
         margin_percent: 0,
-        notes: "",
+        notes: initialNotes,
         org_ref: profile.org_ref,
         created_at: now,
         updated_at: now,
       };
       await saveDeal(deal);
-      onCreated();
+      onCreated(deal.id);
     } catch (err) {
       console.error("[new-deal] save failed", err);
       setSubmitError(
