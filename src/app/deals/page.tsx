@@ -8,6 +8,7 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
   PlusIcon,
+  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
@@ -21,6 +22,7 @@ import {
   saveDeal,
   seedBuilderDemoData,
   resetAndSeedBuilderDemo,
+  wipeOrgData,
   watchAttentionEmails,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -44,6 +46,7 @@ export default function DealsPage() {
   const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   // Mobile stage filter — null = show all stages stacked, otherwise
   // narrows the mobile list to one stage.
   const [mobileStageFilter, setMobileStageFilter] = useState<DealStage | null>(
@@ -110,6 +113,20 @@ export default function DealsPage() {
     }
   }
 
+  // Clear the demo data WITHOUT reseeding — leaves a clean, empty account so a
+  // real builder can start from scratch (e.g. after playing with the sample).
+  async function confirmClear() {
+    if (!profile || seeding) return;
+    setShowClearConfirm(false);
+    setSeeding(true);
+    try {
+      await wipeOrgData(profile.org_ref);
+      await refresh();
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   async function handleDrop(stage: DealStage) {
     if (!draggedDeal) return;
     const deal = deals.find((d) => d.id === draggedDeal);
@@ -158,16 +175,28 @@ export default function DealsPage() {
           {/* Reset to demo data — desktop-only utility. Hidden on
            *  mobile (companion UX; admin actions live on desktop). */}
           {loaded && deals.length > 0 && (
-            <Tooltip label="Wipe everything in your pipeline (projects, clients, subs, milestones, photos, RFQs) and reload the sample fixtures. Use it to reset a demo — NOT on real data.">
-              <button
-                onClick={() => setShowResetConfirm(true)}
-                disabled={seeding}
-                className="hidden items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
-              >
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                {seeding ? "Resetting…" : "Reset to demo data"}
-              </button>
-            </Tooltip>
+            <>
+              <Tooltip label="Wipe everything in your pipeline (projects, clients, subs, milestones, photos, RFQs) and reload the sample fixtures. Use it to reset a demo — NOT on real data.">
+                <button
+                  onClick={() => setShowResetConfirm(true)}
+                  disabled={seeding}
+                  className="hidden items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                >
+                  <ArrowPathIcon className="h-3.5 w-3.5" />
+                  {seeding ? "Resetting…" : "Reset to demo data"}
+                </button>
+              </Tooltip>
+              <Tooltip label="Delete all the sample data and leave a clean, empty account — no demo fixtures reloaded. Use this when you're ready to start entering your real projects.">
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  disabled={seeding}
+                  className="hidden items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  {seeding ? "Clearing…" : "Clear demo data"}
+                </button>
+              </Tooltip>
+            </>
           )}
           <Tooltip
             variant="directive"
@@ -320,6 +349,14 @@ export default function DealsPage() {
           onConfirm={() => void confirmResetAndSeed()}
         />
       )}
+      {showClearConfirm && (
+        <ResetConfirmModal
+          mode="clear"
+          dealCount={deals.length}
+          onCancel={() => setShowClearConfirm(false)}
+          onConfirm={() => void confirmClear()}
+        />
+      )}
     </AppShell>
   );
 }
@@ -328,13 +365,16 @@ function ResetConfirmModal({
   dealCount,
   onCancel,
   onConfirm,
+  mode = "reset",
 }: {
   dealCount: number;
   onCancel: () => void;
   onConfirm: () => void;
+  mode?: "reset" | "clear";
 }) {
   const [typed, setTyped] = useState("");
-  const armed = typed.trim().toUpperCase() === "RESET";
+  const word = mode === "clear" ? "CLEAR" : "RESET";
+  const armed = typed.trim().toUpperCase() === word;
 
   return (
     <div
@@ -352,7 +392,7 @@ function ResetConfirmModal({
             </div>
             <div>
               <h2 className="text-base font-semibold text-slate-900">
-                Reset to demo data?
+                {mode === "clear" ? "Clear all data?" : "Reset to demo data?"}
               </h2>
               <p className="mt-0.5 text-xs text-slate-500">This cannot be undone.</p>
             </div>
@@ -364,8 +404,10 @@ function ResetConfirmModal({
 
         <div className="space-y-3 px-6 py-5 text-sm text-slate-700">
           <p>
-            This will permanently delete <strong>everything</strong> in your account and replace
-            it with the demo fixtures:
+            This will permanently delete <strong>everything</strong> in your account
+            {mode === "clear"
+              ? " and leave it empty — nothing is reloaded:"
+              : " and replace it with the demo fixtures:"}
           </p>
           <ul className="space-y-1 rounded-md bg-slate-50 px-4 py-3 text-xs text-slate-600">
             <li>
@@ -381,7 +423,7 @@ function ResetConfirmModal({
           </p>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">
-              Type <span className="font-mono font-bold text-red-700">RESET</span> to confirm
+              Type <span className="font-mono font-bold text-red-700">{word}</span> to confirm
             </label>
             <input
               type="text"
@@ -405,7 +447,7 @@ function ResetConfirmModal({
             disabled={!armed}
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Yes, wipe and reset
+            {mode === "clear" ? "Yes, clear everything" : "Yes, wipe and reset"}
           </button>
         </div>
       </div>

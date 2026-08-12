@@ -2501,6 +2501,26 @@ export async function seedBuilderDemoData(orgRef: string): Promise<SeedResult> {
       ai_action_items: ["Confirm the window order status"],
     },
     {
+      // Unaddressed with THREE distinct asks — for testing the per-ask
+      // "+ Log" flow (expand → log each ask as its own request/CO).
+      id: newId("emsg"), org_ref: orgRef, deal_ref: maddoxId, status: "matched",
+      from: "Brennan Maddox", from_email: "", from_phone: clientPhone,
+      subject: "",
+      snippet:
+        "A few things before Thursday — can we swap the guest bath tile to the matte white, add an outlet in the garage for the freezer, and what's the timeline on the driveway pour?",
+      body_text:
+        "A few things before Thursday — can we swap the guest bath tile to the matte white, add an outlet in the garage for the freezer, and what's the timeline on the driveway pour?",
+      has_attachments: false, received_at: hoursAgo(2), source: "sms",
+      direction: "in",
+      ai_summary:
+        "Client has three requests: change the guest bath tile, add a garage outlet, and asks about the driveway timeline.",
+      ai_action_items: [
+        "Swap the guest bath tile to matte white",
+        "Add a garage outlet for the freezer",
+        "Confirm the driveway pour timeline",
+      ],
+    },
+    {
       // Not tied to a project — drives the Unassigned review queue.
       id: newId("emsg"), org_ref: orgRef, deal_ref: null, status: "unassigned",
       from: "+15129990147", from_email: "", from_phone: "+15129990147",
