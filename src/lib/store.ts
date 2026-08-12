@@ -518,6 +518,51 @@ export async function assignEmailMessage(
   }
 }
 
+/** Turn an unassigned message into a NEW lead — for the "someone's asking
+ *  about a project I don't have yet" case (e.g. a cold text/email inquiry).
+ *  Seeds a Lead-stage deal with the sender as the client contact (so their
+ *  future messages auto-file) and drops the message's words into notes.
+ *  Returns the new deal id; the caller assigns the message to it. */
+export async function createLeadFromMessage(
+  orgRef: string,
+  m: EmailMessage,
+): Promise<string> {
+  const now = new Date().toISOString();
+  const id = newId("deal");
+  // m.from is a display name for email, but a raw number for SMS — only use it
+  // as a contact name when it isn't an address or a phone number.
+  const looksLikePhone = /^\+?[\d\s()-]{7,}$/.test(m.from || "");
+  const fromName =
+    m.from && !m.from.includes("@") && !looksLikePhone ? m.from : "";
+  const label = fromName || m.from_email || m.from_phone || "New contact";
+  const via = m.source === "sms" ? "text" : "email";
+  const deal: Deal = {
+    id,
+    name: `${label} — new lead`,
+    stage: "rfq", // Lead
+    deal_type: "quotation",
+    manufacturer: "Custom Home",
+    account_name: "",
+    solicitation_number: "",
+    customer_po: "",
+    ship_to_address: "",
+    ship_to_poc_name: fromName,
+    ship_to_poc_email: (m.from_email || "").toLowerCase(),
+    ship_to_poc_phone: m.from_phone || undefined,
+    lead_time: "",
+    award_total: 0,
+    total_quote_value: 0,
+    total_cost: 0,
+    margin_percent: 0,
+    notes: `New lead from a ${via}:\n"${(m.body_text || m.snippet || "").slice(0, 500)}"`,
+    org_ref: orgRef,
+    created_at: now,
+    updated_at: now,
+  };
+  await saveDeal(deal);
+  return id;
+}
+
 /** Drop an unassigned message from the review queue (not project-related). */
 export async function dismissEmailMessage(id: string): Promise<void> {
   await deleteDoc(doc(db, "email_messages", id));

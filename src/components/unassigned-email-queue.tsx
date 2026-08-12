@@ -7,6 +7,7 @@
 // onSnapshot; self-hides when empty.
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   EnvelopeIcon,
   XMarkIcon,
@@ -16,6 +17,7 @@ import {
   watchEmailMessages,
   assignEmailMessage,
   dismissEmailMessage,
+  createLeadFromMessage,
   listDeals,
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +27,7 @@ import type { Deal } from "@/types";
 
 export default function UnassignedEmailQueue() {
   const { profile } = useAuth();
+  const router = useRouter();
   const [msgs, setMsgs] = useState<EmailMessage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -51,6 +54,25 @@ export default function UnassignedEmailQueue() {
   async function dismiss(m: EmailMessage) {
     setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
     await dismissEmailMessage(m.id).catch(() => {});
+  }
+
+  // Someone's asking about a project you don't have yet — spin up a new lead
+  // from the message (sender becomes the client contact) and open it.
+  async function createLead(m: EmailMessage) {
+    if (!profile?.org_ref) return;
+    setMsgs((prev) => prev.filter((x) => x.id !== m.id)); // optimistic
+    const dealId = await createLeadFromMessage(profile.org_ref, m).catch(
+      () => null,
+    );
+    if (dealId) {
+      await assignEmailMessage(
+        m.id,
+        dealId,
+        m.from_email,
+        m.from_phone,
+      ).catch(() => {});
+      router.push(`/deals/${dealId}`);
+    }
   }
 
   async function clearAll() {
@@ -107,18 +129,30 @@ export default function UnassignedEmailQueue() {
                 </span>
               </button>
               <div className="flex shrink-0 items-center gap-1.5">
-                <Tooltip label="File this message onto a project" placement="top">
+                <Tooltip
+                  label="File this message onto an existing project, or start a new lead from it (the sender becomes the client contact)."
+                  placement="top"
+                >
                   <select
-                    defaultValue=""
-                    onChange={(e) => assign(m, e.target.value)}
+                    value=""
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "__new__") void createLead(m);
+                      else if (v) void assign(m, v);
+                    }}
                     className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
                   >
                     <option value="">Assign to…</option>
-                    {deals.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
+                    <option value="__new__">＋ New project (lead)</option>
+                    {deals.length > 0 && (
+                      <optgroup label="Existing projects">
+                        {deals.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </Tooltip>
                 <Tooltip label="Not a project — remove it" placement="top">
