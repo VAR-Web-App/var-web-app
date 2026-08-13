@@ -6,6 +6,7 @@ import Sidebar from "./sidebar";
 import MobileBottomNav from "./mobile-bottom-nav";
 import JoinOrgBanner from "./join-org-banner";
 import OnboardingWizard from "./onboarding-wizard";
+import WelcomeTour from "./welcome-tour";
 import AnnotationLayer from "./annotation-layer";
 import { useAuth } from "@/lib/auth-context";
 import { canAnnotate } from "@/lib/testers";
@@ -94,6 +95,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <JoinOrgBanner />
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+      {/* One-time welcome tour — but never on top of first-run onboarding. */}
+      {!onboarding && <WelcomeTour />}
       {onboarding && (
         <OnboardingWizard
           initial={onboarding}
