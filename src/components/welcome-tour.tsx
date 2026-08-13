@@ -9,7 +9,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { XMarkIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 
-const SEEN_KEY = "kp_welcome_tour_v1";
+// Bump this version to re-show the tour to everyone (e.g. after a meaningful
+// rewrite). v2 = the "connect your inbox" landing pass.
+const SEEN_KEY = "kp_welcome_tour_v2";
 
 interface Slide {
   emoji: string;
