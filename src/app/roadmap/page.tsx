@@ -9,16 +9,10 @@
 
 import { useState } from "react";
 import {
-  EnvelopeIcon,
-  PhoneIcon,
   CubeIcon,
-  ChartBarIcon,
-  ScaleIcon,
   HomeModernIcon,
   SparklesIcon,
   CheckCircleIcon,
-  ClockIcon,
-  BellAlertIcon,
 } from "@heroicons/react/24/outline";
 import AppShell from "@/components/app-shell";
 
@@ -34,66 +28,6 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    id: "notifications",
-    title: "Smart Notifications",
-    icon: BellAlertIcon,
-    tagline: "Know the moment a client signs, pays, or approves.",
-    description:
-      "Push + email + optional SMS the moment something happens. Client signs the proposal at 11pm — you know before the coffee's brewed. Sub bid lands, milestone gets approved, draw clears — surfaced in your inbox or pocket, never buried.",
-    bullets: [
-      "Per-event routing: email, push, SMS — pick what fires where",
-      "Client signed, deposit paid, milestone approved alerts",
-      "Sub bid received + RFQ closing-soon reminders",
-      "Quiet hours respected; daily digest fallback for low-priority events",
-    ],
-    preview: <NotificationsPreview />,
-  },
-  {
-    id: "email_digester",
-    title: "Email Digester",
-    icon: EnvelopeIcon,
-    tagline: "Stop missing project messages buried in your inbox.",
-    description:
-      "Connect your inbox, AI sorts client + sub emails into the right project, surfaces what needs your attention, drafts replies you approve in one click.",
-    bullets: [
-      "Auto-route emails to the matching project page",
-      "Daily digest: action items, overdue replies, project updates",
-      "AI-drafted replies pre-loaded with project context",
-      "Per-sub thread tracking — RFQ responses auto-attach to the bid table",
-    ],
-    preview: <EmailDigesterPreview />,
-  },
-  {
-    id: "advanced_scheduling",
-    title: "Sub Scheduling — Auto-notify & Conflicts",
-    icon: ClockIcon,
-    tagline: "Auto-text subs when their phase is approaching, catch double-bookings.",
-    description:
-      "Builds on the cross-project sub schedule already live in the Schedule tab. Adds proactive coordination: SMS/email reminders, conflict resolution suggestions, weather-aware date shifts, and per-sub performance tracking.",
-    bullets: [
-      "Auto-SMS subs T-7 days, T-2 days before their phase starts",
-      "Conflict detection across projects with suggested resolution",
-      "Weather forecast integration — shift outdoor phases proactively",
-      "Per-sub performance: on-time, on-budget, quality scoring over time",
-    ],
-    preview: <SchedulingPreview />,
-  },
-  {
-    id: "phone_log",
-    title: "Phone Call Summarization",
-    icon: PhoneIcon,
-    tagline: "Calls become project notes automatically.",
-    description:
-      "Forward calls through your project line; AI transcribes, summarizes, extracts action items, and drops them into the right project's daily log. No more 'wait what did the framer say?'",
-    bullets: [
-      "Per-project phone numbers (Twilio-powered)",
-      "Real-time transcription + AI summary",
-      "Action items auto-flagged ('schedule slipped 3 days', '$2k change order')",
-      "Call recording archived to the project",
-    ],
-    preview: <PhoneLogPreview />,
-  },
-  {
     id: "materials",
     title: "Materials Sourcing Catalog",
     icon: CubeIcon,
@@ -107,36 +41,6 @@ const FEATURES: Feature[] = [
       "Track your favorites + saved lists for repeat builds",
     ],
     preview: <MaterialsPreview />,
-  },
-  {
-    id: "finance_forecast",
-    title: "Dynamic Finance Forecasting",
-    icon: ChartBarIcon,
-    tagline: "Cash flow projection that updates as bills arrive.",
-    description:
-      "Project profit + cash flow projection per phase. As sub invoices come in, the forecast adjusts. See cost overruns the moment they happen, not at closeout.",
-    bullets: [
-      "Phase-level cost-vs-actuals tracking",
-      "Cash flow projection: when does cash hit, when do bills clear",
-      "Cost overrun alerts ('Foundation 12% over')",
-      "Profit margin by phase, by sub, by project type",
-    ],
-    preview: <FinanceForecastPreview />,
-  },
-  {
-    id: "bid_intelligence",
-    title: "Sub Bid Intelligence",
-    icon: ScaleIcon,
-    tagline: "Know if a sub bid is high, low, or fair before you sign.",
-    description:
-      "Compare incoming bids against industry benchmarks and your own historical bids. Flag suspiciously low bids, identify your most reliable subs over time.",
-    bullets: [
-      "Industry benchmarks (RSMeans-style data) for every line",
-      "Your own historical: 'Average plumber bid for similar scope: $X'",
-      "Sub performance scoring (on-time, on-budget, quality)",
-      "Auto-flag bids that miss scope items",
-    ],
-    preview: <BidIntelligencePreview />,
   },
   {
     id: "walkthrough",
@@ -261,99 +165,6 @@ function FeatureCard({
 // so the demo audience can imagine it working without us having to
 // actually build it.
 
-function NotificationsPreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-        <div className="flex justify-between">
-          <span className="font-semibold text-emerald-900">Maddox signed the proposal</span>
-          <span className="text-[9px] text-emerald-600">just now</span>
-        </div>
-        <div className="mt-0.5 text-emerald-800">
-          Country Dream House · $1.2M · contract auto-advanced
-        </div>
-      </div>
-      <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5">
-        <div className="flex justify-between">
-          <span className="font-semibold text-sky-900">Foundation phase approved</span>
-          <span className="text-[9px] text-sky-600">8m ago</span>
-        </div>
-        <div className="mt-0.5 text-sky-800">$80k draw ready to generate · 1 tap</div>
-      </div>
-      <div className="rounded border border-slate-200 bg-white px-2 py-1.5 text-slate-600">
-        <div className="flex justify-between">
-          <span>Smith plumbing bid received</span>
-          <span className="text-slate-400">2h</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmailDigesterPreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="rounded border border-blue-200 bg-blue-50 px-2 py-1.5">
-        <div className="flex justify-between">
-          <span className="font-semibold text-blue-900">Action needed (3)</span>
-          <span className="text-blue-600">→ Maddox House</span>
-        </div>
-        <div className="mt-1 truncate text-blue-800">
-          Plumber: &ldquo;Need decision on faucet brand by Friday&rdquo;
-        </div>
-      </div>
-      <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5">
-        <div className="flex justify-between">
-          <span className="font-semibold text-sky-900">Awaiting reply (2)</span>
-          <span className="text-sky-600">→ Smith Remodel</span>
-        </div>
-        <div className="mt-1 truncate text-sky-800">
-          You sent quote to client 4 days ago. Nudge?
-        </div>
-      </div>
-      <div className="rounded border border-slate-200 bg-white px-2 py-1.5 text-slate-500">
-        <div className="font-semibold">Auto-handled (12)</div>
-        <div className="mt-0.5 truncate">ScanSource shipping confirmations…</div>
-      </div>
-    </div>
-  );
-}
-
-function PhoneLogPreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="rounded border border-slate-200 bg-white p-2">
-        <div className="flex justify-between">
-          <span className="font-semibold text-slate-900">Mike (Framer) · 14 min</span>
-          <span className="text-slate-400">10:42 AM</span>
-        </div>
-        <div className="mt-1 italic text-slate-600">
-          &ldquo;Frame inspection passed. Roof material delivery pushed
-          to Wednesday — won&apos;t affect critical path.&rdquo;
-        </div>
-        <div className="mt-1.5 flex gap-1">
-          <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-medium text-sky-800">
-            +Action
-          </span>
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
-            Maddox House
-          </span>
-        </div>
-      </div>
-      <div className="rounded border border-slate-200 bg-white p-2">
-        <div className="flex justify-between">
-          <span className="font-semibold text-slate-900">Brennan · 6 min</span>
-          <span className="text-slate-400">Yesterday</span>
-        </div>
-        <div className="mt-1 italic text-slate-600">
-          &ldquo;Wants to swap tile selection in master bath — new selection emailed
-          to you.&rdquo;
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function MaterialsPreview() {
   return (
     <div className="w-72 space-y-1.5 text-[10px]">
@@ -384,81 +195,6 @@ function PriceTile({ vendor, price, best }: { vendor: string; price: string; bes
   );
 }
 
-function FinanceForecastPreview() {
-  return (
-    <div className="w-72 space-y-1.5">
-      <div className="rounded border border-slate-200 bg-white p-2">
-        <div className="text-[10px] font-semibold text-slate-900">Cash flow · next 90 days</div>
-        <div className="mt-2 flex h-12 items-end gap-0.5">
-          {[20, 35, 28, 42, 50, 38, 60, 65, 55, 70, 80, 75].map((h, i) => (
-            <div
-              key={i}
-              className={`flex-1 rounded-t ${i % 3 === 0 ? "bg-sky-500" : "bg-sky-300"}`}
-              style={{ height: `${h}%` }}
-            />
-          ))}
-        </div>
-        <div className="mt-1 flex justify-between text-[9px] text-slate-500">
-          <span>Today</span>
-          <span>+30d</span>
-          <span>+60d</span>
-          <span>+90d</span>
-        </div>
-      </div>
-      <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px]">
-        <span className="font-semibold text-emerald-900">Foundation phase</span>
-        <span className="text-emerald-700"> · 4% under budget · $3,200 to good</span>
-      </div>
-      <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[10px]">
-        <span className="font-semibold text-red-900">Framing</span>
-        <span className="text-red-700"> · trending 8% over · check sub overruns</span>
-      </div>
-    </div>
-  );
-}
-
-function BidIntelligencePreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="font-semibold text-slate-900">Plumbing rough-in · 3 bids</div>
-      <BidRow vendor="Acme Plumbing" price="$18,400" tag="Low (-12%)" tone="emerald" />
-      <BidRow vendor="Bay Area Plumb." price="$21,250" tag="Fair" tone="slate" />
-      <BidRow vendor="Quick Fix Co." price="$24,800" tag="High (+18%)" tone="amber" />
-      <div className="rounded border border-slate-200 bg-white px-2 py-1 text-[9px] text-slate-600">
-        Industry benchmark for this scope: <span className="font-bold">$20.8k–22.3k</span>
-      </div>
-    </div>
-  );
-}
-
-function BidRow({
-  vendor,
-  price,
-  tag,
-  tone,
-}: {
-  vendor: string;
-  price: string;
-  tag: string;
-  tone: "emerald" | "slate" | "amber";
-}) {
-  const toneClass =
-    tone === "emerald"
-      ? "bg-emerald-100 text-emerald-800"
-      : tone === "amber"
-      ? "bg-sky-100 text-sky-800"
-      : "bg-slate-100 text-slate-700";
-  return (
-    <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1.5">
-      <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{vendor}</span>
-      <span className="w-16 text-right font-semibold tabular-nums text-slate-900">{price}</span>
-      <span className={`w-20 rounded px-1.5 py-0.5 text-center text-[9px] font-semibold ${toneClass}`}>
-        {tag}
-      </span>
-    </div>
-  );
-}
-
 function WalkthroughPreview() {
   return (
     <div className="relative h-32 w-72 overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 to-slate-900">
@@ -485,29 +221,4 @@ function WalkthroughPreview() {
   );
 }
 
-function SchedulingPreview() {
-  return (
-    <div className="w-72 space-y-1.5 text-[10px]">
-      <div className="rounded border border-blue-200 bg-blue-50 p-2">
-        <div className="font-semibold text-blue-900">Auto-text scheduled · today 8 AM</div>
-        <div className="mt-0.5 text-blue-800">
-          → Cano Concrete: &ldquo;Foundation pour Mar 18 (T-7d)&rdquo;
-        </div>
-      </div>
-      <div className="rounded border border-red-200 bg-red-50 p-2">
-        <div className="flex justify-between">
-          <span className="font-semibold text-red-900">Conflict detected</span>
-          <span className="text-red-600">2 projects</span>
-        </div>
-        <div className="mt-0.5 text-red-800">
-          Hill Country Framing: Maddox + Reyes overlap Apr 22–28
-        </div>
-      </div>
-      <div className="rounded border border-sky-200 bg-sky-50 p-2 text-sky-800">
-        <span className="font-semibold">Weather alert:</span> Rain Apr 18–20.
-        Suggest shift slab pour to Apr 21.
-      </div>
-    </div>
-  );
-}
 
