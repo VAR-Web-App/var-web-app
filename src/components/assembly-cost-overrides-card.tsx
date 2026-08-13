@@ -726,7 +726,7 @@ function MaterialsEditorModal({
                   ✨ AI assist
                 </span>
                 <span className="text-[10px] text-violet-700">
-                  describe what you want, Claude fills the fields
+                  describe what you want and we fill the fields for you
                 </span>
               </div>
               <div className="mt-2 flex gap-2">
