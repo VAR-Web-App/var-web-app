@@ -107,6 +107,22 @@ export default function InboxPage() {
   // acknowledges the connection instead of on Unipile's generic page.
   const [connectNote, setConnectNote] = useState<"ok" | "fail" | null>(null);
   const [showFilingContacts, setShowFilingContacts] = useState(false);
+  const [highlightConnect, setHighlightConnect] = useState(false);
+
+  // Deep link (/inbox#connect-inbox, e.g. from the welcome tour) → scroll to
+  // and briefly highlight the "connect your inbox" card.
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#connect-inbox")
+      return;
+    const t = setTimeout(() => {
+      document
+        .getElementById("connect-inbox")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightConnect(true);
+      setTimeout(() => setHighlightConnect(false), 2600);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [loaded]);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("connected");
     if (v === "1") setConnectNote("ok");
@@ -385,7 +401,14 @@ export default function InboxPage() {
         )}
         <EmailTodos />
         <UnassignedEmailQueue />
-        <ConnectInbox />
+        <div
+          id="connect-inbox"
+          className={`scroll-mt-4 rounded-xl transition-all ${
+            highlightConnect ? "ring-2 ring-sky-400 ring-offset-2" : ""
+          }`}
+        >
+          <ConnectInbox />
+        </div>
         <PhoneSummarizer />
 
         {!loaded && (
