@@ -26,9 +26,11 @@ import {
   serverTimestamp,
   onSnapshot,
   arrayUnion,
+  arrayRemove,
   type Unsubscribe,
 } from "firebase/firestore";
 import { deleteUploadedFile } from "./storage";
+import { toE164 } from "./sms";
 import {
   Deal,
   Account,
@@ -561,6 +563,37 @@ export async function createLeadFromMessage(
   };
   await saveDeal(deal);
   return id;
+}
+
+/** Add an email or phone to a deal's "filing contacts" trust list, so mail/
+ *  texts from that sender auto-file onto the project. Detects email vs phone;
+ *  phone is normalized to E.164. Powers the Inbox "Filing contacts" manager. */
+export async function addKnownContact(
+  dealRef: string,
+  contact: string,
+): Promise<void> {
+  const v = contact.trim();
+  if (!v) return;
+  if (v.includes("@")) {
+    await updateDoc(doc(db, "deals", dealRef), {
+      known_emails: arrayUnion(v.toLowerCase()),
+    });
+  } else {
+    await updateDoc(doc(db, "deals", dealRef), {
+      known_phones: arrayUnion(toE164(v) ?? v),
+    });
+  }
+}
+
+/** Remove a learned email/phone from a deal's filing trust list. */
+export async function removeKnownContact(
+  dealRef: string,
+  contact: string,
+  kind: "email" | "phone",
+): Promise<void> {
+  await updateDoc(doc(db, "deals", dealRef), {
+    [kind === "email" ? "known_emails" : "known_phones"]: arrayRemove(contact),
+  });
 }
 
 /** Drop an unassigned message from the review queue (not project-related). */

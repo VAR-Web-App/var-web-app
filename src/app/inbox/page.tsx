@@ -30,6 +30,7 @@ import UnassignedEmailQueue from "@/components/unassigned-email-queue";
 import ConnectInbox from "@/components/connect-inbox";
 import EmailTodos from "@/components/email-todos";
 import PageGuide from "@/components/page-guide";
+import FilingContactsModal from "@/components/filing-contacts-modal";
 import { useAuth } from "@/lib/auth-context";
 import {
   listDeals,
@@ -105,6 +106,7 @@ export default function InboxPage() {
   // (?connected=1|0), confirm it in-app so the builder lands somewhere that
   // acknowledges the connection instead of on Unipile's generic page.
   const [connectNote, setConnectNote] = useState<"ok" | "fail" | null>(null);
+  const [showFilingContacts, setShowFilingContacts] = useState(false);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("connected");
     if (v === "1") setConnectNote("ok");
@@ -311,16 +313,25 @@ export default function InboxPage() {
               decision per row.
             </p>
           </div>
-          {loaded &&
-            (() => {
-              const total =
-                items.filter((i) => !dismissed.has(i.id)).length + emailCount;
-              return (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                  {total} {total === 1 ? "item" : "items"}
-                </span>
-              );
-            })()}
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setShowFilingContacts(true)}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              title="Manage which emails & phone numbers auto-file onto each project"
+            >
+              Filing contacts
+            </button>
+            {loaded &&
+              (() => {
+                const total =
+                  items.filter((i) => !dismissed.has(i.id)).length + emailCount;
+                return (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {total} {total === 1 ? "item" : "items"}
+                  </span>
+                );
+              })()}
+          </div>
         </header>
 
         <PageGuide
@@ -365,6 +376,12 @@ export default function InboxPage() {
               Dismiss
             </button>
           </div>
+        )}
+        {showFilingContacts && profile?.org_ref && (
+          <FilingContactsModal
+            orgRef={profile.org_ref}
+            onClose={() => setShowFilingContacts(false)}
+          />
         )}
         <EmailTodos />
         <UnassignedEmailQueue />
