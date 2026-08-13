@@ -1981,8 +1981,8 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
             <li>
               The <strong>✨ AI assist</strong> panel inside that editor:
               describe a custom line in plain English (e.g. <em>&ldquo;vapor
-              barrier under slab, $0.45/SF, 10% waste&rdquo;</em>) and
-              Claude fills the form fields for you. Review + save.
+              barrier under slab, $0.45/SF, 10% waste&rdquo;</em>) and we
+              fill the form fields in for you. Review + save.
             </li>
           </ul>
         </section>

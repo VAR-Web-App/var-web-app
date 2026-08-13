@@ -151,7 +151,34 @@ export default function AssemblyInstancesPanel({
    *  button is hidden (e.g. sandbox / read-only embeds). */
   onAddAssembly?: () => void;
 }) {
-  if (instances.length === 0) return null;
+  if (instances.length === 0) {
+    // No assemblies yet — but keep the entry point visible so the builder can
+    // add their first one. (The Add-assembly button used to be hidden along
+    // with the whole panel, so on a fresh quote there was no way to reach it.)
+    if (!onAddAssembly) return null;
+    return (
+      <section className="rounded-xl border border-dashed border-slate-300 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900">Assemblies</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Add a pre-built component (framing, roofing, foundation…) — it
+              expands into quantified material + labor lines, priced from your
+              catalog and Settings.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onAddAssembly}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Add assembly
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-3">
