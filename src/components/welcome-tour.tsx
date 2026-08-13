@@ -36,9 +36,9 @@ const SLIDES: Slide[] = [
   {
     emoji: "📥",
     title: "Email that files itself",
-    body: "Connect your inbox once and client email auto-routes to projects, turns into tracked requests, and parses supplier invoices into costs.",
-    href: "/inbox",
-    cta: "Take me to the Inbox",
+    body: "Connect your inbox once and client email auto-routes to projects, turns into tracked requests, and parses supplier invoices into costs. It's the one thing to set up — let's do it.",
+    href: "/inbox#connect-inbox",
+    cta: "Connect your inbox",
   },
   {
     emoji: "💰",
@@ -65,10 +65,10 @@ const SLIDES: Slide[] = [
 
 const CLOSER: Slide = {
   emoji: "🎉",
-  title: "That's the tour",
-  body: "Load the sample data and poke at everything — reset or clear it anytime from the Projects page. You can replay this under “What's New” in the sidebar.",
-  href: "/deals",
-  cta: "Explore the demo",
+  title: "One step to make it yours",
+  body: "Connect your inbox so client email starts filing itself — it's the one thing to set up. Then load the sample data from Projects and poke at everything. Replay this anytime under “What's New.”",
+  href: "/inbox#connect-inbox",
+  cta: "Connect your inbox",
 };
 
 const DECK = [INTRO, ...SLIDES, CLOSER];
