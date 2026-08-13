@@ -90,8 +90,7 @@ const ITEMS: Item[] = [
       "Paste a call transcript — or record a voice memo / upload a recording — and it routes to the right project, recaps it, and pulls out action items you can save to the log.",
     href: "/inbox",
     cta: "Open the Inbox",
-    status: "beta",
-    note: "Pasting a transcript works today. Record/upload transcription needs a transcription key enabled (a quick config step).",
+    status: "ready",
   },
   {
     emoji: "🧭",
