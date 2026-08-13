@@ -15,6 +15,9 @@ import {
   TrashIcon,
   ClipboardDocumentIcon,
 } from "@heroicons/react/24/outline";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 
 interface Note {
   id: string;
@@ -44,6 +47,7 @@ function describeTarget(el: Element | null): string {
 }
 
 export default function AnnotationLayer() {
+  const { profile } = useAuth();
   const [on, setOn] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -94,6 +98,18 @@ export default function AnnotationLayer() {
       ts: Date.now(),
     };
     persist([note, ...notes]);
+    // Also save to Firestore so every tester's notes land centrally (readable
+    // across devices + by the team), not just in this browser. Best-effort —
+    // the local copy is the source of truth for the panel.
+    void setDoc(doc(db, "feedback", note.id), {
+      id: note.id,
+      org_ref: profile?.org_ref ?? null,
+      user_email: profile?.email ?? null,
+      text: note.text,
+      path: note.path,
+      hint: note.hint,
+      created_at: new Date(note.ts).toISOString(),
+    }).catch(() => {});
     setDraft(null);
     setDraftText("");
     setToast("Noted");

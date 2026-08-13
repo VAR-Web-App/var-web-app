@@ -379,5 +379,12 @@ service cloud.firestore {
     match /email_accounts/{accountId} {
       allow read, delete: if request.auth != null && resource.data.org_ref == callerOrgRef();
     }
+
+    // In-app QA feedback / tap-notes. Any signed-in tester can leave a note
+    // (and read back their own org's); the team reads centrally via admin.
+    match /feedback/{id} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+    }
   }
 }
