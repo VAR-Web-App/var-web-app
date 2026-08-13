@@ -155,13 +155,17 @@ export default function SettingsPage() {
             />
           </Card>
 
-          <div className="flex items-center justify-end gap-3">
+          {/* Floating save bar — sticks to the bottom of the viewport so it's
+              always reachable on this long page. */}
+          <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
             {savedAt && (
-              <span className="text-xs text-emerald-600">✓ Saved</span>
+              <span className="text-xs font-medium text-emerald-600">
+                ✓ Saved
+              </span>
             )}
             <button
               onClick={onSave}
-              className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-800"
+              className="rounded-md bg-sky-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
             >
               Save changes
             </button>
